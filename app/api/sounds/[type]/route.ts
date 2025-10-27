@@ -4,10 +4,10 @@ import path from 'path';
 
 export async function GET(
     request: NextRequest,
-    { params }: { params: { type: string } }
+    { params }: { params: Promise<{ type: string }> }
 ) {
     try {
-        const { type } = params;
+        const { type } = await params;
 
         // typeのバリデーション
         if (type !== 'success' && type !== 'error') {
