@@ -37,7 +37,7 @@ npm run build
 # PM2でアプリケーションを起動
 echo "PM2でアプリケーションを起動しています..."
 pm2 delete m-pass 2>/dev/null || true
-pm2 start npm --name "m-pass" -- start
+pm2 start deploy/pm2.config.js
 pm2 save
 pm2 startup
 

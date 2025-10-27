@@ -4,7 +4,7 @@ module.exports = {
       name: 'm-pass',
       script: 'npm',
       args: 'start',
-      cwd: '/path/to/m-pass',
+      cwd: '/srv/m-pass',
       instances: 1,
       autorestart: true,
       watch: false,
@@ -12,6 +12,7 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         PORT: 3000,
+        BASE_PATH: '/members',
       },
       error_file: './logs/err.log',
       out_file: './logs/out.log',
