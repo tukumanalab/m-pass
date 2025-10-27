@@ -1,0 +1,73 @@
+name: m-pass
+
+services:
+  # 本番環境（/member）
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      args:
+        - PORT=3000
+    container_name: m-pass-prod
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - app-node-modules:/app/node_modules # 名前付きボリュームでホストのnode_modulesを除外
+      - app-db-data:/app/data # データベースファイル用のボリューム
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - BASE_PATH=/member
+      - NEXT_PUBLIC_BASE_PATH=/member
+      - DB_PATH=/app/data/checkin-member.db
+    command: npm run dev
+    restart: unless-stopped
+
+  # デバッグ環境（/member-debug）
+  app-debug:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      args:
+        - PORT=3001
+    container_name: m-pass-debug
+    ports:
+      - "3001:3001"
+      - "9230:9229" # Node.js デバッグポート
+    volumes:
+      - .:/app
+      - app-debug-node-modules:/app/node_modules # 名前付きボリュームでホストのnode_modulesを除外
+      - app-debug-db-data:/app/data-debug # データベースファイル用のボリューム
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - BASE_PATH=/member-debug
+      - NEXT_PUBLIC_BASE_PATH=/member-debug
+      - DB_PATH=/app/data-debug/checkin-member-debug.db
+    command: npm run dev:debug:inspect
+    restart: unless-stopped
+
+  # Nginx リバースプロキシ
+  nginx:
+    image: nginx:alpine
+    container_name: m-pass-nginx
+    ports:
+      - "8080:80"
+    volumes:
+      - ./deploy/nginx-local.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./public/uploads:/app/public/uploads:ro
+    depends_on:
+      - app
+      - app-debug
+    restart: unless-stopped
+
+volumes:
+  app-node-modules:
+  app-debug-node-modules:
+  app-db-data:
+  app-debug-db-data:
+
+networks:
+  default:
+    name: m-pass-network

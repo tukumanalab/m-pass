@@ -1,0 +1,65 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "🟢 デバッグ環境 (ローカル・推奨)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm run dev:debug",
+      "env": {
+        "PORT": "3001",
+        "DB_PATH": "./checkin-debug.db"
+      }
+    },
+    {
+      "name": "🔵 本番環境 (ローカル)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm run dev",
+      "env": {
+        "PORT": "3000",
+        "DB_PATH": "./checkin.db"
+      }
+    },
+    {
+      "name": "🐳 デバッグ環境 (Docker Attach)",
+      "type": "node",
+      "request": "attach",
+      "port": 9230,
+      "address": "localhost",
+      "localRoot": "${workspaceFolder}",
+      "remoteRoot": "/app",
+      "skipFiles": ["<node_internals>/**"],
+      "restart": true
+    },
+    {
+      "name": "🌐 デバッグ環境 (ブラウザ)",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:3001",
+      "webRoot": "${workspaceFolder}"
+    },
+    {
+      "name": "🌐 Docker + Nginx (デバッグ環境)",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:8080/member-debug",
+      "webRoot": "${workspaceFolder}"
+    },
+    {
+      "name": "🟡 フルスタック (デバッグ環境)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm run dev:debug",
+      "env": {
+        "PORT": "3001",
+        "DB_PATH": "./checkin-debug.db"
+      },
+      "serverReadyAction": {
+        "pattern": "- Local:.+(https?://.+)",
+        "uriFormat": "%s",
+        "action": "debugWithChrome"
+      }
+    }
+  ]
+}
