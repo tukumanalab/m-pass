@@ -6,7 +6,7 @@ import fs from 'fs';
 function getDefaultDbPath(): string {
   const basePath = process.env.BASE_PATH;
   if (basePath) {
-    // BASE_PATHから/を削除してDB名を生成 (例: /member -> checkin-member.db)
+    // BASE_PATHから/を削除してDB名を生成 (例: /members -> checkin-members.db)
     const suffix = basePath.replace(/^\//, '').replace(/\//g, '-');
     return path.join(process.cwd(), `checkin-${suffix}.db`);
   }

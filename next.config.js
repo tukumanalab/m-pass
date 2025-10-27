@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // 環境変数でbasePathを設定 (例: /member, /member-debug など)
+  // 環境変数でbasePathを設定 (例: /members, /members-debug など)
   ...(process.env.BASE_PATH && {
     basePath: process.env.BASE_PATH,
   }),

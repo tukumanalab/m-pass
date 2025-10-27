@@ -52,11 +52,12 @@ sudo nginx -t
 sudo systemctl restart nginx
 
 echo ""
-echo "✅ セットアップが完了しました！"
+echo "✅ セットアップが完了しました"
 echo ""
-echo "アプリケーションは以下で実行されています："
-echo "- Next.js: http://localhost:3000"
-echo "- Nginx: http://localhost/member (ポート80)"
+echo "==================================="
+echo "📊 アクセス情報"
+echo "==================================="
+echo "- Nginx: http://localhost/members (ポート80)"
 echo ""
 echo "PM2コマンド："
 echo "- pm2 status         # ステータス確認"

@@ -11,12 +11,12 @@ export function getBasePath(): string {
     }
 
     const path = window.location.pathname;
-    // Check if we're under /member-debug or /member
-    if (path.startsWith('/member-debug')) {
-      return '/member-debug';
+    // Check if we're under /members-debug or /members
+    if (path.startsWith('/members-debug')) {
+      return '/members-debug';
     }
-    if (path.startsWith('/member')) {
-      return '/member';
+    if (path.startsWith('/members')) {
+      return '/members';
     }
   }
 

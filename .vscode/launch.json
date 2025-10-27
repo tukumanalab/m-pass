@@ -29,7 +29,9 @@
       "address": "localhost",
       "localRoot": "${workspaceFolder}",
       "remoteRoot": "/app",
-      "skipFiles": ["<node_internals>/**"],
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
       "restart": true
     },
     {
@@ -43,7 +45,7 @@
       "name": "🌐 Docker + Nginx (デバッグ環境)",
       "type": "chrome",
       "request": "launch",
-      "url": "http://localhost:8080/member-debug",
+      "url": "http://localhost:8080/members-debug",
       "webRoot": "${workspaceFolder}"
     },
     {

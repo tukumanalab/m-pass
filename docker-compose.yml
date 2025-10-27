@@ -1,7 +1,7 @@
 name: m-pass
 
 services:
-  # 本番環境（/member）
+  # 本番環境（/members）
   app:
     build:
       context: .
@@ -18,13 +18,13 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=3000
-      - BASE_PATH=/member
-      - NEXT_PUBLIC_BASE_PATH=/member
-      - DB_PATH=/app/data/checkin-member.db
+      - BASE_PATH=/members
+      - NEXT_PUBLIC_BASE_PATH=/members
+      - DB_PATH=/app/data/checkin-members.db
     command: npm run dev
     restart: unless-stopped
 
-  # デバッグ環境（/member-debug）
+  # デバッグ環境（/members-debug）
   app-debug:
     build:
       context: .
@@ -42,9 +42,9 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=3001
-      - BASE_PATH=/member-debug
-      - NEXT_PUBLIC_BASE_PATH=/member-debug
-      - DB_PATH=/app/data-debug/checkin-member-debug.db
+      - BASE_PATH=/members-debug
+      - NEXT_PUBLIC_BASE_PATH=/members-debug
+      - DB_PATH=/app/data-debug/checkin-members-debug.db
     command: npm run dev:debug:inspect
     restart: unless-stopped
 
