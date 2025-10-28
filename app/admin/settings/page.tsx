@@ -656,7 +656,7 @@ export default function SettingsPage() {
                 <button
                   type="button"
                   onClick={() => {
-                    const resourcePath = apiUrl("/api/resource/logo.svg");
+                    const resourcePath = apiUrl("/api/resource/logo.png");
                     setSettings({ ...settings, logoPath: resourcePath });
                     setPreviewImages((prev) => ({
                       ...prev,

@@ -14,7 +14,7 @@ const DEFAULT_SETTINGS: SiteSettings = {
   siteName: 'M-Pass',
   pageTitle: 'Member Pass System',
   pageSubtitle: 'メンバー情報システム',
-  logoPath: '/api/resource/logo.svg',
+  logoPath: '/api/resource/logo.png',
   faviconPath: '/api/resource/favicon.png',
   heroImagePath: '/api/resource/hero.png',
 };
@@ -56,7 +56,7 @@ export function loadSettings(): SiteSettings {
     let settings = { ...DEFAULT_SETTINGS };
 
     // デフォルト画像パスにBASE_PATHを適用
-    settings.logoPath = `${basePath}/api/resource/logo.svg`;
+    settings.logoPath = `${basePath}/api/resource/logo.png`;
     settings.faviconPath = `${basePath}/api/resource/favicon.png`;
     settings.heroImagePath = `${basePath}/api/resource/hero.png`;
 

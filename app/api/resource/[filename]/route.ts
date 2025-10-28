@@ -19,7 +19,7 @@ export async function GET(
 
         // 許可されたファイル名のリスト
         const allowedFiles = [
-            "logo.svg",
+            "logo.png",
             "favicon.png",
             "hero.png",
             "icon-fabpass.svg",
@@ -57,7 +57,6 @@ export async function GET(
             ".jpeg": "image/jpeg",
             ".wav": "audio/wav",
             ".mp3": "audio/mpeg",
-            ".ogg": "audio/ogg",
         };
 
         const contentType = contentTypeMap[ext] || "application/octet-stream";
