@@ -8,7 +8,7 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         PORT: 3000,
-        DB_PATH: './checkin.db'
+        DB_PATH: './members.db'
       },
       instances: 1,
       autorestart: true,
@@ -23,7 +23,7 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         PORT: 3001,
-        DB_PATH: './checkin-debug.db'
+        DB_PATH: './members-debug.db'
       },
       instances: 1,
       autorestart: true,

@@ -24,13 +24,10 @@ QR コードを使ったメンバーの入館管理 Web アプリケーション
   - 本番環境: `/member`
   - デバッグ環境: `/member-debug`
   - デプロイ時に PM2 や docker-compose で指定可能
-  - `DB_PATH`が未指定の場合、BASE_PATH から DB 名を自動生成
-    - 例: `BASE_PATH=/member` → `checkin-member.db`
-    - 例: `BASE_PATH=/member-debug` → `checkin-member-debug.db`
 
 - **DB_PATH**: データベースファイルのパス（オプション）
-  - 明示的に指定しない場合、BASE_PATH から自動生成される
-  - 手動指定する場合の例: `./checkin.db`, `./data/production.db`
+  - 明示的に指定しない場合、デフォルトで `members.db` が使用される
+  - 手動指定する場合の例: `./members.db`, `./data/production.db`
 
 ## コマンド
 
@@ -180,30 +177,29 @@ pm2 restart m-pass   # 再起動
 **本番環境:**
 
 - ボリューム: `m-pass_app-db-data`
-- コンテナ内: `/app/data/checkin-member.db`
-- 環境変数: `DB_PATH=/app/data/checkin-member.db`
+- コンテナ内: `/app/data/members.db`
+- 環境変数: `DB_PATH=/app/data/members.db`
 
 **デバッグ環境:**
 
 - ボリューム: `m-pass_app-debug-db-data`
-- コンテナ内: `/app/data-debug/checkin-member-debug.db`
-- 環境変数: `DB_PATH=/app/data-debug/checkin-member-debug.db`
+- コンテナ内: `/app/data-debug/members.db`
+- 環境変数: `DB_PATH=/app/data-debug/members.db`
 
 #### ローカル開発環境
 
-- デフォルト: プロジェクトルートに `checkin.db` が作成される
+- デフォルト: プロジェクトルートに `members.db` が作成される
 - `DB_PATH` 環境変数で変更可能
-- `BASE_PATH` が設定されている場合は自動的に `checkin-<suffix>.db` が作成される
 
 ### データベースのバックアップと復元
 
 ```bash
 # バックアップ（Dockerからホストへコピー）
-docker cp m-pass-prod:/app/data/checkin-member.db ./backup/checkin-member-$(date +%Y%m%d).db
-docker cp m-pass-debug:/app/data-debug/checkin-member-debug.db ./backup/checkin-member-debug-$(date +%Y%m%d).db
+docker cp m-pass-prod:/app/data/members.db ./backup/members-$(date +%Y%m%d).db
+docker cp m-pass-debug:/app/data-debug/members.db ./backup/members-debug-$(date +%Y%m%d).db
 
 # 復元（ホストからDockerへコピー）
-docker cp ./backup/checkin-member-20251026.db m-pass-prod:/app/data/checkin-member.db
+docker cp ./backup/members-20251026.db m-pass-prod:/app/data/members.db
 docker-compose restart app
 
 # データベースの完全リセット（全データ削除）

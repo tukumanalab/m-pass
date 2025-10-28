@@ -35,10 +35,9 @@ yarn-error.log*
 next-env.d.ts
 
 # database
-checkin.db
-checkin.db-journal
-checkin-*.db
-checkin-*.db-journal
+
+members.db
+members.db-journal
 
 # Site settings
 site-settings.json

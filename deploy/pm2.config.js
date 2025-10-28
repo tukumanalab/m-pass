@@ -13,6 +13,7 @@ module.exports = {
         NODE_ENV: 'production',
         PORT: 3000,
         BASE_PATH: '/members',
+        DB_PATH: `members.db`,
       },
       error_file: './logs/err.log',
       out_file: './logs/out.log',

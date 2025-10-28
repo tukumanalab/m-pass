@@ -8,7 +8,7 @@
       "command": "npm run dev:debug",
       "env": {
         "PORT": "3001",
-        "DB_PATH": "./checkin-debug.db"
+        "DB_PATH": "./members-debug.db"
       }
     },
     {
@@ -18,7 +18,7 @@
       "command": "npm run dev",
       "env": {
         "PORT": "3000",
-        "DB_PATH": "./checkin.db"
+        "DB_PATH": "./members.db"
       }
     },
     {
@@ -55,7 +55,7 @@
       "command": "npm run dev:debug",
       "env": {
         "PORT": "3001",
-        "DB_PATH": "./checkin-debug.db"
+        "DB_PATH": "./members-debug.db"
       },
       "serverReadyAction": {
         "pattern": "- Local:.+(https?://.+)",

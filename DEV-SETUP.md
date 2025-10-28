@@ -56,14 +56,14 @@ docker-compose up -d --build
 
 ## 環境の違い
 
-| 項目              | 本番環境                      | デバッグ環境                              |
-| ----------------- | ----------------------------- | ----------------------------------------- |
-| **URI**           | `/member`                     | `/member-debug`                           |
-| **ポート**        | 3000                          | 3001                                      |
-| **データベース**  | `/app/data/checkin-member.db` | `/app/data-debug/checkin-member-debug.db` |
-| **DB ボリューム** | `m-pass_app-db-data`          | `m-pass_app-debug-db-data`                |
-| **設定ファイル**  | `next.config.js`              | `next.config.debug.js`                    |
-| **コンテナ名**    | `m-pass-prod`                 | `m-pass-debug`                            |
+| 項目              | 本番環境               | デバッグ環境                 |
+| ----------------- | ---------------------- | ---------------------------- |
+| **URI**           | `/member`              | `/member-debug`              |
+| **ポート**        | 3000                   | 3001                         |
+| **データベース**  | `/app/data/members.db` | `/app/data-debug/members.db` |
+| **DB ボリューム** | `m-pass_app-db-data`   | `m-pass_app-debug-db-data`   |
+| **設定ファイル**  | `next.config.js`       | `next.config.debug.js`       |
+| **コンテナ名**    | `m-pass-prod`          | `m-pass-debug`               |
 
 ### データベースの場所
 
@@ -72,26 +72,26 @@ Docker 環境では、データベースファイルは **Docker の名前付き
 **本番環境:**
 
 - Docker ボリューム: `m-pass_app-db-data`
-- コンテナ内パス: `/app/data/checkin-member.db`
-- ホスト物理パス: `/var/lib/docker/volumes/m-pass_app-db-data/_data/checkin-member.db`
+- コンテナ内パス: `/app/data/members.db`
+- ホスト物理パス: `/var/lib/docker/volumes/m-pass_app-db-data/_data/members.db`
 
 **デバッグ環境:**
 
 - Docker ボリューム: `m-pass_app-debug-db-data`
-- コンテナ内パス: `/app/data-debug/checkin-member-debug.db`
-- ホスト物理パス: `/var/lib/docker/volumes/m-pass_app-debug-db-data/_data/checkin-member-debug.db`
+- コンテナ内パス: `/app/data-debug/members.db`
+- ホスト物理パス: `/var/lib/docker/volumes/m-pass_app-debug-db-data/_data/members.db`
 
 ### データベースのバックアップと復元
 
 ```bash
 # バックアップ（コンテナからホストへコピー）
 mkdir -p backup
-docker cp m-pass-prod:/app/data/checkin-member.db ./backup/checkin-member-$(date +%Y%m%d-%H%M%S).db
-docker cp m-pass-debug:/app/data-debug/checkin-member-debug.db ./backup/checkin-member-debug-$(date +%Y%m%d-%H%M%S).db
+docker cp m-pass-prod:/app/data/members.db ./backup/members-$(date +%Y%m%d-%H%M%S).db
+docker cp m-pass-debug:/app/data-debug/members.db ./backup/members-debug-$(date +%Y%m%d-%H%M%S).db
 
 # 復元（ホストからコンテナへコピー）
-docker cp ./backup/checkin-member-20251026-103000.db m-pass-prod:/app/data/checkin-member.db
-docker cp ./backup/checkin-member-debug-20251026-103000.db m-pass-debug:/app/data-debug/checkin-member-debug.db
+docker cp ./backup/members-20251026-103000.db m-pass-prod:/app/data/members.db
+docker cp ./backup/members-debug-20251026-103000.db m-pass-debug:/app/data-debug/members.db
 docker-compose restart app app-debug
 
 # データベースのリセット（全データ削除）
@@ -227,7 +227,7 @@ docker-compose up -d
 
 # 既存のデータベースをバックアップしてからリセット
 mkdir -p backup
-docker cp m-pass-debug:/app/data-debug/checkin-member-debug.db ./backup/checkin-member-debug-backup.db
+docker cp m-pass-debug:/app/data-debug/members.db ./backup/members-debug-backup.db
 docker-compose down -v
 docker-compose up -d
 ```

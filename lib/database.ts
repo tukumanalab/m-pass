@@ -2,18 +2,8 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 
-// DB_PATHが指定されていない場合、BASE_PATHから自動生成
-function getDefaultDbPath(): string {
-  const basePath = process.env.BASE_PATH;
-  if (basePath) {
-    // BASE_PATHから/を削除してDB名を生成 (例: /members -> checkin-members.db)
-    const suffix = basePath.replace(/^\//, '').replace(/\//g, '-');
-    return path.join(process.cwd(), `checkin-${suffix}.db`);
-  }
-  return path.join(process.cwd(), 'checkin.db');
-}
-
-const dbPath = process.env.DB_PATH || getDefaultDbPath();
+// DB_PATHが指定されていない場合はmembers.db、指定されている場合はDB_PATHを使用
+const dbPath = process.env.DB_PATH || path.join(process.cwd(), 'members.db');
 
 // データベースファイルのディレクトリが存在しない場合は作成
 const dbDir = path.dirname(dbPath);

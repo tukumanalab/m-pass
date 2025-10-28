@@ -20,7 +20,7 @@ services:
       - PORT=3000
       - BASE_PATH=/members
       - NEXT_PUBLIC_BASE_PATH=/members
-      - DB_PATH=/app/data/checkin-members.db
+      - DB_PATH=/app/data/members.db
     command: npm run dev
     restart: unless-stopped
 
@@ -44,7 +44,7 @@ services:
       - PORT=3001
       - BASE_PATH=/members-debug
       - NEXT_PUBLIC_BASE_PATH=/members-debug
-      - DB_PATH=/app/data-debug/checkin-members-debug.db
+      - DB_PATH=/app/data-debug/members.db
     command: npm run dev:debug:inspect
     restart: unless-stopped
 
