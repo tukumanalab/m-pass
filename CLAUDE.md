@@ -236,7 +236,7 @@ example@example.com,山田太郎,開発部,第一グループ,5a1b,2025/01/15 10
 
 - QR コードが存在しない → 新規登録
 - QR コードが既に存在 → 既存データを上書き更新（後のデータが優先）
-- メールアドレスが空 → `tukumanalabmember+ID_<qr_code>@gmail.com` を自動生成
+- メールアドレスが空 → `tukumanalabmember+id_<qr_code>@gmail.com` を自動生成
 - パスワード → メールアドレスと同じ値で bcrypt ハッシュ化
 
 **失敗データ処理:**

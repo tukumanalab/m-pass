@@ -24,13 +24,13 @@ export async function GET() {
         }
 
         // QRコード画像をBase64データURLとして生成
-        const qrCodeDataUrl = await QRCode.toDataURL(member.qr_code, {
+        const qrCodeDataUrl = await QRCode.toDataURL(member.member_id, {
             width: 300,
             margin: 2,
         });
 
         return NextResponse.json({
-            qrCode: member.qr_code,
+            memberId: member.member_id,
             qrCodeUrl: qrCodeDataUrl,
         });
     } catch (error) {

@@ -9,7 +9,7 @@ import "react-toastify/dist/ReactToastify.css";
 
 interface Member {
   id: number;
-  qr_code: string;
+  member_id: string;
   name: string;
   affiliation: string;
   affiliation_detail: string;
@@ -48,7 +48,7 @@ export default function AdminMembersPage() {
         name: string;
         affiliation: string;
         affiliation_detail: string;
-        qr_code: string;
+        member_id: string;
         created_at: string;
       };
       reason: string;
@@ -206,7 +206,7 @@ export default function AdminMembersPage() {
       // カードを生成
       await generateCard(
         data.member.name,
-        data.member.qr_code,
+        data.member.member_id,
         data.member.qrCodeUrl
       );
     } catch (error) {
@@ -447,7 +447,8 @@ export default function AdminMembersPage() {
     if (failedRows.length === 0) return;
 
     // CSVヘッダー
-    let csv = "email,name,affiliation,affiliation_detail,qr_code,created_at\n";
+    let csv =
+      "email,name,affiliation,affiliation_detail,member_id,created_at\n";
 
     // 失敗したデータ行を追加
     for (const row of failedRows) {
@@ -456,7 +457,7 @@ export default function AdminMembersPage() {
         row.data.name,
         row.data.affiliation,
         row.data.affiliation_detail || "",
-        row.data.qr_code,
+        row.data.member_id,
         row.data.created_at,
       ];
 
@@ -565,7 +566,7 @@ export default function AdminMembersPage() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="名前、所属、メールアドレス、QRコードで検索"
+                placeholder="名前、所属、メールアドレス、メンバーIDで検索"
                 className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <button
@@ -720,7 +721,7 @@ export default function AdminMembersPage() {
                                 {member.email}
                               </p>
                               <p className="text-xs text-gray-500 mt-1">
-                                QRコード: {member.qr_code} | 登録日:{" "}
+                                メンバーID: {member.member_id} | 登録日:{" "}
                                 {new Date(member.created_at).toLocaleDateString(
                                   "ja-JP"
                                 )}
@@ -807,7 +808,7 @@ export default function AdminMembersPage() {
                   以下の形式のCSVファイルをアップロードしてください：
                 </p>
                 <code className="block text-xs bg-white p-2 rounded border border-blue-200 text-gray-800">
-                  email,name,affiliation,affiliation_detail,qr_code,created_at
+                  email,name,affiliation,affiliation_detail,member_id,created_at
                 </code>
                 <ul className="mt-3 text-sm text-blue-800 space-y-1">
                   <li>
@@ -825,7 +826,7 @@ export default function AdminMembersPage() {
                     • <strong>affiliation_detail</strong>: 所属詳細（任意）
                   </li>
                   <li>
-                    • <strong>qr_code</strong>: 4桁のQRコードID（必須）
+                    • <strong>member_id</strong>: 4桁のメンバーID（必須）
                   </li>
                   <li>
                     • <strong>created_at</strong>: 登録日時（必須）
@@ -841,7 +842,7 @@ export default function AdminMembersPage() {
                   ※
                   パスワードはメールアドレスと同じに設定されます（英数記号8文字以上必須）
                   <br />※
-                  メールアドレスが空の場合、tukumanalabmember+ID_&lt;qr_code&gt;@gmail.com
+                  メールアドレスが空の場合、tukumanalabmember+id_&lt;member_id&gt;@gmail.com
                   が使用されます
                 </p>
               </div>
@@ -1068,7 +1069,7 @@ export default function AdminMembersPage() {
                           {row.data.affiliation}
                         </td>
                         <td className="px-3 py-2 text-sm text-gray-900">
-                          {row.data.qr_code}
+                          {row.data.member_id}
                         </td>
                         <td className="px-3 py-2 text-sm text-red-600">
                           {row.reason}

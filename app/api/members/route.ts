@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createMember, getAllMembers, isQRCodeExists, findMemberByEmailAndName } from '@/lib/database';
+import { createMember, getAllMembers, isMemberIdExists, findMemberByEmailAndName } from '@/lib/database';
 import QRCode from 'qrcode';
 import bcrypt from 'bcrypt';
 
@@ -19,20 +19,20 @@ function generateMemberId(): string {
 
 // 重複しないユニークなIDを生成
 function generateUniqueMemberId(): string {
-  let qrCode: string;
+  let memberId: string;
   let attempts = 0;
   const maxAttempts = 100; // 無限ループ防止
 
   do {
-    qrCode = generateMemberId();
+    memberId = generateMemberId();
     attempts++;
 
     if (attempts >= maxAttempts) {
       throw new Error('Failed to generate unique member ID after maximum attempts');
     }
-  } while (isQRCodeExists(qrCode));
+  } while (isMemberIdExists(memberId));
 
-  return qrCode;
+  return memberId;
 }
 
 // メンバー一覧を取得
@@ -94,21 +94,21 @@ export async function POST(request: NextRequest) {
     const saltRounds = 10;
     const passwordHash = await bcrypt.hash(password, saltRounds);
 
-    // ユニークなQRコードを生成（4桁: 年+英字+数字+英字）
-    const qrCode = generateUniqueMemberId();
+    // ユニークなmember_idを生成（4桁: 年+英字+数字+英字）
+    const memberId = generateUniqueMemberId();
 
     // メンバーをデータベースに登録
-    const memberId = createMember(
+    const memberDbId = createMember(
       name,
       affiliation,
       affiliationDetail || null,
       email,
       passwordHash,
-      qrCode
+      memberId
     );
 
     // QRコード画像をBase64データURLとして生成（ファイルに保存しない）
-    const qrCodeDataUrl = await QRCode.toDataURL(qrCode, {
+    const qrCodeDataUrl = await QRCode.toDataURL(memberId, {
       width: 300,
       margin: 2,
     });
@@ -116,12 +116,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       member: {
-        id: memberId,
+        id: memberDbId,
         name,
         affiliation,
         affiliationDetail,
         email,
-        qrCode,
+        memberId,
         qrCodeUrl: qrCodeDataUrl, // Base64データURL
       },
     });

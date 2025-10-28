@@ -11,16 +11,16 @@ export async function GET(request: NextRequest) {
     if (query.trim() === '') {
       // 検索クエリがない場合は全件取得
       members = db.prepare(`
-        SELECT id, qr_code, name, affiliation, affiliation_detail, email, created_at
+        SELECT id, member_id, name, affiliation, affiliation_detail, email, created_at
         FROM members
         ORDER BY created_at DESC
       `).all();
     } else {
-      // 名前、所属、メールアドレス、QRコードで部分一致検索
+      // 名前、所属、メールアドレス、メンバーIDで部分一致検索
       members = db.prepare(`
-        SELECT id, qr_code, name, affiliation, affiliation_detail, email, created_at
+        SELECT id, member_id, name, affiliation, affiliation_detail, email, created_at
         FROM members
-        WHERE name LIKE ? OR affiliation LIKE ? OR affiliation_detail LIKE ? OR email LIKE ? OR qr_code LIKE ?
+        WHERE name LIKE ? OR affiliation LIKE ? OR affiliation_detail LIKE ? OR email LIKE ? OR member_id LIKE ?
         ORDER BY created_at DESC
       `).all(`%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`);
     }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { findMemberByQRCode, createCheckInWithTime } from '@/lib/database';
+import { findMemberByMemberId, createCheckInWithTime } from '@/lib/database';
 
 // CSV形式でチェックイン履歴を一括登録
 export async function POST(request: NextRequest) {
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ヘッダー行を検証（スペースを除去して比較）
-    const expectedHeaders = ['timestamp', 'qr_code'];
+    const expectedHeaders = ['timestamp', 'member_id'];
     const headerFields = parseCSVLine(cleanedLines[0]);
 
     // ヘッダーの空白文字を全て削除して正規化
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
 
     const successRows: Array<{
       dateTime: string;
-      qrCode: string;
+      memberId: string;
     }> = [];
 
     const failedRows: Array<{
@@ -95,26 +95,26 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        const [dateTimeStr, qrCode] = fields;
+        const [dateTimeStr, memberId] = fields;
 
         // 必須フィールドのチェック
-        if (!dateTimeStr || !qrCode) {
+        if (!dateTimeStr || !memberId) {
           failedRows.push({
             row: i + 1,
             data: line,
-            error: 'timestamp、qr_codeは必須です',
+            error: 'timestamp、member_idは必須です',
           });
           continue;
         }
 
-        // メンバーをQRコードで検索
-        const member = findMemberByQRCode(qrCode) as { id: number } | undefined;
+        // メンバーをmember_idで検索
+        const member = findMemberByMemberId(memberId) as { id: number } | undefined;
 
         if (!member) {
           failedRows.push({
             row: i + 1,
             data: line,
-            error: `QRコード「${qrCode}」のメンバーが見つかりません`,
+            error: `メンバーID「${memberId}」のメンバーが見つかりません`,
           });
           continue;
         }
@@ -153,7 +153,7 @@ export async function POST(request: NextRequest) {
 
         successRows.push({
           dateTime: dateTimeStr,
-          qrCode,
+          memberId,
         });
       } catch (error) {
         failedRows.push({

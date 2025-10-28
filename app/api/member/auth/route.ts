@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { findMemberByQRCode } from '@/lib/database';
+import { findMemberByMemberId } from '@/lib/database';
 import { createMemberSession } from '@/lib/member-auth';
 import bcrypt from 'bcrypt';
 
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
         }
 
         // メンバーを検索
-        const member = findMemberByQRCode(memberId.trim()) as any;
+        const member = findMemberByMemberId(memberId.trim()) as any;
 
         if (!member) {
             return NextResponse.json(

@@ -1,21 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { findMemberByQRCode, createCheckIn, getLatestCheckIn } from '@/lib/database';
+import { findMemberByMemberId, createCheckIn, getLatestCheckIn } from '@/lib/database';
 
-// QRコードでチェックイン
+// member_idでチェックイン
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { qrCode } = body;
 
     if (!qrCode) {
-      return NextResponse.json({ error: 'QRコードが読み取れませんでした' }, { status: 400 });
+      return NextResponse.json({ error: 'メンバーIDが読み取れませんでした' }, { status: 400 });
     }
 
-    // QRコードからメンバーを検索
-    const member = findMemberByQRCode(qrCode) as any;
+    // member_idからメンバーを検索
+    const member = findMemberByMemberId(qrCode) as any;
 
     if (!member) {
-      return NextResponse.json({ error: '登録されていないQRコードです' }, { status: 404 });
+      return NextResponse.json({ error: '登録されていないメンバーIDです' }, { status: 404 });
     }
 
     // 最新のチェックイン時刻を確認

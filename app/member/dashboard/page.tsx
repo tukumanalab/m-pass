@@ -10,12 +10,12 @@ interface MemberInfo {
   email: string;
   affiliation: string;
   affiliationDetail: string | null;
-  qrCode: string;
+  memberId: string;
   createdAt: string;
 }
 
 interface QRCodeData {
-  qrCode: string;
+  memberId: string;
   qrCodeUrl: string;
 }
 
@@ -238,7 +238,7 @@ export default function MemberDashboardPage() {
             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
               <span className="text-gray-600">メンバーID</span>
               <span className="font-mono font-bold text-lg text-primary-600">
-                {memberInfo?.qrCode}
+                {memberInfo?.memberId}
               </span>
             </div>
             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">

@@ -32,12 +32,12 @@ export function initDatabase() {
   db.exec(`
     CREATE TABLE IF NOT EXISTS members (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      member_id TEXT UNIQUE NOT NULL,
       name TEXT NOT NULL,
       affiliation TEXT NOT NULL,
       affiliation_detail TEXT,
       email TEXT NOT NULL,
       password_hash TEXT NOT NULL,
-      qr_code TEXT UNIQUE NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
@@ -52,9 +52,9 @@ export function initDatabase() {
     )
   `);
 
-  // QRコード用のインデックス
+  // member_id用のインデックス
   db.exec(`
-    CREATE INDEX IF NOT EXISTS idx_qr_code ON members(qr_code)
+    CREATE INDEX IF NOT EXISTS idx_member_id ON members(member_id)
   `);
 }
 
@@ -65,30 +65,30 @@ export function createMember(
   affiliationDetail: string | null,
   email: string,
   passwordHash: string,
-  qrCode: string
+  memberId: string
 ) {
   const stmt = db.prepare(`
-    INSERT INTO members (name, affiliation, affiliation_detail, email, password_hash, qr_code)
+    INSERT INTO members (name, affiliation, affiliation_detail, email, password_hash, member_id)
     VALUES (?, ?, ?, ?, ?, ?)
   `);
-  const result = stmt.run(name, affiliation, affiliationDetail, email, passwordHash, qrCode);
+  const result = stmt.run(name, affiliation, affiliationDetail, email, passwordHash, memberId);
   return result.lastInsertRowid;
 }
 
-// QRコードからメンバーを検索
-export function findMemberByQRCode(qrCode: string) {
+// member_idからメンバーを検索
+export function findMemberByMemberId(memberId: string) {
   const stmt = db.prepare(`
-    SELECT * FROM members WHERE qr_code = ?
+    SELECT * FROM members WHERE member_id = ?
   `);
-  return stmt.get(qrCode);
+  return stmt.get(memberId);
 }
 
-// QRコードの存在チェック（重複チェック用）
-export function isQRCodeExists(qrCode: string): boolean {
+// member_idの存在チェック（重複チェック用）
+export function isMemberIdExists(memberId: string): boolean {
   const stmt = db.prepare(`
-    SELECT COUNT(*) as count FROM members WHERE qr_code = ?
+    SELECT COUNT(*) as count FROM members WHERE member_id = ?
   `);
-  const result = stmt.get(qrCode) as { count: number };
+  const result = stmt.get(memberId) as { count: number };
   return result.count > 0;
 }
 
@@ -208,7 +208,7 @@ export function getCheckInHistory(limit = 50, offset = 0) {
   const stmt = db.prepare(`
     SELECT
       c.*,
-      m.qr_code,
+      m.member_id,
       m.affiliation,
       m.affiliation_detail
     FROM checkins c
@@ -224,7 +224,7 @@ export function getCheckInHistoryByMemberId(memberId: number, limit = 50, offset
   const stmt = db.prepare(`
     SELECT
       c.*,
-      m.qr_code,
+      m.member_id,
       m.affiliation,
       m.affiliation_detail
     FROM checkins c

@@ -29,7 +29,7 @@ export async function GET() {
             email: member.email,
             affiliation: member.affiliation,
             affiliationDetail: member.affiliation_detail,
-            qrCode: member.qr_code,
+            memberId: member.member_id,
             createdAt: member.created_at,
         });
     } catch (error) {
@@ -125,7 +125,7 @@ export async function PUT(request: NextRequest) {
             email: updatedMember.email,
             affiliation: updatedMember.affiliation,
             affiliationDetail: updatedMember.affiliation_detail,
-            qrCode: updatedMember.qr_code,
+            memberId: updatedMember.member_id,
             createdAt: updatedMember.created_at,
         });
     } catch (error) {

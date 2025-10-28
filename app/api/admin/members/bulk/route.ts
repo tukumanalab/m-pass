@@ -15,7 +15,7 @@ interface CsvRow {
   name: string;
   affiliation: string;
   affiliation_detail: string;
-  qr_code: string;
+  member_id: string;
   created_at: string;
 }
 
@@ -33,12 +33,12 @@ function validateCsvRow(row: CsvRow, lineNumber: number): string | null {
       return `行${lineNumber}: メールアドレスの形式が不正です`;
     }
   }
-  if (!row.qr_code || row.qr_code.trim() === '') {
-    return `行${lineNumber}: QRコードが空です`;
+  if (!row.member_id || row.member_id.trim() === '') {
+    return `行${lineNumber}: メンバーIDが空です`;
   }
-  // QRコードが4桁であることをチェック
-  if (row.qr_code.length !== 4) {
-    return `行${lineNumber}: QRコードは4桁である必要があります`;
+  // メンバーIDが4桁であることをチェック
+  if (row.member_id.length !== 4) {
+    return `行${lineNumber}: メンバーIDは4桁である必要があります`;
   }
   if (!row.created_at || row.created_at.trim() === '') {
     return `行${lineNumber}: 登録日が空です`;
@@ -109,7 +109,7 @@ function parseCSV(csvText: string): CsvRow[] {
       name: columns[1],
       affiliation: columns[2],
       affiliation_detail: columns[3],
-      qr_code: columns[4],
+      member_id: columns[4],
       created_at: columns[5],
     });
   }
@@ -182,11 +182,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // UPSERT用のSQL（QRコードで既存データを更新、なければ挿入）
+    // UPSERT用のSQL（member_idで既存データを更新、なければ挿入）
     const upsertMember = db.prepare(`
-      INSERT INTO members (qr_code, name, affiliation, affiliation_detail, email, password_hash, created_at)
+      INSERT INTO members (member_id, name, affiliation, affiliation_detail, email, password_hash, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(qr_code) DO UPDATE SET
+      ON CONFLICT(member_id) DO UPDATE SET
         name = excluded.name,
         affiliation = excluded.affiliation,
         affiliation_detail = excluded.affiliation_detail,
@@ -215,10 +215,10 @@ export async function POST(request: NextRequest) {
 
       try {
         // 既存データをチェック（統計用）
-        const existing = db.prepare('SELECT id FROM members WHERE qr_code = ?').get(row.qr_code);
+        const existing = db.prepare('SELECT id FROM members WHERE member_id = ?').get(row.member_id);
 
         // メールアドレスが空の場合はデフォルト値を生成
-        let email = row.email && row.email.trim() !== '' ? row.email.trim() : `tukumanalabmember+ID_${row.qr_code}@gmail.com`;
+        let email = row.email && row.email.trim() !== '' ? row.email.trim() : `tukumanalabmember+id_${row.member_id}@gmail.com`;
 
         // パスワードはメールアドレスと同じにする
         const password = email;
@@ -252,7 +252,7 @@ export async function POST(request: NextRequest) {
 
         // メンバー登録（既存の場合は更新）
         upsertMember.run(
-          row.qr_code,
+          row.member_id,
           row.name,
           row.affiliation,
           row.affiliation_detail || '',

@@ -6,15 +6,19 @@ import { apiUrl } from "@/lib/api";
 
 interface CheckIn {
   id: number;
-  member_id: number;
+  member_id: number; // 外部キー（members.id）
   check_in_time: string;
-  qr_code: string;
   affiliation: string;
   affiliation_detail: string | null;
 }
 
+// 拡張型: データベースから返されるJOINされたmember_id文字列を含む
+interface CheckInWithMemberId extends Omit<CheckIn, "member_id"> {
+  member_id: number | string; // 外部キーまたはJOINされたメンバーID文字列
+}
+
 export default function HistoryPage() {
-  const [checkIns, setCheckIns] = useState<CheckIn[]>([]);
+  const [checkIns, setCheckIns] = useState<CheckInWithMemberId[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
@@ -235,7 +239,7 @@ export default function HistoryPage() {
   const copyFailedRowsToClipboard = () => {
     if (!uploadResult?.failedRows) return;
 
-    const csvHeader = "timestamp,qr_code";
+    const csvHeader = "timestamp,member_id";
     const csvContent = [
       csvHeader,
       ...uploadResult.failedRows.map((r) => r.data),
@@ -422,13 +426,13 @@ export default function HistoryPage() {
             <div className="mb-4 p-4 bg-white rounded-lg border border-blue-200">
               <p className="text-sm text-gray-700 mb-2 font-medium">CSV形式:</p>
               <pre className="text-xs bg-gray-50 p-2 rounded border border-gray-200 overflow-x-auto">
-                timestamp,qr_code{"\n"}
+                timestamp,member_id{"\n"}
                 2025/01/15 10:30:00,5a1b{"\n"}
                 2025/01/15,1q9s
               </pre>
               <p className="text-xs text-gray-600 mt-2">
                 ※ timestampは「YYYY/MM/DD HH:mm:ss」または「YYYY/MM/DD」形式
-                <br />※ QRコードは登録済みのメンバーのものを指定してください
+                <br />※ メンバーIDは登録済みのメンバーのものを指定してください
               </p>
             </div>
 
@@ -640,7 +644,7 @@ export default function HistoryPage() {
                     日時
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-primary-700 uppercase tracking-wider">
-                    QRコード
+                    メンバーID
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-primary-700 uppercase tracking-wider">
                     所属
@@ -670,7 +674,7 @@ export default function HistoryPage() {
                       {formatDateTime(checkIn.check_in_time)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-primary-600 font-mono font-bold">
-                      {checkIn.qr_code}
+                      {(checkIn as any).member_id || "-"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                       {checkIn.affiliation}

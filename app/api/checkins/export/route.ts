@@ -9,13 +9,12 @@ export async function GET() {
       id: number;
       member_id: number;
       check_in_time: string;
-      qr_code: string;
       affiliation: string;
       affiliation_detail: string | null;
-    }>;
+    } & { member_id: string }>;
 
     // CSVヘッダー
-    const headers = ['timestamp', 'qr_code', 'affiliation', 'affiliation_detail'];
+    const headers = ['timestamp', 'member_id', 'affiliation', 'affiliation_detail'];
 
     // CSVデータ行を生成
     const rows = history.map(item => {
@@ -36,7 +35,7 @@ export async function GET() {
 
       return [
         formattedDate,
-        item.qr_code || '',
+        (item as any).member_id || '',
         item.affiliation || '',
         item.affiliation_detail || '',
       ];

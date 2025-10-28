@@ -5,7 +5,7 @@ import QRCode from 'qrcode';
 interface Member {
   id: number;
   name: string;
-  qr_code: string;
+  member_id: string;
   affiliation: string;
   affiliation_detail: string | null;
   email: string;
@@ -38,7 +38,7 @@ export async function GET(
     }
 
     // QRコード画像をBase64データURLとして生成
-    const qrCodeDataUrl = await QRCode.toDataURL(member.qr_code, {
+    const qrCodeDataUrl = await QRCode.toDataURL(member.member_id, {
       width: 300,
       margin: 2,
     });
@@ -48,7 +48,7 @@ export async function GET(
       member: {
         id: member.id,
         name: member.name,
-        qr_code: member.qr_code,
+        member_id: member.member_id,
         qrCodeUrl: qrCodeDataUrl,
       },
     });

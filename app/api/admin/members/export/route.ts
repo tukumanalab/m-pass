@@ -15,7 +15,7 @@ export async function GET() {
 
     // 全メンバーデータを取得
     const members = db.prepare(`
-      SELECT email, name, affiliation, affiliation_detail, qr_code, created_at
+      SELECT email, name, affiliation, affiliation_detail, member_id, created_at
       FROM members
       ORDER BY created_at DESC
     `).all() as Array<{
@@ -23,12 +23,12 @@ export async function GET() {
       name: string;
       affiliation: string;
       affiliation_detail: string | null;
-      qr_code: string;
+      member_id: string;
       created_at: string;
     }>;
 
     // CSVヘッダー
-    let csv = 'email,name,affiliation,affiliation_detail,qr_code,created_at\n';
+    let csv = 'email,name,affiliation,affiliation_detail,member_id,created_at\n';
 
     // データ行を追加
     for (const member of members) {
@@ -42,7 +42,7 @@ export async function GET() {
         member.name,
         member.affiliation,
         member.affiliation_detail || '',
-        member.qr_code,
+        member.member_id,
         formattedDate,
       ];
 
