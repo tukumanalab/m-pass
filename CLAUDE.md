@@ -17,12 +17,12 @@ QR コードを使ったメンバーの入館管理 Web アプリケーション
 
 ## 環境変数
 
-- **BASE_PATH**: デプロイパス（例: `/member`, `/member-debug`）
+- **BASE_PATH**: デプロイパス（例: `/members`, `/members-debug`）
 
   - Next.js の`basePath`として使用される
   - リソースファイル（画像、音声）のパスは `<BASE_PATH>/uploads/*` となる
-  - 本番環境: `/member`
-  - デバッグ環境: `/member-debug`
+  - 本番環境: `/members`
+  - デバッグ環境: `/members-debug`
   - デプロイ時に PM2 や docker-compose で指定可能
 
 - **DB_PATH**: データベースファイルのパス（オプション）
