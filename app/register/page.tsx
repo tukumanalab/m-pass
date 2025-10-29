@@ -50,13 +50,13 @@ export default function RegisterPage() {
       }
 
       setQrCodeUrl(data.member.qrCodeUrl);
-      setQrCode(data.member.qrCode);
+      setQrCode(data.member.memberId);
       setMemberName(data.member.name);
 
       // カードを生成
       await generateCard(
         data.member.name,
-        data.member.qrCode,
+        data.member.memberId,
         data.member.qrCodeUrl
       );
     } catch (err) {
