@@ -38,6 +38,8 @@ next-env.d.ts
 
 members.db
 members.db-journal
+members-debug.db
+members-debug.db-journal
 
 # Site settings
 site-settings.json
