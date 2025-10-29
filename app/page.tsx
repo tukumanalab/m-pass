@@ -17,31 +17,6 @@ export default function Home() {
               />
             </div>
           )}
-          {settings.logoPath ? (
-            <div className="mb-4">
-              <img
-                src={settings.logoPath}
-                alt="Logo"
-                className="mx-auto h-20 w-auto object-contain"
-              />
-            </div>
-          ) : (
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-primary-500 to-primary-600 rounded-2xl shadow-lg mb-4">
-              <svg
-                className="w-12 h-12 text-white"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"
-                />
-              </svg>
-            </div>
-          )}
           <h1 className="text-5xl font-bold bg-gradient-to-r from-primary-600 to-primary-700 bg-clip-text text-transparent mb-4">
             {settings.pageTitle}
           </h1>
@@ -71,7 +46,7 @@ export default function Home() {
             <h2 className="text-2xl font-semibold text-gray-900 mb-2">
               マイページ
             </h2>
-            <p className="text-gray-600">カードとチェックイン履歴を確認</p>
+            <p className="text-gray-600">メンバー情報の確認やサービスの利用</p>
           </Link>
 
           <Link
@@ -96,9 +71,7 @@ export default function Home() {
             <h2 className="text-2xl font-semibold text-gray-900 mb-2">
               メンバー登録
             </h2>
-            <p className="text-gray-600">
-              メンバー情報を登録してQRコードを発行
-            </p>
+            <p className="text-gray-600">メンバー情報を登録してカードを発行</p>
           </Link>
         </div>
 
