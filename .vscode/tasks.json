@@ -1,0 +1,195 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "🐳 Docker: 環境起動 (全サービス)",
+            "type": "shell",
+            "command": "docker-compose up -d",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new",
+                "focus": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "🐳 Docker: 環境起動 + ビルド (全サービス)",
+            "type": "shell",
+            "command": "docker-compose up -d --build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new",
+                "focus": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "🐳 Docker: 環境停止",
+            "type": "shell",
+            "command": "docker-compose down",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new",
+                "focus": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "🐳 Docker: 環境再起動",
+            "type": "shell",
+            "command": "docker-compose restart",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new",
+                "focus": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "🐳 Docker: デバッグ環境のみ起動",
+            "type": "shell",
+            "command": "docker-compose up -d app-debug nginx",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new",
+                "focus": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "🐳 Docker: デバッグ環境のみ再起動",
+            "type": "shell",
+            "command": "docker-compose restart app-debug",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new",
+                "focus": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "📋 Docker: ログ表示 (全サービス)",
+            "type": "shell",
+            "command": "docker-compose logs -f",
+            "isBackground": true,
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "📋 Docker: ログ表示 (デバッグ環境)",
+            "type": "shell",
+            "command": "docker-compose logs -f app-debug",
+            "isBackground": true,
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "📋 Docker: ログ表示 (Nginx)",
+            "type": "shell",
+            "command": "docker-compose logs -f nginx",
+            "isBackground": true,
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "🔧 Docker: ステータス確認",
+            "type": "shell",
+            "command": "docker-compose ps",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new",
+                "focus": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "🗑️ Docker: 完全削除 (ボリューム含む)",
+            "type": "shell",
+            "command": "docker-compose down -v",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new",
+                "focus": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "🔄 Docker: 完全再ビルド (キャッシュなし)",
+            "type": "shell",
+            "command": "docker-compose build --no-cache && docker-compose up -d",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new",
+                "focus": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "🌐 ブラウザ: デバッグ環境を開く (Nginx経由)",
+            "type": "shell",
+            "command": "open http://localhost:8080/members-debug",
+            "presentation": {
+                "reveal": "silent",
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "🌐 ブラウザ: 本番環境を開く (Nginx経由)",
+            "type": "shell",
+            "command": "open http://localhost:8080/members",
+            "presentation": {
+                "reveal": "silent",
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "🌐 ブラウザ: デバッグ環境を開く (直接)",
+            "type": "shell",
+            "command": "open http://localhost:3001",
+            "presentation": {
+                "reveal": "silent",
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "💾 Docker: DBバックアップ (デバッグ環境)",
+            "type": "shell",
+            "command": "mkdir -p backup && docker cp m-pass-debug:/app/data-debug/members.db ./backup/members-debug-$(date +%Y%m%d-%H%M%S).db && echo 'バックアップ完了' && ls -lh backup/",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new",
+                "focus": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "🚀 クイックスタート: Docker環境起動 + ブラウザ起動",
+            "dependsOn": [
+                "🐳 Docker: 環境起動 + ビルド (全サービス)",
+                "🌐 ブラウザ: デバッグ環境を開く (Nginx経由)"
+            ],
+            "dependsOrder": "sequence",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new",
+                "focus": true
+            },
+            "problemMatcher": []
+        }
+    ]
+}
