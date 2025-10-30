@@ -47,6 +47,8 @@ npm install
 BASE_PATH=/members npm run build
 ```
 
+> **Note**: ビルドスクリプトには `NODE_OPTIONS='--max-old-space-size=4096'` が設定されており、メモリ不足エラーを防ぎます。
+
 ### 5. PM2 でアプリケーションを再起動
 
 ```bash

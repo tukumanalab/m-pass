@@ -7,8 +7,8 @@
     "dev:debug": "USE_BASE_PATH=members-debug next dev --turbopack -p 3001",
     "dev:inspect": "NODE_OPTIONS='--inspect=0.0.0.0:9229' next dev --turbopack",
     "dev:debug:inspect": "NODE_OPTIONS='--inspect=0.0.0.0:9229' USE_BASE_PATH=members-debug next dev --turbopack -p 3001",
-    "build": "next build --turbopack",
-    "build:debug": "USE_BASE_PATH=members-debug next build --turbopack",
+    "build": "NODE_OPTIONS='--max-old-space-size=4096' next build --turbopack",
+    "build:debug": "NODE_OPTIONS='--max-old-space-size=4096' USE_BASE_PATH=members-debug next build --turbopack",
     "start": "next start",
     "start:debug": "USE_BASE_PATH=members-debug next start -p 3001",
     "lint": "next lint"
