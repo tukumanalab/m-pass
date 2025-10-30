@@ -5,6 +5,7 @@ QR コードを使った利用者の入館管理 Web アプリケーション
 ## 機能
 
 - **メンバー登録**: メンバー情報を登録してカードを発行（QR コード付き）
+  - **メール確認機能**: Gmail 経由でメール認証を実施
 - **CSV 一括登録**: CSV ファイルでメンバーデータを一括登録・更新
 - **CSV 一括ダウンロード**: 全メンバーデータを CSV 形式でエクスポート
 - **カード印刷**: メンバーカードを SVG テンプレートで印刷・ダウンロード
@@ -21,6 +22,7 @@ QR コードを使った利用者の入館管理 Web アプリケーション
 - **データベース**: SQLite (better-sqlite3)
 - **QR コード**: qrcode (生成), html5-qrcode (スキャン)
 - **認証**: bcrypt (パスワードハッシュ化)
+- **メール送信**: nodemailer + Gmail API (OAuth2)
 - **デプロイ**: Ubuntu Server + PM2 + Nginx
 
 ## 開発環境のセットアップ
@@ -30,6 +32,7 @@ QR コードを使った利用者の入館管理 Web アプリケーション
 - Node.js 20 以上
 - npm
 - **Docker Desktop for Mac**（Nginx 環境が必要な場合）
+- **Gmail アカウント**（メール送信機能を使う場合）
 
 ### シンプルな開発（Nginx 不要）
 
@@ -37,11 +40,104 @@ QR コードを使った利用者の入館管理 Web アプリケーション
 # 依存関係のインストール
 npm install
 
+# 環境変数の設定
+cp .env.example .env
+# .envファイルを編集してGmail設定を追加（後述）
+
 # 開発サーバーの起動（Turbopack使用）
 npm run dev
 ```
 
 アプリケーションは http://localhost:3000 で起動します。
+
+### Gmail メール送信の設定（OAuth2）
+
+メンバー登録時のメール確認機能を使用するには、Gmail API の OAuth2 認証が必要です。
+
+> 📖 **詳細な設定手順**: [GMAIL-OAUTH2-SETUP.md](GMAIL-OAUTH2-SETUP.md) を参照してください。
+
+#### 1. Google Cloud Console でプロジェクトを作成
+
+1. [Google Cloud Console](https://console.cloud.google.com/) にアクセス
+2. 新しいプロジェクトを作成（例: "m-pass-mailer"）
+3. プロジェクトを選択
+
+#### 2. Gmail API を有効化
+
+1. 「API とサービス」→「ライブラリ」に移動
+2. "Gmail API" を検索して選択
+3. 「有効にする」をクリック
+
+#### 3. OAuth 同意画面を設定
+
+1. 「API とサービス」→「OAuth 同意画面」に移動
+2. ユーザータイプ: **外部** を選択（個人利用の場合）
+3. アプリ情報を入力:
+   - アプリ名: `M-Pass Mailer`
+   - ユーザーサポートメール: あなたのメールアドレス
+   - デベロッパーの連絡先情報: あなたのメールアドレス
+4. スコープは設定不要（デフォルトで OK）
+5. テストユーザーに **メール送信に使用する Gmail アドレス** を追加
+
+#### 4. OAuth 2.0 クライアント ID を作成
+
+1. 「API とサービス」→「認証情報」に移動
+2. 「認証情報を作成」→「OAuth クライアント ID」を選択
+3. アプリケーションの種類: **ウェブアプリケーション**
+4. 名前: `M-Pass Web Client`
+5. 承認済みのリダイレクト URI に以下を追加:
+   ```
+   https://developers.google.com/oauthplayground
+   ```
+6. 「作成」をクリック
+7. **クライアント ID** と **クライアント シークレット** をコピーして保存
+
+#### 5. リフレッシュトークンを取得
+
+1. [OAuth 2.0 Playground](https://developers.google.com/oauthplayground/) にアクセス
+2. 右上の歯車アイコン（Settings）をクリック
+3. 「Use your own OAuth credentials」にチェック
+4. 先ほど作成した **OAuth Client ID** と **OAuth Client secret** を入力
+5. 左側の「Step 1」で以下のスコープを選択:
+   ```
+   https://mail.google.com/
+   ```
+6. 「Authorize APIs」をクリック
+7. Google アカウントでログイン（テストユーザーとして追加したアカウント）
+8. 「このアプリは確認されていません」と表示される場合:
+   - 「詳細」→「M-Pass Mailer（安全でないページ）に移動」をクリック
+9. アクセスを許可
+10. 「Step 2」で「Exchange authorization code for tokens」をクリック
+11. **Refresh token** をコピーして保存
+
+#### 6. 環境変数の設定
+
+`.env` ファイルに以下を設定:
+
+```env
+# Gmail OAuth2設定
+GMAIL_USER=your-email@gmail.com
+GMAIL_CLIENT_ID=your-client-id.apps.googleusercontent.com
+GMAIL_CLIENT_SECRET=your-client-secret
+GMAIL_REFRESH_TOKEN=your-refresh-token
+
+# アプリケーションURL（メール内のリンクで使用）
+APP_URL=http://localhost:3000
+```
+
+**注意**:
+
+- 本番環境では `APP_URL` を実際のドメインに変更してください
+- OAuth2 認証情報は機密情報です。`.env` ファイルは Git にコミットしないでください
+
+### メンバー登録フロー
+
+1. ユーザーがメンバー情報を入力
+2. システムが確認メールを送信（有効期限 24 時間）
+3. ユーザーがメール内のリンクをクリック
+4. システムがメールアドレスとトークンを確認
+5. システムが本登録を完了し、QR コード付きカードを発行
+6. システムが登録完了メールを送信
 
 ### Mac + VSCode + Nginx デバッグ環境
 
@@ -273,13 +369,29 @@ db.close();
 | カラム名           | 型       | 説明                         |
 | ------------------ | -------- | ---------------------------- |
 | id                 | INTEGER  | 主キー                       |
+| member_id          | TEXT     | QR コード（4 桁、ユニーク）  |
 | name               | TEXT     | 氏名                         |
 | affiliation        | TEXT     | 所属（必須）                 |
 | affiliation_detail | TEXT     | 所属詳細（任意）             |
-| email              | TEXT     | メールアドレス（任意）       |
+| email              | TEXT     | メールアドレス（必須）       |
 | password_hash      | TEXT     | パスワードハッシュ（bcrypt） |
-| qr_code            | TEXT     | QR コード（4 桁、ユニーク）  |
 | created_at         | DATETIME | 登録日時                     |
+
+### pending_members テーブル
+
+メール確認待ちの仮登録メンバー情報を保存（確認後に members テーブルへ移行）
+
+| カラム名           | 型       | 説明                            |
+| ------------------ | -------- | ------------------------------- |
+| id                 | INTEGER  | 主キー                          |
+| token              | TEXT     | 確認トークン（64文字、ユニーク）|
+| name               | TEXT     | 氏名                            |
+| affiliation        | TEXT     | 所属                            |
+| affiliation_detail | TEXT     | 所属詳細（任意）                |
+| email              | TEXT     | メールアドレス                  |
+| password_hash      | TEXT     | パスワードハッシュ（bcrypt）    |
+| expires_at         | DATETIME | トークン有効期限（24時間）      |
+| created_at         | DATETIME | 仮登録日時                      |
 
 ### checkins テーブル
 
@@ -297,8 +409,9 @@ db.close();
 
 ### メンバー管理
 
+- `POST /api/members/register` - メンバー仮登録 & 確認メール送信
+- `POST /api/members/verify` - メールトークン検証 & 本登録 & QR コード生成（4 桁 ID: 年+英字+数字+英字）
 - `GET /api/members` - メンバー一覧取得
-- `POST /api/members` - メンバー登録 & QR コード生成（4 桁 ID: 年+英字+数字+英字）
 - `GET /api/admin/members/search` - メンバー検索
 - `PUT /api/admin/members/[id]` - メンバー情報更新
 - `DELETE /api/admin/members/[id]` - メンバー削除

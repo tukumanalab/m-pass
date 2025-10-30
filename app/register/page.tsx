@@ -13,6 +13,8 @@ export default function RegisterPage() {
     password: "",
     passwordConfirm: "",
   });
+  const [emailSent, setEmailSent] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState<string>("");
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [memberName, setMemberName] = useState<string | null>(null);
@@ -35,7 +37,7 @@ export default function RegisterPage() {
 
     try {
       const { passwordConfirm, ...submitData } = formData;
-      const response = await fetch(apiUrl("/api/members"), {
+      const response = await fetch(apiUrl("/api/members/register"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -49,16 +51,9 @@ export default function RegisterPage() {
         throw new Error(data.error || "登録に失敗しました");
       }
 
-      setQrCodeUrl(data.member.qrCodeUrl);
-      setQrCode(data.member.memberId);
-      setMemberName(data.member.name);
-
-      // カードを生成
-      await generateCard(
-        data.member.name,
-        data.member.memberId,
-        data.member.qrCodeUrl
-      );
+      // メール送信完了
+      setEmailSent(true);
+      setRegisteredEmail(formData.email);
     } catch (err) {
       setError(err instanceof Error ? err.message : "登録に失敗しました");
     } finally {
@@ -75,6 +70,8 @@ export default function RegisterPage() {
       password: "",
       passwordConfirm: "",
     });
+    setEmailSent(false);
+    setRegisteredEmail("");
     setQrCodeUrl(null);
     setQrCode(null);
     setMemberName(null);
@@ -211,6 +208,74 @@ export default function RegisterPage() {
       alert("ダウンロードに失敗しました");
     }
   };
+
+  if (emailSent) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-12">
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-8 text-center border border-primary-100">
+          <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center">
+            <svg
+              className="w-12 h-12 text-white"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+              />
+            </svg>
+          </div>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent mb-4">
+            確認メールを送信しました
+          </h1>
+          <p className="text-gray-600 mb-2">
+            {registeredEmail} 宛に確認メールを送信しました。
+          </p>
+          <p className="text-gray-600 mb-8">
+            メール内のリンクをクリックして、登録を完了してください。
+          </p>
+
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 mb-8">
+            <div className="flex items-start gap-3">
+              <svg
+                className="w-6 h-6 text-blue-500 flex-shrink-0 mt-0.5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              <div className="text-left">
+                <h3 className="font-semibold text-blue-900 mb-2">
+                  メールが届かない場合
+                </h3>
+                <ul className="text-sm text-blue-800 space-y-1">
+                  <li>• 迷惑メールフォルダをご確認ください</li>
+                  <li>• メールアドレスが正しいかご確認ください</li>
+                  <li>• リンクの有効期限は24時間です</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <button
+            onClick={handleReset}
+            className="block w-full bg-gray-100 text-gray-700 py-3 px-4 rounded-xl hover:bg-gray-200 transition-colors"
+          >
+            別のメールアドレスで登録
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (qrCodeUrl) {
     return (

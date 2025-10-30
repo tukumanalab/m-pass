@@ -32,6 +32,21 @@ export function initDatabase() {
     )
   `);
 
+  // 仮登録メンバーテーブル
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS pending_members (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      token TEXT UNIQUE NOT NULL,
+      name TEXT NOT NULL,
+      affiliation TEXT NOT NULL,
+      affiliation_detail TEXT,
+      email TEXT NOT NULL,
+      password_hash TEXT NOT NULL,
+      expires_at DATETIME NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
   // チェックインテーブル
   db.exec(`
     CREATE TABLE IF NOT EXISTS checkins (
@@ -45,6 +60,11 @@ export function initDatabase() {
   // member_id用のインデックス
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_member_id ON members(member_id)
+  `);
+
+  // token用のインデックス
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_pending_token ON pending_members(token)
   `);
 }
 
@@ -88,6 +108,15 @@ export function findMemberByEmailAndName(email: string, name: string) {
     SELECT * FROM members WHERE email = ? AND name = ?
   `);
   return stmt.get(email, name);
+}
+
+// メールアドレスで登録されているメンバー数をカウント
+export function countMembersByEmail(email: string): number {
+  const stmt = db.prepare(`
+    SELECT COUNT(*) as count FROM members WHERE email = ?
+  `);
+  const result = stmt.get(email) as { count: number };
+  return result.count;
 }
 
 // メールアドレスでメンバーを検索（ログイン用）
@@ -282,6 +311,58 @@ export function updateMemberProfile(
     WHERE id = ?
   `);
   return stmt.run(name, affiliation, affiliationDetail ?? '', email, id).changes;
+}
+
+// 仮登録メンバーの作成
+export function createPendingMember(
+  token: string,
+  name: string,
+  affiliation: string,
+  affiliationDetail: string | null,
+  email: string,
+  passwordHash: string,
+  expiresAt: string
+) {
+  const stmt = db.prepare(`
+    INSERT INTO pending_members (token, name, affiliation, affiliation_detail, email, password_hash, expires_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `);
+  const result = stmt.run(token, name, affiliation, affiliationDetail, email, passwordHash, expiresAt);
+  return result.lastInsertRowid;
+}
+
+// トークンから仮登録メンバーを取得
+export function findPendingMemberByToken(token: string) {
+  const stmt = db.prepare(`
+    SELECT * FROM pending_members WHERE token = ?
+  `);
+  return stmt.get(token);
+}
+
+// 期限切れの仮登録メンバーを削除
+export function deleteExpiredPendingMembers() {
+  const stmt = db.prepare(`
+    DELETE FROM pending_members WHERE expires_at < CURRENT_TIMESTAMP
+  `);
+  const result = stmt.run();
+  return result.changes;
+}
+
+// 仮登録メンバーを削除
+export function deletePendingMember(id: number) {
+  const stmt = db.prepare(`
+    DELETE FROM pending_members WHERE id = ?
+  `);
+  const result = stmt.run(id);
+  return result.changes;
+}
+
+// メールアドレスで仮登録メンバーを検索
+export function findPendingMemberByEmail(email: string) {
+  const stmt = db.prepare(`
+    SELECT * FROM pending_members WHERE email = ?
+  `);
+  return stmt.get(email);
 }
 
 // データベース初期化を実行

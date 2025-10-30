@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createMember, getAllMembers, isMemberIdExists, findMemberByEmailAndName } from '@/lib/database';
+import { createMember, getAllMembers, isMemberIdExists, findMemberByEmailAndName, countMembersByEmail } from '@/lib/database';
 import QRCode from 'qrcode';
 import bcrypt from 'bcrypt';
+
+// 同じメールアドレスで登録可能な最大人数
+const MAX_MEMBERS_PER_EMAIL = 3;
 
 // メンバーIDを生成（4桁: 年+英字+数字+英字）
 // 発行年の西暦の1桁目（一の位） + ランダムな英文字（小文字） + ランダムな数値 + ランダムな英文字（小文字）
@@ -71,6 +74,14 @@ export async function POST(request: NextRequest) {
     if (!emailRegex.test(email)) {
       return NextResponse.json({
         error: 'メールアドレスの形式が正しくありません'
+      }, { status: 400 });
+    }
+
+    // 同じメールアドレスで登録されているメンバー数をチェック
+    const memberCount = countMembersByEmail(email);
+    if (memberCount >= MAX_MEMBERS_PER_EMAIL) {
+      return NextResponse.json({
+        error: `このメールアドレスでは最大${MAX_MEMBERS_PER_EMAIL}人まで登録できます`
       }, { status: 400 });
     }
 
