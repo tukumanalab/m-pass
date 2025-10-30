@@ -15,7 +15,7 @@ const affiliationOptions = [
   "関係者",
 ];
 
-const passwordRegex = /^[A-Za-z\d@$!%*?&_.\-]{8,}$/;
+const passwordRegex = /^[A-Za-z\d@$!%*?&_.\-+=^#~,;:/<>{}[\]|()`'"\\]{8,}$/;
 interface MemberResponse {
   name: string;
   email: string;
@@ -116,7 +116,7 @@ export default function MemberEditPage() {
 
         if (!passwordRegex.test(formValues.password)) {
           throw new Error(
-            "パスワードは英数字または記号(@$!%*?&_.-)を使用した8文字以上で入力してください"
+            "パスワードは英数字または記号を使用した8文字以上で入力してください"
           );
         }
       }
@@ -299,7 +299,7 @@ export default function MemberEditPage() {
                 placeholder="変更しない場合は空欄のまま"
               />
               <p className="mt-1 text-xs text-gray-500">
-                英数字または記号(@$!%*?&_.-)を使用した8文字以上で入力してください
+                英数字または記号を使用した8文字以上で入力してください
               </p>
             </div>
 

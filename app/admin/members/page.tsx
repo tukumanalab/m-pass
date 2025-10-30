@@ -702,7 +702,7 @@ export default function AdminMembersPage() {
                                 password: e.target.value,
                               })
                             }
-                            placeholder="英数記号8文字以上"
+                            placeholder="英数字または記号を含む8文字以上"
                             className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                           />
                         </div>
@@ -860,7 +860,7 @@ export default function AdminMembersPage() {
                 </ul>
                 <p className="mt-3 text-sm text-blue-800">
                   ※
-                  パスワードはメールアドレスと同じに設定されます（英数記号8文字以上必須）
+                  パスワードはメールアドレスと同じに設定されます（英数字または記号を含む8文字以上必須）
                   <br />※
                   メールアドレスが空の場合、tukumanalabmember+id_&lt;member_id&gt;@gmail.com
                   が使用されます

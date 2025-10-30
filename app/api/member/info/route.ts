@@ -93,7 +93,7 @@ export async function PUT(request: NextRequest) {
 
         let passwordHash: string | undefined;
         if (password) {
-            if (!/^[A-Za-z\d@$!%*?&_.\-]{8,}$/.test(password)) {
+            if (!/^[A-Za-z\d@$!%*?&_.\-+=^#~,;:/<>{}[\]|()`'"\\]{8,}$/.test(password)) {
                 return NextResponse.json(
                     { error: 'パスワードは英数記号を含む8文字以上である必要があります' },
                     { status: 400 }

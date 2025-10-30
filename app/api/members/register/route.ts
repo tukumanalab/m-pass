@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
         }
 
         // パスワードの強度チェック（英数記号を含む8文字以上）
-        const passwordRegex = /^[A-Za-z\d@$!%*?&_.\-]{8,}$/;
+        const passwordRegex = /^[A-Za-z\d@$!%*?&_.\-+=^#~,;:/<>{}[\]|()`'"\\]{8,}$/;
         if (!passwordRegex.test(password)) {
             return NextResponse.json({
                 error: 'パスワードは英数記号を含む8文字以上である必要があります'

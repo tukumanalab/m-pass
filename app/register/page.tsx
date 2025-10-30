@@ -526,7 +526,7 @@ export default function RegisterPage() {
               placeholder="英数記号を含む8文字以上"
             />
             <p className="mt-1 text-xs text-gray-500">
-              英数字または記号(@$!%*?&_.-)を使用した8文字以上で入力してください
+              英数字または記号を使用した8文字以上で入力してください
             </p>
           </div>
 

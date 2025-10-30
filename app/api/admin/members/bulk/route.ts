@@ -6,7 +6,7 @@ import { isAdminAuthenticated } from '@/lib/auth';
 // パスワード検証
 function validatePassword(password: string): boolean {
   // 英数記号を含む8文字以上
-  return /^[A-Za-z\d@$!%*?&_.\-+]{8,}$/.test(password);
+  return /^[A-Za-z\d@$!%*?&_.\-+=^#~,;:/<>{}[\]|()`'"\\]{8,}$/.test(password);
 }
 
 // CSVデータのバリデーション

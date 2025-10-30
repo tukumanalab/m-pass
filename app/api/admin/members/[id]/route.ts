@@ -60,7 +60,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     // パスワードが指定されている場合は更新
     if (password) {
       // パスワード強度チェック
-      if (!/^[A-Za-z\d@$!%*?&_.\-]{8,}$/.test(password)) {
+      if (!/^[A-Za-z\d@$!%*?&_.\-+=^#~,;:/<>{}[\]|()`'"\\]{8,}$/.test(password)) {
         return NextResponse.json(
           { success: false, message: 'パスワードは英数記号を含む8文字以上である必要があります' },
           { status: 400 }
