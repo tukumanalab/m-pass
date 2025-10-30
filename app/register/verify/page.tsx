@@ -126,18 +126,38 @@ function VerifyContent() {
         <html>
           <head>
             <title>カード印刷 - ${memberName}</title>
+            <meta charset="UTF-8">
             <style>
-              body {
+              * {
                 margin: 0;
-                padding: 20px;
+                padding: 0;
+                box-sizing: border-box;
+              }
+              @page {
+                size: 91mm 55mm;
+                margin: 0;
+              }
+              html, body {
+                width: 91mm;
+                height: 55mm;
+                margin: 0;
+                padding: 0;
+                overflow: hidden;
+              }
+              body {
                 display: flex;
                 justify-content: center;
                 align-items: center;
-                min-height: 100vh;
+              }
+              svg {
+                width: 91mm;
+                height: 55mm;
+                display: block;
               }
               @media print {
-                body {
-                  padding: 0;
+                html, body {
+                  width: 91mm;
+                  height: 55mm;
                 }
               }
             </style>
