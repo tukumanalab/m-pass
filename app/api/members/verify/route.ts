@@ -58,8 +58,9 @@ export async function POST(request: NextRequest) {
             }, { status: 404 });
         }
 
-        // 有効期限をチェック
-        const expiresAt = new Date(pendingMember.expires_at);
+        // 有効期限をチェック（UTC時刻で比較）
+        // SQLiteのCURRENT_TIMESTAMPはUTCを返すため、Zを追加してUTCとして明示
+        const expiresAt = new Date(pendingMember.expires_at + 'Z');
         if (expiresAt < new Date()) {
             // 期限切れの仮登録を削除
             deletePendingMember(pendingMember.id);

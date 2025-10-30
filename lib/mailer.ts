@@ -103,6 +103,118 @@ export async function sendVerificationEmail(
 }
 
 /**
+ * パスワードリセット用のメールを送信（単一メンバー）
+ */
+export async function sendPasswordResetEmail(
+    to: string,
+    name: string,
+    token: string
+): Promise<void> {
+    const resetUrl = `${APP_URL}/member/reset-password?token=${token}`;
+
+    const mailOptions = {
+        from: `"メンバー登録システム" <${GMAIL_USER}>`,
+        to,
+        subject: 'パスワードリセットのお知らせ',
+        html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #333;">パスワードリセット</h2>
+        <p>${name} 様</p>
+        <p>パスワードリセットのリクエストを受け付けました。</p>
+        <p>以下のリンクをクリックして、新しいパスワードを設定してください。</p>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${resetUrl}" 
+             style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block;">
+            パスワードをリセットする
+          </a>
+        </div>
+        <p style="color: #666; font-size: 14px;">
+          このリンクは1時間有効です。<br>
+          もしこのメールに心当たりがない場合は、無視してください。
+        </p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+        <p style="color: #999; font-size: 12px;">
+          このメールはシステムから自動送信されています。<br>
+          直接返信しないでください。
+        </p>
+      </div>
+    `,
+    };
+
+    try {
+        const transporter = await createTransporter();
+        await transporter.sendMail(mailOptions);
+        console.log(`Password reset email sent to ${to}`);
+    } catch (error) {
+        console.error('Error sending password reset email:', error);
+        throw new Error('メールの送信に失敗しました');
+    }
+}
+
+/**
+ * パスワードリセット用のメールを送信（複数メンバー対応）
+ */
+export async function sendPasswordResetEmailMultiple(
+    to: string,
+    members: Array<{ name: string; memberId: string; affiliation: string; affiliationDetail: string | null; token: string }>
+): Promise<void> {
+    const memberLinks = members.map((member) => {
+        const resetUrl = `${APP_URL}/member/reset-password?token=${member.token}`;
+        return `
+        <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #4F46E5;">
+          <div style="font-weight: bold; color: #333; margin-bottom: 8px;">${member.name}</div>
+          <div style="font-size: 14px; color: #666; margin-bottom: 4px;">メンバーID: ${member.memberId}</div>
+          <div style="font-size: 14px; color: #666; margin-bottom: 12px;">
+            所属: ${member.affiliation}${member.affiliationDetail ? ` (${member.affiliationDetail})` : ''}
+          </div>
+          <div style="text-align: center;">
+            <a href="${resetUrl}" 
+               style="background-color: #4F46E5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 8px; display: inline-block; font-size: 14px;">
+              このアカウントのパスワードをリセット
+            </a>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    const mailOptions = {
+        from: `"メンバー登録システム" <${GMAIL_USER}>`,
+        to,
+        subject: 'パスワードリセットのお知らせ',
+        html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #333;">パスワードリセット</h2>
+        <p>パスワードリセットのリクエストを受け付けました。</p>
+        <p style="color: #d97706; background-color: #fef3c7; padding: 12px; border-radius: 8px; font-size: 14px;">
+          <strong>ℹ️ このメールアドレスには複数のアカウントが登録されています</strong><br>
+          パスワードをリセットするアカウントを選択してください。
+        </p>
+        ${memberLinks}
+        <p style="color: #666; font-size: 14px; margin-top: 30px;">
+          各リンクは1時間有効です。<br>
+          <strong>注意:</strong> 1つのリンクを使用すると、そのアカウントのパスワードのみがリセットされます。<br>
+          もしこのメールに心当たりがない場合は、無視してください。
+        </p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+        <p style="color: #999; font-size: 12px;">
+          このメールはシステムから自動送信されています。<br>
+          直接返信しないでください。
+        </p>
+      </div>
+    `,
+    };
+
+    try {
+        const transporter = await createTransporter();
+        await transporter.sendMail(mailOptions);
+        console.log(`Password reset email (multiple members) sent to ${to}`);
+    } catch (error) {
+        console.error('Error sending password reset email:', error);
+        throw new Error('メールの送信に失敗しました');
+    }
+}
+
+/**
  * 登録完了メールを送信
  */
 export async function sendRegistrationCompleteEmail(

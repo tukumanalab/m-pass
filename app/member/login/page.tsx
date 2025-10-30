@@ -146,10 +146,16 @@ export default function MemberLoginPage() {
             </button>
           </form>
 
-          <div className="mt-6 text-center">
+          <div className="mt-6 text-center space-y-2">
+            <Link
+              href="/member/request-reset"
+              className="block text-sm text-gray-600 hover:text-gray-700 hover:underline"
+            >
+              パスワードを忘れた場合
+            </Link>
             <Link
               href="/register"
-              className="text-sm text-primary-600 hover:text-primary-700 hover:underline"
+              className="block text-sm text-primary-600 hover:text-primary-700 hover:underline"
             >
               新規登録はこちら
             </Link>

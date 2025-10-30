@@ -47,6 +47,18 @@ export function initDatabase() {
     )
   `);
 
+  // パスワードリセットトークンテーブル
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS password_reset_tokens (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      member_id INTEGER NOT NULL,
+      token TEXT UNIQUE NOT NULL,
+      expires_at DATETIME NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE
+    )
+  `);
+
   // チェックインテーブル
   db.exec(`
     CREATE TABLE IF NOT EXISTS checkins (
@@ -65,6 +77,11 @@ export function initDatabase() {
   // token用のインデックス
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_pending_token ON pending_members(token)
+  `);
+
+  // password_reset_tokens用のインデックス
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_reset_token ON password_reset_tokens(token)
   `);
 }
 
@@ -125,6 +142,14 @@ export function findMemberByEmail(email: string) {
     SELECT * FROM members WHERE email = ?
   `);
   return stmt.get(email);
+}
+
+// メールアドレスで全メンバーを検索（複数対応）
+export function findAllMembersByEmail(email: string) {
+  const stmt = db.prepare(`
+    SELECT * FROM members WHERE email = ? ORDER BY created_at DESC
+  `);
+  return stmt.all(email);
 }
 
 // 名前でメンバーを検索
@@ -363,6 +388,54 @@ export function findPendingMemberByEmail(email: string) {
     SELECT * FROM pending_members WHERE email = ?
   `);
   return stmt.get(email);
+}
+
+// パスワードリセットトークンの作成
+export function createPasswordResetToken(
+  memberId: number,
+  token: string,
+  expiresAt: string
+) {
+  const stmt = db.prepare(`
+    INSERT INTO password_reset_tokens (member_id, token, expires_at)
+    VALUES (?, ?, ?)
+  `);
+  const result = stmt.run(memberId, token, expiresAt);
+  return result.lastInsertRowid;
+}
+
+// トークンからパスワードリセット情報を取得
+export function findPasswordResetByToken(token: string) {
+  const stmt = db.prepare(`
+    SELECT * FROM password_reset_tokens WHERE token = ?
+  `);
+  return stmt.get(token);
+}
+
+// 期限切れのパスワードリセットトークンを削除
+export function deleteExpiredPasswordResetTokens() {
+  const stmt = db.prepare(`
+    DELETE FROM password_reset_tokens WHERE expires_at < CURRENT_TIMESTAMP
+  `);
+  const result = stmt.run();
+  return result.changes;
+}
+
+// パスワードリセットトークンを削除
+export function deletePasswordResetToken(id: number) {
+  const stmt = db.prepare(`
+    DELETE FROM password_reset_tokens WHERE id = ?
+  `);
+  const result = stmt.run(id);
+  return result.changes;
+}
+
+// メンバーのパスワードを更新
+export function updateMemberPassword(id: number, passwordHash: string) {
+  const stmt = db.prepare(`
+    UPDATE members SET password_hash = ? WHERE id = ?
+  `);
+  return stmt.run(passwordHash, id).changes;
 }
 
 // データベース初期化を実行
