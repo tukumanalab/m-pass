@@ -1,18 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { findMemberByMemberId, createCheckIn, getLatestCheckIn } from '@/lib/database';
+import { findMemberByMemberId, getMemberById, createCheckIn, getLatestCheckIn } from '@/lib/database';
 
-// member_idでチェックイン
+// member_idまたはデータベースIDでチェックイン
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { qrCode } = body;
+    const { qrCode, memberId } = body;
 
-    if (!qrCode) {
+    let member: any = null;
+
+    // memberIdが指定されている場合は、データベースIDから検索
+    if (memberId) {
+      member = getMemberById(memberId);
+    }
+    // qrCodeが指定されている場合は、member_idから検索
+    else if (qrCode) {
+      member = findMemberByMemberId(qrCode) as any;
+    }
+    // どちらも指定されていない場合はエラー
+    else {
       return NextResponse.json({ error: 'メンバーIDが読み取れませんでした' }, { status: 400 });
     }
-
-    // member_idからメンバーを検索
-    const member = findMemberByMemberId(qrCode) as any;
 
     if (!member) {
       return NextResponse.json({ error: '登録されていないメンバーIDです' }, { status: 404 });

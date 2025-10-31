@@ -31,6 +31,11 @@ export default function ScanPage() {
   const [messageOpacity, setMessageOpacity] = useState(1);
   const [mirrorCamera, setMirrorCamera] = useState(false);
   const [checkIns, setCheckIns] = useState<CheckIn[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [selectedMember, setSelectedMember] = useState<any>(null);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const processingRef = useRef(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const router = useRouter();
@@ -287,6 +292,133 @@ export default function ScanPage() {
 
     oscillator.start(now);
     oscillator.stop(now + 0.3);
+  };
+
+  const handleSearch = async (query: string) => {
+    if (!query || query.trim().length === 0) {
+      setSearchResults([]);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const response = await fetch(
+        apiUrl(`/api/admin/members/search?q=${encodeURIComponent(query)}`)
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setSearchResults(data.members || []);
+      } else {
+        setSearchResults([]);
+      }
+    } catch (err) {
+      console.error("Search error:", err);
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleMemberSelect = (member: any) => {
+    setSelectedMember(member);
+    setShowConfirmDialog(true);
+  };
+
+  const handleCancelCheckIn = () => {
+    setSelectedMember(null);
+    setShowConfirmDialog(false);
+  };
+
+  const handleConfirmCheckIn = async () => {
+    if (!selectedMember) return;
+
+    // ダイアログを閉じる
+    setShowConfirmDialog(false);
+
+    // メッセージ処理開始
+    processingRef.current = true;
+    setSearchQuery("");
+    setSearchResults([]);
+    setSelectedMember(null);
+
+    try {
+      const response = await fetch(apiUrl("/api/checkin"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ memberId: selectedMember.id }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        playErrorSound();
+        setError(data.error || "チェックインに失敗しました");
+        setResult(null);
+        setMessageOpacity(1);
+
+        const fadeStart = Date.now();
+        const fadeDuration = 3000;
+        const fadeInterval = setInterval(() => {
+          const elapsed = Date.now() - fadeStart;
+          const opacity = Math.max(0, 1 - elapsed / fadeDuration);
+          setMessageOpacity(opacity);
+
+          if (opacity === 0) {
+            clearInterval(fadeInterval);
+            setError(null);
+            setMessageOpacity(1);
+            processingRef.current = false;
+          }
+        }, 50);
+
+        return;
+      }
+
+      playSuccessSound();
+      setResult(data.checkIn);
+      setError(null);
+      setMessageOpacity(1);
+      fetchTodayCheckIns();
+
+      const fadeStart = Date.now();
+      const fadeDuration = 3000;
+      const fadeInterval = setInterval(() => {
+        const elapsed = Date.now() - fadeStart;
+        const opacity = Math.max(0, 1 - elapsed / fadeDuration);
+        setMessageOpacity(opacity);
+
+        if (opacity === 0) {
+          clearInterval(fadeInterval);
+          setResult(null);
+          setMessageOpacity(1);
+          processingRef.current = false;
+        }
+      }, 50);
+    } catch (err) {
+      playErrorSound();
+      setError(
+        err instanceof Error ? err.message : "チェックインに失敗しました"
+      );
+      setResult(null);
+      setMessageOpacity(1);
+
+      const fadeStart = Date.now();
+      const fadeDuration = 2000;
+      const fadeInterval = setInterval(() => {
+        const elapsed = Date.now() - fadeStart;
+        const opacity = Math.max(0, 1 - elapsed / fadeDuration);
+        setMessageOpacity(opacity);
+
+        if (opacity === 0) {
+          clearInterval(fadeInterval);
+          setError(null);
+          setMessageOpacity(1);
+          processingRef.current = false;
+        }
+      }, 50);
+    }
   };
 
   const handleCheckIn = async (qrCode: string) => {
@@ -631,7 +763,184 @@ export default function ScanPage() {
             </p>
           </div>
         </div>
+
+        {/* 検索でチェックイン */}
+        <div className="mt-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+              <svg
+                className="w-5 h-5 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
+              </svg>
+            </div>
+            <h2 className="text-xl font-bold text-gray-900">名前・IDで検索</h2>
+          </div>
+
+          <div className="relative">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                handleSearch(e.target.value);
+              }}
+              placeholder="名前またはIDを入力..."
+              className="w-full px-4 py-3 pl-12 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            />
+            <svg
+              className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
+            </svg>
+          </div>
+
+          {/* 検索結果 */}
+          {isSearching && (
+            <div className="mt-4 p-4 text-center text-gray-500">検索中...</div>
+          )}
+
+          {!isSearching && searchResults.length > 0 && (
+            <div className="mt-4 space-y-2 max-h-64 overflow-y-auto">
+              {searchResults.map((member) => (
+                <button
+                  key={member.id}
+                  onClick={() => handleMemberSelect(member)}
+                  className="w-full p-4 bg-white border border-gray-200 rounded-xl hover:border-primary-500 hover:bg-primary-50 transition-all text-left"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold text-gray-900">
+                        {member.name}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        ID: {member.member_id}
+                      </p>
+                      {member.affiliation && (
+                        <p className="text-sm text-gray-500">
+                          {member.affiliation}
+                        </p>
+                      )}
+                    </div>
+                    <svg
+                      className="w-6 h-6 text-primary-500"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 5l7 7-7 7"
+                      />
+                    </svg>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {!isSearching &&
+            searchQuery.trim().length > 0 &&
+            searchResults.length === 0 && (
+              <div className="mt-4 p-4 bg-gray-50 rounded-xl text-center text-gray-500">
+                該当する会員が見つかりませんでした
+              </div>
+            )}
+        </div>
       </div>
+
+      {/* 確認ダイアログ */}
+      {showConfirmDialog && selectedMember && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
+                <svg
+                  className="w-6 h-6 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                  />
+                </svg>
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900">
+                チェックイン確認
+              </h2>
+            </div>
+
+            <div className="space-y-3 mb-6">
+              <div className="p-4 bg-gray-50 rounded-xl">
+                <p className="text-sm text-gray-600 mb-1">氏名</p>
+                <p className="text-lg font-semibold text-gray-900">
+                  {selectedMember.name}
+                </p>
+              </div>
+
+              <div className="p-4 bg-gray-50 rounded-xl">
+                <p className="text-sm text-gray-600 mb-1">会員ID</p>
+                <p className="text-lg font-semibold text-gray-900">
+                  {selectedMember.member_id}
+                </p>
+              </div>
+
+              <div className="p-4 bg-gray-50 rounded-xl">
+                <p className="text-sm text-gray-600 mb-1">所属</p>
+                <p className="text-lg font-semibold text-gray-900">
+                  {selectedMember.affiliation || "未設定"}
+                </p>
+              </div>
+
+              {selectedMember.affiliation_detail && (
+                <div className="p-4 bg-gray-50 rounded-xl">
+                  <p className="text-sm text-gray-600 mb-1">所属詳細</p>
+                  <p className="text-lg font-semibold text-gray-900">
+                    {selectedMember.affiliation_detail}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleCancelCheckIn}
+                className="flex-1 py-3 px-4 bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium rounded-xl transition-colors"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={handleConfirmCheckIn}
+                className="flex-1 py-3 px-4 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white font-medium rounded-xl transition-all shadow-md hover:shadow-lg"
+              >
+                チェックイン
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
