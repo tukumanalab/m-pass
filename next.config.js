@@ -14,6 +14,16 @@ const nextConfig = {
   env: {
     NEXT_PUBLIC_BASE_PATH: process.env.BASE_PATH || '',
   },
+  // メモリ使用量の最適化
+  productionBrowserSourceMaps: false, // ソースマップを無効化してメモリ削減
+  // 静的最適化を有効化
+  poweredByHeader: false,
+  compress: true,
+  // メモリ不足対策: 並列ビルドを制限
+  experimental: {
+    workerThreads: false,
+    cpus: 1
+  }
 }
 
 module.exports = nextConfig
