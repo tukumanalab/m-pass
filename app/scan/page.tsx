@@ -29,7 +29,7 @@ export default function ScanPage() {
   const [lastScannedCode, setLastScannedCode] = useState<string | null>(null);
   const [lastScannedTime, setLastScannedTime] = useState<number>(0);
   const [messageOpacity, setMessageOpacity] = useState(1);
-  const [mirrorCamera, setMirrorCamera] = useState(false);
+  const [mirrorCamera, setMirrorCamera] = useState(true);
   const [checkIns, setCheckIns] = useState<CheckIn[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -1026,6 +1026,16 @@ export default function ScanPage() {
             </div>
           </div>
         )}
+
+        {/* 管理者ダッシュボードへのリンク */}
+        <div className="mt-6 text-center">
+          <a
+            href="/admin/dashboard"
+            className="text-sm text-gray-500 hover:text-gray-700 underline transition-colors"
+          >
+            管理
+          </a>
+        </div>
       </div>
     </div>
   );
