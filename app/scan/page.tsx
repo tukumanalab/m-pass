@@ -95,8 +95,12 @@ export default function ScanPage() {
       }
       // Audio要素のクリーンアップ
       if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.src = "";
+        try {
+          audioRef.current.pause();
+          audioRef.current.src = "";
+        } catch (e) {
+          // クリーンアップエラーは無視
+        }
         audioRef.current = null;
       }
     };
@@ -181,8 +185,13 @@ export default function ScanPage() {
 
     // 既存のAudio要素をクリーンアップ
     if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.src = "";
+      try {
+        audioRef.current.pause();
+        audioRef.current.src = "";
+      } catch (e) {
+        // クリーンアップエラーは無視
+      }
+      audioRef.current = null;
     }
 
     // APIエンドポイント経由で音声を取得（カスタム音声またはデフォルト音声）
@@ -193,19 +202,51 @@ export default function ScanPage() {
 
       // 音声の読み込みを待ってから再生
       await new Promise((resolve, reject) => {
-        audio.addEventListener("canplaythrough", resolve, { once: true });
-        audio.addEventListener("error", reject, { once: true });
+        const timeout = setTimeout(
+          () => reject(new Error("Load timeout")),
+          5000
+        );
+        audio.addEventListener(
+          "canplaythrough",
+          () => {
+            clearTimeout(timeout);
+            resolve(true);
+          },
+          { once: true }
+        );
+        audio.addEventListener(
+          "error",
+          (e) => {
+            clearTimeout(timeout);
+            reject(e);
+          },
+          { once: true }
+        );
         audio.load();
       });
 
-      await audio.play();
+      // 再生前にaudioRefがまだ有効かチェック
+      if (audioRef.current === audio) {
+        try {
+          const playPromise = audio.play();
+          if (playPromise !== undefined) {
+            playPromise.catch((e) => {
+              // AbortError等の再生エラーは無視
+              if (e.name !== "AbortError") {
+                console.debug("Play interrupted:", e.name);
+              }
+            });
+          }
+        } catch (e) {
+          // play()の同期的なエラーも無視
+          console.debug("Play error:", e);
+        }
+      }
       return; // 再生成功したら終了
     } catch (e) {
       console.error("Failed to play success sound:", e);
       // エラー時はaudioRefをクリア
-      if (audioRef.current) {
-        audioRef.current = null;
-      }
+      audioRef.current = null;
     }
 
     // APIが失敗した場合のフォールバック: Web Audio APIで音を生成
@@ -248,8 +289,13 @@ export default function ScanPage() {
 
     // 既存のAudio要素をクリーンアップ
     if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.src = "";
+      try {
+        audioRef.current.pause();
+        audioRef.current.src = "";
+      } catch (e) {
+        // クリーンアップエラーは無視
+      }
+      audioRef.current = null;
     }
 
     // APIエンドポイント経由で音声を取得（カスタム音声またはデフォルト音声）
@@ -260,19 +306,51 @@ export default function ScanPage() {
 
       // 音声の読み込みを待ってから再生
       await new Promise((resolve, reject) => {
-        audio.addEventListener("canplaythrough", resolve, { once: true });
-        audio.addEventListener("error", reject, { once: true });
+        const timeout = setTimeout(
+          () => reject(new Error("Load timeout")),
+          5000
+        );
+        audio.addEventListener(
+          "canplaythrough",
+          () => {
+            clearTimeout(timeout);
+            resolve(true);
+          },
+          { once: true }
+        );
+        audio.addEventListener(
+          "error",
+          (e) => {
+            clearTimeout(timeout);
+            reject(e);
+          },
+          { once: true }
+        );
         audio.load();
       });
 
-      await audio.play();
+      // 再生前にaudioRefがまだ有効かチェック
+      if (audioRef.current === audio) {
+        try {
+          const playPromise = audio.play();
+          if (playPromise !== undefined) {
+            playPromise.catch((e) => {
+              // AbortError等の再生エラーは無視
+              if (e.name !== "AbortError") {
+                console.debug("Play interrupted:", e.name);
+              }
+            });
+          }
+        } catch (e) {
+          // play()の同期的なエラーも無視
+          console.debug("Play error:", e);
+        }
+      }
       return; // 再生成功したら終了
     } catch (e) {
       console.error("Failed to play error sound:", e);
       // エラー時はaudioRefをクリア
-      if (audioRef.current) {
-        audioRef.current = null;
-      }
+      audioRef.current = null;
     }
 
     // APIが失敗した場合のフォールバック: Web Audio APIで音を生成
@@ -534,7 +612,7 @@ export default function ScanPage() {
 
   if (!authChecked) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-green-50">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">認証確認中...</p>
@@ -544,232 +622,265 @@ export default function ScanPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-12">
-      <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-primary-100">
-        <div className="flex items-center justify-center gap-3 mb-6">
-          <div className="w-12 h-12 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center">
-            <svg
-              className="w-6 h-6 text-white"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"
-              />
-            </svg>
+    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-green-50 px-4 py-8">
+      <div className="max-w-2xl mx-auto">
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-primary-100">
+          <div className="flex items-center justify-center gap-3 mb-6">
+            <div className="w-12 h-12 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center">
+              <svg
+                className="w-6 h-6 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"
+                />
+              </svg>
+            </div>
+            <h1 className="text-3xl font-bold text-gray-900">
+              QRコードスキャン
+            </h1>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900">QRコードスキャン</h1>
-        </div>
 
-        {/* カメラエリア */}
-        <div className="mb-8 relative">
-          <div
-            id="qr-reader"
-            className="w-full rounded-xl overflow-hidden"
-            style={{ transform: mirrorCamera ? "scaleX(-1)" : "none" }}
-          ></div>
-
-          {/* 鏡像切り替えスイッチ */}
-          <button
-            onClick={() => setMirrorCamera(!mirrorCamera)}
-            className="absolute top-2 right-2 p-2 bg-black/30 hover:bg-black/50 rounded-lg transition-colors"
-            title="カメラを反転"
-          >
-            <svg
-              className="w-5 h-5 text-white"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
-              />
-            </svg>
-          </button>
-
-          {/* メッセージオーバーレイ */}
-          {(result || error) && (
+          {/* カメラエリア */}
+          <div className="mb-8 relative">
             <div
-              className="absolute inset-0 flex items-center justify-center p-4 bg-black/50 rounded-xl"
-              style={{
-                opacity: messageOpacity,
-                transition: "opacity 0.05s linear",
-              }}
-            >
-              {/* チェックイン成功メッセージ */}
-              {result && (
-                <div className="p-6 bg-white rounded-xl shadow-2xl max-w-md w-full">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center">
-                      <svg
-                        className="w-7 h-7 text-white"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M5 13l4 4L19 7"
-                        />
-                      </svg>
-                    </div>
-                    <h2 className="text-2xl font-bold text-green-800">
-                      チェックイン完了
-                    </h2>
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-xl font-bold text-gray-900">
-                      {result.memberName}
-                    </p>
-                    {result.company && (
-                      <p className="text-base text-gray-700">
-                        {result.company}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
+              id="qr-reader"
+              className="w-full rounded-xl overflow-hidden"
+              style={{ transform: mirrorCamera ? "scaleX(-1)" : "none" }}
+            ></div>
 
-              {/* エラーメッセージ */}
-              {error && (
-                <div className="p-6 bg-white rounded-xl shadow-2xl max-w-md w-full">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-red-600 rounded-full flex items-center justify-center flex-shrink-0">
-                      <svg
-                        className="w-7 h-7 text-white"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M6 18L18 6M6 6l12 12"
-                        />
-                      </svg>
-                    </div>
-                    <p className="text-lg font-bold text-red-600">{error}</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div className="space-y-3">
-          {!scanning ? (
+            {/* 鏡像切り替えスイッチ */}
             <button
-              onClick={startScanning}
-              className="flex items-center justify-center gap-2 w-full bg-gradient-to-r from-primary-500 to-primary-600 text-white py-3 px-4 rounded-xl hover:from-primary-600 hover:to-primary-700 transition-all shadow-md hover:shadow-lg font-medium"
+              onClick={() => setMirrorCamera(!mirrorCamera)}
+              className="absolute top-2 right-2 p-2 bg-black/30 hover:bg-black/50 rounded-lg transition-colors"
+              title="カメラを反転"
             >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-                />
-              </svg>
-              スキャン開始
-            </button>
-          ) : (
-            <button
-              onClick={stopScanning}
-              className="flex items-center justify-center gap-2 w-full bg-gradient-to-r from-red-500 to-red-600 text-white py-3 px-4 rounded-xl hover:from-red-600 hover:to-red-700 transition-all shadow-md hover:shadow-lg font-medium"
-            >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"
-                />
-              </svg>
-              スキャン停止
-            </button>
-          )}
-        </div>
-
-        {/* カメラエラーメッセージの常時表示エリア */}
-        {error && !scanning && (
-          <div className="mt-4 p-4 bg-red-50 rounded-xl border border-red-200">
-            <div className="flex items-start gap-3">
-              <svg
-                className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                />
-              </svg>
-              <div className="flex-1">
-                <p className="text-sm font-semibold text-red-800 mb-1">
-                  カメラエラー
-                </p>
-                <p className="text-sm text-red-700">{error}</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="mt-6 p-4 bg-gradient-to-r from-primary-50 to-green-50 rounded-xl border border-primary-200">
-          <div className="flex items-center gap-2 text-primary-700">
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            <p className="text-sm font-medium">
-              QRコードをカメラに向けてください
-            </p>
-          </div>
-        </div>
-
-        {/* 検索でチェックイン */}
-        <div className="mt-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
               <svg
                 className="w-5 h-5 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
+                />
+              </svg>
+            </button>
+
+            {/* メッセージオーバーレイ */}
+            {(result || error) && (
+              <div
+                className="absolute inset-0 flex items-center justify-center p-4 bg-black/50 rounded-xl"
+                style={{
+                  opacity: messageOpacity,
+                  transition: "opacity 0.05s linear",
+                }}
+              >
+                {/* チェックイン成功メッセージ */}
+                {result && (
+                  <div className="p-6 bg-white rounded-xl shadow-2xl max-w-md w-full">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center">
+                        <svg
+                          className="w-7 h-7 text-white"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M5 13l4 4L19 7"
+                          />
+                        </svg>
+                      </div>
+                      <h2 className="text-2xl font-bold text-green-800">
+                        チェックイン完了
+                      </h2>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-xl font-bold text-gray-900">
+                        {result.memberName}
+                      </p>
+                      {result.company && (
+                        <p className="text-base text-gray-700">
+                          {result.company}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* エラーメッセージ */}
+                {error && (
+                  <div className="p-6 bg-white rounded-xl shadow-2xl max-w-md w-full">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-red-600 rounded-full flex items-center justify-center flex-shrink-0">
+                        <svg
+                          className="w-7 h-7 text-white"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M6 18L18 6M6 6l12 12"
+                          />
+                        </svg>
+                      </div>
+                      <p className="text-lg font-bold text-red-600">{error}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            {!scanning ? (
+              <button
+                onClick={startScanning}
+                className="flex items-center justify-center gap-2 w-full bg-gradient-to-r from-primary-500 to-primary-600 text-white py-3 px-4 rounded-xl hover:from-primary-600 hover:to-primary-700 transition-all shadow-md hover:shadow-lg font-medium"
+              >
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                  />
+                </svg>
+                スキャン開始
+              </button>
+            ) : (
+              <button
+                onClick={stopScanning}
+                className="flex items-center justify-center gap-2 w-full bg-gradient-to-r from-red-500 to-red-600 text-white py-3 px-4 rounded-xl hover:from-red-600 hover:to-red-700 transition-all shadow-md hover:shadow-lg font-medium"
+              >
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"
+                  />
+                </svg>
+                スキャン停止
+              </button>
+            )}
+          </div>
+
+          {/* カメラエラーメッセージの常時表示エリア */}
+          {error && !scanning && (
+            <div className="mt-4 p-4 bg-red-50 rounded-xl border border-red-200">
+              <div className="flex items-start gap-3">
+                <svg
+                  className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                  />
+                </svg>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-red-800 mb-1">
+                    カメラエラー
+                  </p>
+                  <p className="text-sm text-red-700">{error}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="mt-6 p-4 bg-gradient-to-r from-primary-50 to-green-50 rounded-xl border border-primary-200">
+            <div className="flex items-center gap-2 text-primary-700">
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              <p className="text-sm font-medium">
+                QRコードをカメラに向けてください
+              </p>
+            </div>
+          </div>
+
+          {/* 検索でチェックイン */}
+          <div className="mt-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+                <svg
+                  className="w-5 h-5 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
+                </svg>
+              </div>
+              <h2 className="text-xl font-bold text-gray-900">
+                名前・IDで検索
+              </h2>
+            </div>
+
+            <div className="relative">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  handleSearch(e.target.value);
+                }}
+                placeholder="名前またはIDを入力..."
+                className="w-full px-4 py-3 pl-12 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              />
+              <svg
+                className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -782,165 +893,140 @@ export default function ScanPage() {
                 />
               </svg>
             </div>
-            <h2 className="text-xl font-bold text-gray-900">名前・IDで検索</h2>
-          </div>
 
-          <div className="relative">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                handleSearch(e.target.value);
-              }}
-              placeholder="名前またはIDを入力..."
-              className="w-full px-4 py-3 pl-12 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            />
-            <svg
-              className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-              />
-            </svg>
-          </div>
-
-          {/* 検索結果 */}
-          {isSearching && (
-            <div className="mt-4 p-4 text-center text-gray-500">検索中...</div>
-          )}
-
-          {!isSearching && searchResults.length > 0 && (
-            <div className="mt-4 space-y-2 max-h-64 overflow-y-auto">
-              {searchResults.map((member) => (
-                <button
-                  key={member.id}
-                  onClick={() => handleMemberSelect(member)}
-                  className="w-full p-4 bg-white border border-gray-200 rounded-xl hover:border-primary-500 hover:bg-primary-50 transition-all text-left"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-semibold text-gray-900">
-                        {member.name}
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        ID: {member.member_id}
-                      </p>
-                      {member.affiliation && (
-                        <p className="text-sm text-gray-500">
-                          {member.affiliation}
-                        </p>
-                      )}
-                    </div>
-                    <svg
-                      className="w-6 h-6 text-primary-500"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 5l7 7-7 7"
-                      />
-                    </svg>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {!isSearching &&
-            searchQuery.trim().length > 0 &&
-            searchResults.length === 0 && (
-              <div className="mt-4 p-4 bg-gray-50 rounded-xl text-center text-gray-500">
-                該当する会員が見つかりませんでした
+            {/* 検索結果 */}
+            {isSearching && (
+              <div className="mt-4 p-4 text-center text-gray-500">
+                検索中...
               </div>
             )}
-        </div>
-      </div>
 
-      {/* 確認ダイアログ */}
-      {showConfirmDialog && selectedMember && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
-                <svg
-                  className="w-6 h-6 text-white"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                  />
-                </svg>
+            {!isSearching && searchResults.length > 0 && (
+              <div className="mt-4 space-y-2 max-h-64 overflow-y-auto">
+                {searchResults.map((member) => (
+                  <button
+                    key={member.id}
+                    onClick={() => handleMemberSelect(member)}
+                    className="w-full p-4 bg-white border border-gray-200 rounded-xl hover:border-primary-500 hover:bg-primary-50 transition-all text-left"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-semibold text-gray-900">
+                          {member.name}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          ID: {member.member_id}
+                        </p>
+                        {member.affiliation && (
+                          <p className="text-sm text-gray-500">
+                            {member.affiliation}
+                          </p>
+                        )}
+                      </div>
+                      <svg
+                        className="w-6 h-6 text-primary-500"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 5l7 7-7 7"
+                        />
+                      </svg>
+                    </div>
+                  </button>
+                ))}
               </div>
-              <h2 className="text-2xl font-bold text-gray-900">
-                チェックイン確認
-              </h2>
-            </div>
+            )}
 
-            <div className="space-y-3 mb-6">
-              <div className="p-4 bg-gray-50 rounded-xl">
-                <p className="text-sm text-gray-600 mb-1">氏名</p>
-                <p className="text-lg font-semibold text-gray-900">
-                  {selectedMember.name}
-                </p>
-              </div>
-
-              <div className="p-4 bg-gray-50 rounded-xl">
-                <p className="text-sm text-gray-600 mb-1">会員ID</p>
-                <p className="text-lg font-semibold text-gray-900">
-                  {selectedMember.member_id}
-                </p>
-              </div>
-
-              <div className="p-4 bg-gray-50 rounded-xl">
-                <p className="text-sm text-gray-600 mb-1">所属</p>
-                <p className="text-lg font-semibold text-gray-900">
-                  {selectedMember.affiliation || "未設定"}
-                </p>
-              </div>
-
-              {selectedMember.affiliation_detail && (
-                <div className="p-4 bg-gray-50 rounded-xl">
-                  <p className="text-sm text-gray-600 mb-1">所属詳細</p>
-                  <p className="text-lg font-semibold text-gray-900">
-                    {selectedMember.affiliation_detail}
-                  </p>
+            {!isSearching &&
+              searchQuery.trim().length > 0 &&
+              searchResults.length === 0 && (
+                <div className="mt-4 p-4 bg-gray-50 rounded-xl text-center text-gray-500">
+                  該当する会員が見つかりませんでした
                 </div>
               )}
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={handleCancelCheckIn}
-                className="flex-1 py-3 px-4 bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium rounded-xl transition-colors"
-              >
-                キャンセル
-              </button>
-              <button
-                onClick={handleConfirmCheckIn}
-                className="flex-1 py-3 px-4 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white font-medium rounded-xl transition-all shadow-md hover:shadow-lg"
-              >
-                チェックイン
-              </button>
-            </div>
           </div>
         </div>
-      )}
+
+        {/* 確認ダイアログ */}
+        {showConfirmDialog && selectedMember && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
+                  <svg
+                    className="w-6 h-6 text-white"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                    />
+                  </svg>
+                </div>
+                <h2 className="text-2xl font-bold text-gray-900">
+                  チェックイン確認
+                </h2>
+              </div>
+
+              <div className="space-y-3 mb-6">
+                <div className="p-4 bg-gray-50 rounded-xl">
+                  <p className="text-sm text-gray-600 mb-1">氏名</p>
+                  <p className="text-lg font-semibold text-gray-900">
+                    {selectedMember.name}
+                  </p>
+                </div>
+
+                <div className="p-4 bg-gray-50 rounded-xl">
+                  <p className="text-sm text-gray-600 mb-1">会員ID</p>
+                  <p className="text-lg font-semibold text-gray-900">
+                    {selectedMember.member_id}
+                  </p>
+                </div>
+
+                <div className="p-4 bg-gray-50 rounded-xl">
+                  <p className="text-sm text-gray-600 mb-1">所属</p>
+                  <p className="text-lg font-semibold text-gray-900">
+                    {selectedMember.affiliation || "未設定"}
+                  </p>
+                </div>
+
+                {selectedMember.affiliation_detail && (
+                  <div className="p-4 bg-gray-50 rounded-xl">
+                    <p className="text-sm text-gray-600 mb-1">所属詳細</p>
+                    <p className="text-lg font-semibold text-gray-900">
+                      {selectedMember.affiliation_detail}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={handleCancelCheckIn}
+                  className="flex-1 py-3 px-4 bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium rounded-xl transition-colors"
+                >
+                  キャンセル
+                </button>
+                <button
+                  onClick={handleConfirmCheckIn}
+                  className="flex-1 py-3 px-4 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white font-medium rounded-xl transition-all shadow-md hover:shadow-lg"
+                >
+                  チェックイン
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
