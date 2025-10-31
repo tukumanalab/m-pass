@@ -206,3 +206,169 @@ pm2 start deploy/ecosystem.config.js --only m-pass
 - CPU 待機状態が **0% → 98%** に改善
 - アプリケーション応答速度が大幅に向上
 - 安定稼働を実現 (メモリ余裕 1.4GB 確保)
+
+## 再発防止策
+
+### 1. 自動メモリ監視の設定 (必須)
+
+メモリ使用率が高くなった際に自動で対応するスクリプトを設定します。
+
+```bash
+# スクリプトに実行権限を付与
+chmod +x /srv/m-pass/deploy/monitor-memory.sh
+chmod +x /srv/m-pass/deploy/check-mysql.sh
+
+# sudoersに設定を追加 (パスワードなしでメモリクリアを実行できるようにする)
+echo "$(whoami) ALL=(ALL) NOPASSWD: /usr/bin/tee /proc/sys/vm/drop_caches" | sudo tee -a /etc/sudoers.d/m-pass-memory
+sudo chmod 440 /etc/sudoers.d/m-pass-memory
+
+# cronで5分ごとに監視を実行
+crontab -e
+# 以下を追加:
+*/5 * * * * /srv/m-pass/deploy/monitor-memory.sh
+```
+
+**監視スクリプトの動作:**
+
+- メモリ使用率が 85%以上で警告ログを記録
+- 95%以上または利用可能メモリが 100MB 以下で自動的に PM2 を再起動
+- 1 時間に 1 回まで実行（過剰な再起動を防止）
+
+### 2. MySQL の停止 (推奨)
+
+このアプリケーションは SQLite を使用しているため、MySQL は不要です。
+
+```bash
+# MySQLの使用状況を確認
+bash /srv/m-pass/deploy/check-mysql.sh
+
+# 不要な場合は停止
+sudo systemctl stop mysql
+sudo systemctl disable mysql
+
+# メモリ節約効果: 約100-200MB
+```
+
+### 3. PM2 設定の最適化
+
+`deploy/ecosystem.config.js` を最適化済み:
+
+- メモリ制限: 450MB (超過時に自動再起動)
+- Node.js ヒープ: 400MB
+- プロセス優先度: nice 10 (CPU 優先度を下げる)
+
+### 4. システム起動時の自動起動設定
+
+```bash
+# PM2のスタートアップスクリプトを生成
+pm2 startup
+
+# 表示されたコマンドを実行 (例)
+# sudo env PATH=$PATH:/usr/bin /usr/lib/node_modules/pm2/bin/pm2 startup systemd -u ky --hp /home/ky
+
+# 現在のPM2設定を保存
+pm2 save
+```
+
+### 5. 定期的なメモリ最適化 (任意)
+
+週 1 回、深夜にメモリを最適化:
+
+```bash
+crontab -e
+# 以下を追加 (毎週日曜日の午前3時に実行):
+0 3 * * 0 cd /srv/m-pass && bash deploy/optimize-memory.sh && pm2 restart all
+```
+
+### 6. アラート通知の設定 (オプション)
+
+メモリ不足時にメール通知を受け取る:
+
+```bash
+# mailutilsをインストール
+sudo apt-get install -y mailutils
+
+# monitor-memory.shに以下を追加 (緊急時のメール送信)
+# echo "メモリ使用率: ${MEMORY_USAGE}%" | mail -s "🚨 M-Pass メモリ警告" your-email@example.com
+```
+
+### 7. 日常的な確認項目
+
+**毎日確認:**
+
+```bash
+# PM2の状態
+pm2 status
+
+# メモリ使用状況
+free -h
+```
+
+**週 1 回確認:**
+
+```bash
+# 監視ログを確認
+tail -100 /var/log/m-pass-memory-monitor.log
+
+# PM2の再起動回数を確認
+pm2 list
+# restart列が10回以上の場合は要注意
+```
+
+### 8. 禁止事項
+
+以下の操作はメモリ不足を引き起こします:
+
+❌ **デバッグ環境と本番環境を同時起動**
+
+```bash
+# これは絶対にしない
+pm2 start deploy/ecosystem.config.js  # 両方起動してしまう
+```
+
+✅ **正しい起動方法**
+
+```bash
+# 本番環境のみ
+pm2 start deploy/ecosystem.config.js --only m-pass
+
+# デバッグ環境のみ（開発時）
+pm2 start deploy/ecosystem.config.js --only m-pass-debug
+```
+
+❌ **npm start を直接実行**
+
+```bash
+# PM2を使わない起動は監視・制限ができない
+npm start  # 危険
+```
+
+❌ **複数の Node プロセスを起動**
+
+```bash
+# PM2以外でNodeプロセスを起動しない
+node server.js  # 危険
+```
+
+### 9. 緊急時のチェックリスト
+
+メモリ不足が発生した場合:
+
+```bash
+# 1. 全プロセスを確認
+ps aux --sort=-%mem | head -20
+
+# 2. Nodeプロセスの数を確認
+ps aux | grep node | wc -l
+# 結果が3以上の場合は要注意（PM2 + アプリ1つで通常2つ）
+
+# 3. 不要なプロセスを停止
+pm2 stop all
+pm2 delete all
+
+# 4. メモリクリア
+sudo bash /srv/m-pass/deploy/optimize-memory.sh
+
+# 5. 本番環境のみ再起動
+pm2 start /srv/m-pass/deploy/ecosystem.config.js --only m-pass
+```

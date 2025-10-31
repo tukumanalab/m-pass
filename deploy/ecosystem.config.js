@@ -11,18 +11,22 @@ module.exports = {
         BASE_PATH: '/members',
         DB_PATH: './members.db',
         // Node.jsのメモリ制限を設定
-        NODE_OPTIONS: '--max-old-space-size=512'
+        NODE_OPTIONS: '--max-old-space-size=400'  // さらに厳しく制限 (512MB → 400MB)
       },
       instances: 1,
       autorestart: true,
       watch: false,
-      max_memory_restart: '600M',
+      max_memory_restart: '450M',  // 500M → 450M (より早く再起動)
       // プロセスの優先度を下げる
       nice: 10,
       // 再起動時の遅延を追加してメモリスパイクを防ぐ
       min_uptime: '10s',
       max_restarts: 10,
-      restart_delay: 4000
+      restart_delay: 4000,
+      // メモリ監視を強化
+      kill_timeout: 5000,
+      listen_timeout: 10000,
+      exp_backoff_restart_delay: 100
     },
     {
       name: 'm-pass-debug',
@@ -35,18 +39,22 @@ module.exports = {
         BASE_PATH: '/members',
         DB_PATH: './members-debug.db',
         // Node.jsのメモリ制限を設定
-        NODE_OPTIONS: '--max-old-space-size=512'
+        NODE_OPTIONS: '--max-old-space-size=400'  // さらに厳しく制限 (512MB → 400MB)
       },
       instances: 1,
       autorestart: true,
       watch: false,
-      max_memory_restart: '600M',
+      max_memory_restart: '450M',  // 500M → 450M (より早く再起動)
       // プロセスの優先度を下げる
       nice: 10,
       // 再起動時の遅延を追加してメモリスパイクを防ぐ
       min_uptime: '10s',
       max_restarts: 10,
-      restart_delay: 4000
+      restart_delay: 4000,
+      // メモリ監視を強化
+      kill_timeout: 5000,
+      listen_timeout: 10000,
+      exp_backoff_restart_delay: 100
     }
   ]
 }

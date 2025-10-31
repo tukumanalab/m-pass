@@ -29,6 +29,23 @@ fi
 
 cd "$PROJECT_ROOT"
 
+# 他のNodeプロセスが動いていないか確認
+echo ""
+echo "Nodeプロセスの確認..."
+NODE_COUNT=$(ps aux | grep -v grep | grep node | wc -l)
+if [ "$NODE_COUNT" -gt 0 ]; then
+  echo "⚠️  警告: ${NODE_COUNT}個のNodeプロセスが既に実行中です"
+  ps aux | grep -v grep | grep node | head -5
+  echo ""
+  read -p "これらのプロセスを停止しますか? (y/N): " -n 1 -r
+  echo
+  if [[ $REPLY =~ ^[Yy]$ ]]; then
+    pm2 stop all || true
+    pm2 delete all || true
+    sleep 3
+  fi
+fi
+
 # 既存のPM2プロセスを停止
 echo ""
 echo "既存のPM2プロセスを停止..."
@@ -40,8 +57,8 @@ echo ""
 echo "PM2ログをクリア..."
 pm2 flush
 
-# 少し待機
-sleep 2
+# 少し待機してメモリを解放
+sleep 5
 
 # PM2起動 (本番環境のみ)
 echo ""
