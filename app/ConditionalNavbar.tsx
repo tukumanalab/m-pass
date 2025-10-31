@@ -12,11 +12,13 @@ interface Settings {
 interface NavbarProps {
   settings: Settings;
   hasMemberSession: boolean;
+  hasAdminSession: boolean;
 }
 
 export default function ConditionalNavbar({
   settings,
   hasMemberSession,
+  hasAdminSession,
 }: NavbarProps) {
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
@@ -65,6 +67,14 @@ export default function ConditionalNavbar({
             </Link>
           </div>
           <div className="flex items-center space-x-2">
+            {hasAdminSession && (
+              <Link
+                href="/admin/dashboard"
+                className="text-gray-700 hover:text-primary-600 hover:bg-primary-50 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+              >
+                管理
+              </Link>
+            )}
             {hasMemberSession && (
               <Link
                 href="/member/dashboard"
