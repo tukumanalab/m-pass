@@ -5,6 +5,8 @@ module.exports = {
       script: 'npm',
       args: 'start',
       cwd: '/srv/m-pass',
+      // .envファイルから環境変数を読み込む
+      env_file: '/srv/m-pass/.env',
       env: {
         NODE_ENV: 'production',
         PORT: 3000,
@@ -38,6 +40,8 @@ module.exports = {
       script: 'npm',
       args: 'run start:debug',
       cwd: '/srv/m-pass',
+      // .envファイルから環境変数を読み込む
+      env_file: '/srv/m-pass/.env',
       env: {
         NODE_ENV: 'production',
         PORT: 3001,

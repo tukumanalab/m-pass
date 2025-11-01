@@ -18,6 +18,9 @@ const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || '$2b$10$eHFkKLHLd
  * IPアドレスがプライベートネットワーク範囲内かチェック
  */
 function isPrivateIP(ip: string): boolean {
+  // IPv6-mapped IPv4アドレスを標準的なIPv4形式に変換
+  const normalizedIP = ip.replace(/^::ffff:/, '');
+  
   // IPv4プライベートアドレス範囲
   const privateRanges = [
     /^10\./,                    // 10.0.0.0/8
@@ -26,9 +29,13 @@ function isPrivateIP(ip: string): boolean {
     /^127\./,                   // 127.0.0.0/8 (localhost)
     /^::1$/,                    // IPv6 localhost
     /^fe80:/,                   // IPv6 link-local
+    /^::ffff:10\./,             // IPv6-mapped IPv4 private
+    /^::ffff:172\.(1[6-9]|2[0-9]|3[0-1])\./, // IPv6-mapped IPv4 private
+    /^::ffff:192\.168\./,       // IPv6-mapped IPv4 private
+    /^::ffff:127\./,            // IPv6-mapped IPv4 localhost
   ];
 
-  return privateRanges.some(range => range.test(ip));
+  return privateRanges.some(range => range.test(ip)) || privateRanges.some(range => range.test(normalizedIP));
 }
 
 /**

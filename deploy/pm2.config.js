@@ -5,6 +5,8 @@ module.exports = {
       script: 'npm',
       args: 'start',
       cwd: '/srv/m-pass',
+      // .envファイルから環境変数を読み込む
+      env_file: '/srv/m-pass/.env',
       instances: 1,
       autorestart: true,
       watch: false,

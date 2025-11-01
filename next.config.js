@@ -1,3 +1,6 @@
+// .envファイルを明示的に読み込む
+require('dotenv').config();
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // 環境変数でbasePathを設定 (例: /members, /members-debug など)

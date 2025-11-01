@@ -15,6 +15,8 @@ services:
       - .:/app
       - app-node-modules:/app/node_modules # 名前付きボリュームでホストのnode_modulesを除外
       - app-db-data:/app/data # データベースファイル用のボリューム
+    env_file:
+      - .env
     environment:
       - NODE_ENV=development
       - PORT=3000
@@ -39,6 +41,8 @@ services:
       - .:/app
       - app-debug-node-modules:/app/node_modules # 名前付きボリュームでホストのnode_modulesを除外
       - app-debug-db-data:/app/data-debug # データベースファイル用のボリューム
+    env_file:
+      - .env
     environment:
       - NODE_ENV=development
       - PORT=3001
