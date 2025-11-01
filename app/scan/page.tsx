@@ -16,6 +16,8 @@ interface CheckIn {
 
 interface HourlyData {
   hour: number;
+  minute: number;
+  timeLabel: string;
   affiliations: Record<string, number>;
   total: number;
 }
@@ -39,6 +41,101 @@ export default function ScanPage() {
   const processingRef = useRef(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const router = useRouter();
+
+  // 時間帯別の所属別データを集計（13:00以前、13:00-18:00、18:00以降）
+  const getHourlyData = (): HourlyData[] => {
+    const before13Map: Record<string, number> = {};
+    const hourlyMap = new Map<number, Record<string, number>>();
+    const after18Map: Record<string, number> = {};
+
+    checkIns.forEach((checkIn) => {
+      // UTCで保存されたタイムスタンプをJSTに変換
+      const date = new Date(checkIn.check_in_time + "Z");
+      const jstDate = new Date(
+        date.toLocaleString("en-US", { timeZone: "Asia/Tokyo" })
+      );
+      const hour = jstDate.getHours();
+      const affiliation = checkIn.affiliation || "未設定";
+
+      if (hour < 13) {
+        // 13:00以前
+        before13Map[affiliation] = (before13Map[affiliation] || 0) + 1;
+      } else if (hour <= 18) {
+        // 13:00-18:00
+        if (!hourlyMap.has(hour)) {
+          hourlyMap.set(hour, {});
+        }
+        const affiliations = hourlyMap.get(hour)!;
+        affiliations[affiliation] = (affiliations[affiliation] || 0) + 1;
+      } else {
+        // 18:00以降
+        after18Map[affiliation] = (after18Map[affiliation] || 0) + 1;
+      }
+    });
+
+    const result: HourlyData[] = [];
+
+    // 13:00以前のデータ
+    const before13Total = Object.values(before13Map).reduce(
+      (sum, count) => sum + count,
+      0
+    );
+    result.push({
+      hour: 0,
+      minute: 0,
+      timeLabel: "~",
+      affiliations: before13Map,
+      total: before13Total,
+    });
+
+    // 13時から18時までのデータを生成
+    for (let hour = 13; hour <= 18; hour++) {
+      const affiliations = hourlyMap.get(hour) || {};
+      const total = Object.values(affiliations).reduce(
+        (sum, count) => sum + count,
+        0
+      );
+      result.push({
+        hour,
+        minute: 0,
+        timeLabel: `${hour}:00`,
+        affiliations,
+        total,
+      });
+    }
+
+    // 18:00以降のデータ
+    const after18Total = Object.values(after18Map).reduce(
+      (sum, count) => sum + count,
+      0
+    );
+    result.push({
+      hour: 19,
+      minute: 0,
+      timeLabel: "~",
+      affiliations: after18Map,
+      total: after18Total,
+    });
+
+    return result;
+  };
+
+  // 所属ごとの色を生成
+  const getColor = (index: number) => {
+    const colors = [
+      "bg-blue-500",
+      "bg-green-500",
+      "bg-yellow-500",
+      "bg-purple-500",
+      "bg-pink-500",
+      "bg-indigo-500",
+      "bg-red-500",
+      "bg-orange-500",
+      "bg-teal-500",
+      "bg-cyan-500",
+    ];
+    return colors[index % colors.length];
+  };
 
   // チェックイン一覧取得
   const fetchTodayCheckIns = async () => {
@@ -610,6 +707,17 @@ export default function ScanPage() {
     }
   };
 
+  const hourlyData = getHourlyData();
+  const allAffiliations = Array.from(
+    new Set(checkIns.map((c) => c.affiliation || "未設定"))
+  );
+  const actualMaxCount = Math.max(...hourlyData.map((d) => d.total), 0);
+  // デフォルト10人、それ以上なら実際の最大値を使用
+  const maxCount = actualMaxCount > 10 ? actualMaxCount : 10;
+
+  // 現在時刻を取得
+  const currentHour = new Date().getHours();
+
   if (!authChecked) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-green-50">
@@ -623,234 +731,240 @@ export default function ScanPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-50 to-green-50 px-4 py-8">
-      <div className="max-w-2xl mx-auto">
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-primary-100">
-          <div className="flex items-center justify-center gap-3 mb-6">
-            <div className="w-12 h-12 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center">
-              <svg
-                className="w-6 h-6 text-white"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"
-                />
-              </svg>
-            </div>
-            <h1 className="text-3xl font-bold text-gray-900">
-              QRコードスキャン
-            </h1>
-          </div>
-
-          {/* カメラエリア */}
-          <div className="mb-8 relative">
-            <div
-              id="qr-reader"
-              className="w-full rounded-xl overflow-hidden"
-              style={{ transform: mirrorCamera ? "scaleX(-1)" : "none" }}
-            ></div>
-
-            {/* 鏡像切り替えスイッチ */}
-            <button
-              onClick={() => setMirrorCamera(!mirrorCamera)}
-              className="absolute top-2 right-2 p-2 bg-black/30 hover:bg-black/50 rounded-lg transition-colors"
-              title="カメラを反転"
-            >
-              <svg
-                className="w-5 h-5 text-white"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
-                />
-              </svg>
-            </button>
-
-            {/* メッセージオーバーレイ */}
-            {(result || error) && (
-              <div
-                className="absolute inset-0 flex items-center justify-center p-4 bg-black/50 rounded-xl"
-                style={{
-                  opacity: messageOpacity,
-                  transition: "opacity 0.05s linear",
-                }}
-              >
-                {/* チェックイン成功メッセージ */}
-                {result && (
-                  <div className="p-6 bg-white rounded-xl shadow-2xl max-w-md w-full">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center">
-                        <svg
-                          className="w-7 h-7 text-white"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M5 13l4 4L19 7"
-                          />
-                        </svg>
-                      </div>
-                      <h2 className="text-2xl font-bold text-green-800">
-                        チェックイン完了
-                      </h2>
-                    </div>
-                    <div className="space-y-2">
-                      <p className="text-xl font-bold text-gray-900">
-                        {result.memberName}
-                      </p>
-                      {result.company && (
-                        <p className="text-base text-gray-700">
-                          {result.company}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* エラーメッセージ */}
-                {error && (
-                  <div className="p-6 bg-white rounded-xl shadow-2xl max-w-md w-full">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-red-600 rounded-full flex items-center justify-center flex-shrink-0">
-                        <svg
-                          className="w-7 h-7 text-white"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M6 18L18 6M6 6l12 12"
-                          />
-                        </svg>
-                      </div>
-                      <p className="text-lg font-bold text-red-600">{error}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-3">
-            {!scanning ? (
-              <button
-                onClick={startScanning}
-                className="flex items-center justify-center gap-2 w-full bg-gradient-to-r from-primary-500 to-primary-600 text-white py-3 px-4 rounded-xl hover:from-primary-600 hover:to-primary-700 transition-all shadow-md hover:shadow-lg font-medium"
-              >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-                  />
-                </svg>
-                スキャン開始
-              </button>
-            ) : (
-              <button
-                onClick={stopScanning}
-                className="flex items-center justify-center gap-2 w-full bg-gradient-to-r from-red-500 to-red-600 text-white py-3 px-4 rounded-xl hover:from-red-600 hover:to-red-700 transition-all shadow-md hover:shadow-lg font-medium"
-              >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"
-                  />
-                </svg>
-                スキャン停止
-              </button>
-            )}
-          </div>
-
-          {/* カメラエラーメッセージの常時表示エリア */}
-          {error && !scanning && (
-            <div className="mt-4 p-4 bg-red-50 rounded-xl border border-red-200">
-              <div className="flex items-start gap-3">
-                <svg
-                  className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                  />
-                </svg>
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-red-800 mb-1">
-                    カメラエラー
-                  </p>
-                  <p className="text-sm text-red-700">{error}</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="mt-6 p-4 bg-gradient-to-r from-primary-50 to-green-50 rounded-xl border border-primary-200">
-            <div className="flex items-center gap-2 text-primary-700">
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              <p className="text-sm font-medium">
-                QRコードをカメラに向けてください
-              </p>
-            </div>
-          </div>
-
-          {/* 検索でチェックイン */}
-          <div className="mt-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+      <div className="max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* 左側: QRスキャンエリア */}
+          <div className="lg:col-span-2 bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-primary-100">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center">
                 <svg
                   className="w-5 h-5 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"
+                  />
+                </svg>
+              </div>
+              <h2 className="text-xl font-bold text-gray-900">
+                QRコードスキャン
+              </h2>
+            </div>
+
+            {/* カメラエリア */}
+            <div className="mb-8 relative">
+              <div
+                id="qr-reader"
+                className="w-full rounded-xl overflow-hidden"
+                style={{ transform: mirrorCamera ? "scaleX(-1)" : "none" }}
+              ></div>
+
+              {/* 鏡像切り替えスイッチ */}
+              <button
+                onClick={() => setMirrorCamera(!mirrorCamera)}
+                className="absolute top-2 right-2 p-2 bg-black/30 hover:bg-black/50 rounded-lg transition-colors"
+                title="カメラを反転"
+              >
+                <svg
+                  className="w-5 h-5 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
+                  />
+                </svg>
+              </button>
+
+              {/* メッセージオーバーレイ */}
+              {(result || error) && (
+                <div
+                  className="absolute inset-0 flex items-center justify-center p-4 bg-black/50 rounded-xl"
+                  style={{
+                    opacity: messageOpacity,
+                    transition: "opacity 0.05s linear",
+                  }}
+                >
+                  {/* チェックイン成功メッセージ */}
+                  {result && (
+                    <div className="p-6 bg-white rounded-xl shadow-2xl max-w-md w-full">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center">
+                          <svg
+                            className="w-7 h-7 text-white"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M5 13l4 4L19 7"
+                            />
+                          </svg>
+                        </div>
+                        <h2 className="text-2xl font-bold text-green-800">
+                          チェックイン完了
+                        </h2>
+                      </div>
+                      <div className="space-y-2">
+                        <p className="text-xl font-bold text-gray-900">
+                          {result.memberName}
+                        </p>
+                        {result.company && (
+                          <p className="text-base text-gray-700">
+                            {result.company}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* エラーメッセージ */}
+                  {error && (
+                    <div className="p-6 bg-white rounded-xl shadow-2xl max-w-md w-full">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-red-600 rounded-full flex items-center justify-center flex-shrink-0">
+                          <svg
+                            className="w-7 h-7 text-white"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M6 18L18 6M6 6l12 12"
+                            />
+                          </svg>
+                        </div>
+                        <p className="text-lg font-bold text-red-600">{error}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {!scanning && (
+              <div className="space-y-3">
+                <button
+                  onClick={startScanning}
+                  className="flex items-center justify-center gap-2 w-full bg-gradient-to-r from-primary-500 to-primary-600 text-white py-3 px-4 rounded-xl hover:from-primary-600 hover:to-primary-700 transition-all shadow-md hover:shadow-lg font-medium"
+                >
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                    />
+                  </svg>
+                  スキャン開始
+                </button>
+              </div>
+            )}
+
+            {/* カメラエラーメッセージの常時表示エリア */}
+            {error && !scanning && (
+              <div className="mt-4 p-4 bg-red-50 rounded-xl border border-red-200">
+                <div className="flex items-start gap-3">
+                  <svg
+                    className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                    />
+                  </svg>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-red-800 mb-1">
+                      カメラエラー
+                    </p>
+                    <p className="text-sm text-red-700">{error}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="mt-6 p-4 bg-gradient-to-r from-primary-50 to-green-50 rounded-xl border border-primary-200">
+              <div className="flex items-center gap-2 text-primary-700">
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                <p className="text-sm font-medium">
+                  QRコードをカメラに向けてください
+                </p>
+              </div>
+            </div>
+
+            {/* 検索でチェックイン */}
+            <div className="mt-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+                  <svg
+                    className="w-5 h-5 text-white"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                    />
+                  </svg>
+                </div>
+                <h2 className="text-xl font-bold text-gray-900">
+                  名前・IDで検索
+                </h2>
+              </div>
+
+              <div className="relative">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    handleSearch(e.target.value);
+                  }}
+                  placeholder="名前またはIDを入力..."
+                  className="w-full px-4 py-3 pl-12 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+                <svg
+                  className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -863,92 +977,201 @@ export default function ScanPage() {
                   />
                 </svg>
               </div>
-              <h2 className="text-xl font-bold text-gray-900">
-                名前・IDで検索
-              </h2>
-            </div>
 
-            <div className="relative">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  handleSearch(e.target.value);
-                }}
-                placeholder="名前またはIDを入力..."
-                className="w-full px-4 py-3 pl-12 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              />
-              <svg
-                className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
-              </svg>
-            </div>
-
-            {/* 検索結果 */}
-            {isSearching && (
-              <div className="mt-4 p-4 text-center text-gray-500">
-                検索中...
-              </div>
-            )}
-
-            {!isSearching && searchResults.length > 0 && (
-              <div className="mt-4 space-y-2 max-h-64 overflow-y-auto">
-                {searchResults.map((member) => (
-                  <button
-                    key={member.id}
-                    onClick={() => handleMemberSelect(member)}
-                    className="w-full p-4 bg-white border border-gray-200 rounded-xl hover:border-primary-500 hover:bg-primary-50 transition-all text-left"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-semibold text-gray-900">
-                          {member.name}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          ID: {member.member_id}
-                        </p>
-                        {member.affiliation && (
-                          <p className="text-sm text-gray-500">
-                            {member.affiliation}
-                          </p>
-                        )}
-                      </div>
-                      <svg
-                        className="w-6 h-6 text-primary-500"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 5l7 7-7 7"
-                        />
-                      </svg>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {!isSearching &&
-              searchQuery.trim().length > 0 &&
-              searchResults.length === 0 && (
-                <div className="mt-4 p-4 bg-gray-50 rounded-xl text-center text-gray-500">
-                  該当する会員が見つかりませんでした
+              {/* 検索結果 */}
+              {isSearching && (
+                <div className="mt-4 p-4 text-center text-gray-500">
+                  検索中...
                 </div>
               )}
+
+              {!isSearching && searchResults.length > 0 && (
+                <div className="mt-4 space-y-2 max-h-64 overflow-y-auto">
+                  {searchResults.map((member) => (
+                    <button
+                      key={member.id}
+                      onClick={() => handleMemberSelect(member)}
+                      className="w-full p-4 bg-white border border-gray-200 rounded-xl hover:border-primary-500 hover:bg-primary-50 transition-all text-left"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-semibold text-gray-900">
+                            {member.name}
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            ID: {member.member_id}
+                          </p>
+                          {member.affiliation && (
+                            <p className="text-sm text-gray-500">
+                              {member.affiliation}
+                            </p>
+                          )}
+                        </div>
+                        <svg
+                          className="w-6 h-6 text-primary-500"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 5l7 7-7 7"
+                          />
+                        </svg>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {!isSearching &&
+                searchQuery.trim().length > 0 &&
+                searchResults.length === 0 && (
+                  <div className="mt-4 p-4 bg-gray-50 rounded-xl text-center text-gray-500">
+                    該当する会員が見つかりませんでした
+                  </div>
+                )}
+            </div>
+          </div>
+
+          {/* 右側: 本日のチェックイングラフ */}
+          <div className="lg:col-span-1 bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-6 border border-primary-100">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-green-600 rounded-lg flex items-center justify-center">
+                <svg
+                  className="w-4 h-4 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                  />
+                </svg>
+              </div>
+              <h2 className="text-lg font-bold text-gray-900">
+                本日のチェックイン
+              </h2>
+              <span className="ml-auto text-xl font-bold text-primary-600">
+                {checkIns.length}人
+              </span>
+            </div>
+
+            {checkIns.length === 0 ? (
+              <div className="p-6 text-center text-gray-500">
+                <svg
+                  className="w-12 h-12 mx-auto mb-2 text-gray-300"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                  />
+                </svg>
+                <p className="text-xs">まだチェックインはありません</p>
+              </div>
+            ) : (
+              <div>
+                {/* 凡例 */}
+                <div className="mb-3 flex flex-wrap gap-1.5">
+                  {allAffiliations.map((affiliation, index) => (
+                    <div key={affiliation} className="flex items-center gap-1">
+                      <div
+                        className={`w-2.5 h-2.5 rounded ${getColor(index)}`}
+                      ></div>
+                      <span className="text-xs text-gray-700">
+                        {affiliation}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* ヒストグラム */}
+                <div className="bg-white/50 rounded-xl border border-primary-100 p-3">
+                  <div className="flex gap-2">
+                    {/* Y軸スケール */}
+                    <div className="flex flex-col justify-between h-48 text-xs text-gray-600 font-medium pr-1.5 border-r border-gray-300">
+                      <div>{maxCount}</div>
+                      <div>{Math.floor(maxCount * 0.75)}</div>
+                      <div>{Math.floor(maxCount * 0.5)}</div>
+                      <div>{Math.floor(maxCount * 0.25)}</div>
+                      <div>0</div>
+                    </div>
+                    {/* グラフ本体 */}
+                    <div className="flex-1 flex items-end gap-0.5 h-48">
+                      {hourlyData.map((data, idx) => {
+                        // 現在時刻かどうかを判定
+                        const isCurrentHour = data.hour === currentHour;
+                        
+                        return (
+                          <div
+                            key={`${data.hour}-${data.minute}`}
+                            className={`flex-1 flex flex-col items-center gap-0.5 ${
+                              isCurrentHour ? "relative" : ""
+                            }`}
+                          >
+                            {/* 現在時刻のバックグラウンド強調 */}
+                            {isCurrentHour && (
+                              <div className="absolute inset-x-0 top-0 bottom-0 bg-yellow-100/50 rounded-lg -z-10"></div>
+                            )}
+                            <div
+                              className="w-full relative"
+                              style={{ height: "192px" }}
+                            >
+                              <div className="absolute bottom-0 left-0 right-0 flex flex-col">
+                                {allAffiliations.map((affiliation, index) => {
+                                  const count =
+                                    data.affiliations[affiliation] || 0;
+                                  if (count === 0) return null;
+                                  const heightPx =
+                                    maxCount > 0 ? (count / maxCount) * 192 : 0;
+                                  return (
+                                    <div
+                                      key={affiliation}
+                                      className={`w-full ${getColor(
+                                        index
+                                      )} transition-all hover:opacity-80 relative group ${
+                                        isCurrentHour ? "ring-2 ring-yellow-400" : ""
+                                      }`}
+                                      style={{ height: `${heightPx}px` }}
+                                      title={`${data.timeLabel}: ${affiliation} ${count}人`}
+                                    >
+                                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <span className="text-xs text-white font-bold bg-black/50 px-0.5 rounded">
+                                          {count}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                            <div
+                              className={`text-xs font-medium ${
+                                isCurrentHour
+                                  ? "text-yellow-700 font-bold"
+                                  : "text-gray-600"
+                              }`}
+                            >
+                              {data.timeLabel}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

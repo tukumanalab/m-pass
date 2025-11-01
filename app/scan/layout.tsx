@@ -5,8 +5,8 @@ export async function generateMetadata(): Promise<Metadata> {
   const settings = loadSettings();
 
   return {
-    title: `QRコードスキャン - ${settings.siteName}`,
-    description: "キオスク端末用QRコードスキャン画面",
+    title: `チェックイン - ${settings.siteName}`,
+    description: "QRコードをスキャンしてチェックインします",
     icons: {
       icon: settings.faviconPath || "/favicon.ico",
     },
