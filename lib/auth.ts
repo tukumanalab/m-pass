@@ -101,20 +101,16 @@ function matchesCIDR(ip: string, network: string, maskBits: number): boolean {
     return false;
   }
   
-  // マスクビットを超えたビット数だけチェック
-  let bitsToCheck = maskBits;
-  for (let i = 0; i < 4 && bitsToCheck > 0; i++) {
-    const bitsInOctet = Math.min(8, bitsToCheck);
-    const mask = (0xFF << (8 - bitsInOctet)) & 0xFF;
-    
-    if ((ipParts[i] & mask) !== (netParts[i] & mask)) {
-      return false;
-    }
-    
-    bitsToCheck -= bitsInOctet;
-  }
-  
-  return true;
+  // IPアドレスとネットワークアドレスを32ビット整数に変換
+  const ipInt = ipParts.reduce((acc, part) => (acc << 8) + part, 0);
+  const netInt = netParts.reduce((acc, part) => (acc << 8) + part, 0);
+
+  // マスクを生成
+  // maskBitsが0の場合、-1 << 0 は -1 (0xFFFFFFFF) となるため、32ビットの範囲で安全にシフトする
+  const mask = maskBits === 0 ? 0 : (-1 << (32 - maskBits));
+
+  // マスクを適用して比較
+  return (ipInt & mask) === (netInt & mask);
 }
 
 /**
