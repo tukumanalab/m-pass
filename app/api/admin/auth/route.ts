@@ -4,8 +4,73 @@ import bcrypt from 'bcrypt';
 // 環境変数から管理者パスワードを取得（本番環境では必ず設定）
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || '$2b$10$eHFkKLHLdUjcLwds5foX..qQ15MU5LY.by7CSpJLIo76BYy4UeK4K'; // デフォルト: "admin123"
 
+/**
+ * IPアドレスがプライベートネットワーク範囲内かチェック
+ */
+function isPrivateIP(ip: string): boolean {
+  const privateRanges = [
+    /^10\./,
+    /^172\.(1[6-9]|2[0-9]|3[0-1])\./,
+    /^192\.168\./,
+    /^127\./,
+    /^::1$/,
+    /^fe80:/,
+  ];
+  return privateRanges.some(range => range.test(ip));
+}
+
+/**
+ * IPアドレスが許可されたネットワーク範囲内かチェック
+ */
+function isAllowedIP(ip: string): boolean {
+  const allowedIPs = process.env.ADMIN_ALLOWED_IPS;
+  
+  if (!allowedIPs) {
+    return isPrivateIP(ip);
+  }
+
+  const allowedList = allowedIPs.split(',').map(s => s.trim());
+  
+  for (const allowed of allowedList) {
+    if (allowed === '*') return true;
+    if (allowed === 'private' && isPrivateIP(ip)) return true;
+    if (ip === allowed) return true;
+  }
+  
+  return false;
+}
+
+/**
+ * リクエストからクライアントIPアドレスを取得
+ */
+function getClientIP(request: NextRequest): string {
+  const forwarded = request.headers.get('x-forwarded-for');
+  if (forwarded) {
+    return forwarded.split(',')[0].trim();
+  }
+  
+  const realIP = request.headers.get('x-real-ip');
+  if (realIP) {
+    return realIP;
+  }
+  
+  return '127.0.0.1';
+}
+
 export async function POST(request: NextRequest) {
   try {
+    // IP制限チェック
+    const clientIP = getClientIP(request);
+    console.log(`Admin login attempt from IP: ${clientIP}`);
+    
+    if (!isAllowedIP(clientIP)) {
+      console.warn(`Admin login denied from unauthorized IP: ${clientIP}`);
+      return NextResponse.json(
+        { success: false, message: 'このネットワークからの管理者アクセスは許可されていません' },
+        { status: 403 }
+      );
+    }
+
     const { password } = await request.json();
 
     if (!password) {
