@@ -50,3 +50,7 @@ site-settings.json
 
 # Uploads (カスタムファイルは除外)
 /public/uploads/
+
+# Logs
+logs
+*.log
