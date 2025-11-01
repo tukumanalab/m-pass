@@ -26,7 +26,9 @@
         "./*"
       ]
     },
-    "target": "ES2017"
+    "target": "ES2017",
+    // メモリ効率の改善
+    "assumeChangesOnlyAffectDirectDependencies": true
   },
   "include": [
     "next-env.d.ts",

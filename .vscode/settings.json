@@ -1,12 +1,56 @@
 {
   "typescript.tsdk": "node_modules/typescript/lib",
   "typescript.enablePromptUseWorkspaceTsdk": true,
-  "typescript.tsserver.maxTsServerMemory": 768,
-  "editor.formatOnSave": true,
+  
+  // ============================================
+  // Ubuntu 2GB メモリ環境向け最適化設定
+  // ============================================
+  
+  // TypeScriptサーバーのメモリ制限を512MBに設定
+  // (システム全体2GBのため、TSサーバーには控えめに割り当て)
+  "typescript.tsserver.maxTsServerMemory": 512,
+  
+  // TypeScript言語サーバーの安定性・パフォーマンス向上
+  "typescript.tsserver.log": "off",
+  "typescript.disableAutomaticTypeAcquisition": true,
+  "typescript.surveys.enabled": false,
+  
+  // Copilot TypeScriptプラグインを無効化してメモリ削減（重要）
+  "typescript.tsserver.pluginPaths": [],
+  "github.copilot.advanced": {
+    "inlineSuggestEnable": true
+  },
+  
+  // ファイル監視の最適化 - メモリ使用を最小化
+  "typescript.tsserver.watchOptions": {
+    "excludeDirectories": [
+      "**/node_modules",
+      "**/.next",
+      "**/build",
+      "**/dist",
+      "**/out",
+      "**/deploy",
+      "**/logs",
+      "**/public/uploads"
+    ],
+    "excludeFiles": [
+      "**/*.db",
+      "**/*.log"
+    ]
+  },
+  
+  // エディタ設定 - 低メモリ環境向け
+  "editor.formatOnSave": false,  // 保存時の自動フォーマットを無効化してメモリ節約
   "editor.defaultFormatter": "esbenp.prettier-vscode",
   "editor.codeActionsOnSave": {
-    "source.fixAll.eslint": "explicit"
+    "source.fixAll.eslint": "never"  // 自動ESLint修正を無効化
   },
+  "editor.quickSuggestions": {
+    "other": true,
+    "comments": false,
+    "strings": false
+  },
+  "editor.suggest.showWords": false,  // 単語の提案を無効化
   "files.exclude": {
     "**/.next": true,
     "**/node_modules": true,
@@ -18,5 +62,41 @@
     "**/.next": true,
     "**/build": true,
     "**/dist": true
-  }
+  },
+  // ファイル監視の最適化 - 低メモリ環境向け
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/node_modules/**": true,
+    "**/.next/**": true,
+    "**/.hg/store/**": true,
+    "**/logs/**": true,
+    "**/out/**": true,
+    "**/build/**": true,
+    "**/dist/**": true,
+    "**/public/uploads/**": true,
+    "**/*.db": true,
+    "**/*.log": true
+  },
+  
+  // VS Code全般のメモリ最適化
+  "extensions.autoUpdate": false,
+  "extensions.autoCheckUpdates": false,
+  "git.autofetch": false,
+  "git.enabled": true,
+  "git.decorations.enabled": false,  // Git装飾を無効化してメモリ節約
+  
+  // GitHub Copilot の最適化 (メモリ不足時の対策)
+  "github.copilot.enable": {
+    "*": true,
+    "yaml": false,
+    "plaintext": false,
+    "markdown": false,
+    "json": false,
+    "jsonc": false
+  },
+  
+  // ターミナルのメモリ最適化
+  "terminal.integrated.scrollback": 1000,  // スクロールバック履歴を制限
+  "terminal.integrated.enablePersistentSessions": false
 }
