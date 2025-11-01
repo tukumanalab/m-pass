@@ -2,20 +2,10 @@ import { cookies, headers } from 'next/headers';
 
 // ログ出力用のヘルパー関数
 function logToConsole(message: string, isError: boolean = false) {
-  const timestamp = new Date().toISOString();
-  const logMessage = `${timestamp} ${message}`;
-  
   if (isError) {
-    console.error(logMessage);
-    process.stderr.write(`${logMessage}\n`);
+    console.error(message);
   } else {
-    console.log(logMessage);
-    process.stdout.write(`${logMessage}\n`);
-  }
-  
-  // 強制的にフラッシュ
-  if (process.stdout.isTTY) {
-    process.stdout.write('');
+    console.log(message);
   }
 }
 
