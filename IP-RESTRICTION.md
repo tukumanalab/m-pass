@@ -99,17 +99,22 @@ ifconfig
 管理者ログインを試みた際、サーバーのログに接続元IPが記録されます：
 
 ```bash
-# PM2のログを確認
-pm2 logs m-pass
+# 対話型ログ確認ツール（推奨）
+chmod +x deploy/check-admin-logs.sh
+./deploy/check-admin-logs.sh
+
+# または手動でPM2のログを確認
+pm2 logs m-pass --lines 100 --nostream | grep "ADMIN"
 
 # またはDockerのログを確認（Docker環境の場合）
-docker-compose logs app
+docker-compose logs app | grep "ADMIN"
 ```
 
 ログに以下のように表示されます：
 
 ```
-Admin login attempt from IP: 192.168.1.100
+2025-11-01 10:30:15 Z [ADMIN LOGIN] Attempt from IP: 192.168.1.100 (Allowed: private)
+2025-11-01 10:30:15 Z [ADMIN LOGIN] ✓ LOGIN SUCCESS from IP: 192.168.1.100
 ```
 
 ### 3. ネットワーク範囲の確認
@@ -131,13 +136,17 @@ hostname -I
 1. **ログを確認**
 
 ```bash
-pm2 logs m-pass | grep "Admin"
+# 対話型ツールで確認（推奨）
+./deploy/check-admin-logs.sh
+
+# または手動で確認
+pm2 logs m-pass --lines 100 --nostream | grep "ADMIN"
 ```
 
 以下のようなログが表示されているか確認：
 
 ```
-Admin login denied from unauthorized IP: x.x.x.x
+[ADMIN LOGIN] ⚠️  LOGIN DENIED from unauthorized IP: x.x.x.x
 ```
 
 2. **接続元IPを確認**

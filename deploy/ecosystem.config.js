@@ -17,6 +17,11 @@ module.exports = {
       autorestart: true,
       watch: false,
       max_memory_restart: '450M',  // 500M → 450M (より早く再起動)
+      // ログ設定
+      out_file: '~/.pm2/logs/m-pass-out.log',
+      error_file: '~/.pm2/logs/m-pass-error.log',
+      log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
+      merge_logs: true,
       // プロセスの優先度を下げる
       nice: 10,
       // 再起動時の遅延を追加してメモリスパイクを防ぐ
@@ -45,6 +50,11 @@ module.exports = {
       autorestart: true,
       watch: false,
       max_memory_restart: '450M',  // 500M → 450M (より早く再起動)
+      // ログ設定
+      out_file: '~/.pm2/logs/m-pass-debug-out.log',
+      error_file: '~/.pm2/logs/m-pass-debug-error.log',
+      log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
+      merge_logs: true,
       // プロセスの優先度を下げる
       nice: 10,
       // 再起動時の遅延を追加してメモリスパイクを防ぐ

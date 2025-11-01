@@ -121,13 +121,24 @@ export async function isAdminAuthenticated(): Promise<boolean> {
 
   // IP制限チェック
   const clientIP = await getClientIP();
-  console.log(`Admin access attempt from IP: ${clientIP}`);
+  const allowedIPs = process.env.ADMIN_ALLOWED_IPS || 'private';
+  
+  // 標準出力と標準エラー出力の両方に出力
+  const logMessage = `[ADMIN AUTH] Access attempt from IP: ${clientIP} (Allowed: ${allowedIPs})`;
+  console.log(logMessage);
+  process.stdout.write(`${logMessage}\n`);
   
   if (!isAllowedIP(clientIP)) {
-    console.warn(`Admin access denied from unauthorized IP: ${clientIP}`);
+    const denyMessage = `[ADMIN AUTH] ⚠️  Access DENIED from unauthorized IP: ${clientIP}`;
+    console.error(denyMessage);
+    process.stderr.write(`${denyMessage}\n`);
     return false;
   }
 
+  const successMessage = `[ADMIN AUTH] ✓ Access ALLOWED from IP: ${clientIP}`;
+  console.log(successMessage);
+  process.stdout.write(`${successMessage}\n`);
+  
   return true;
 }
 

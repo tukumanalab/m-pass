@@ -534,6 +534,82 @@ ADMIN_ALLOWED_IPS=192.168.1.0/24,10.0.0.0/8
 pm2 restart m-pass
 ```
 
+#### 管理者アクセスログの確認
+
+本番環境で管理者アクセスのログを確認する方法：
+
+##### 対話型ログ確認ツール（推奨）
+
+```bash
+# 対話型メニューでログを確認
+chmod +x deploy/check-admin-logs.sh
+./deploy/check-admin-logs.sh
+```
+
+メニューから以下を選択できます：
+1. リアルタイムでログを監視
+2. 管理者関連ログのみ表示
+3. ログイン試行の履歴
+4. 拒否されたアクセスの履歴
+5. 成功したログインの履歴
+6. 今日の管理者アクセス履歴
+7. ログファイルの場所を表示
+
+##### コマンドラインでの確認
+
+```bash
+# リアルタイムでログを監視
+pm2 logs m-pass
+
+# 管理者関連のログのみ表示
+pm2 logs m-pass --lines 100 --nostream | grep "ADMIN"
+
+# ログイン試行を確認
+pm2 logs m-pass --lines 500 --nostream | grep "ADMIN LOGIN"
+
+# 拒否されたアクセスを確認
+pm2 logs m-pass --lines 500 --nostream | grep "DENIED"
+
+# 成功したログインを確認
+pm2 logs m-pass --lines 500 --nostream | grep "SUCCESS"
+
+# ログファイルから直接確認
+tail -f ~/.pm2/logs/m-pass-out.log | grep "ADMIN"
+tail -f ~/.pm2/logs/m-pass-error.log | grep "ADMIN"
+```
+
+##### ログの例
+
+```
+2025-11-01 10:30:15 Z [ADMIN LOGIN] Attempt from IP: 192.168.1.100 (Allowed: private)
+2025-11-01 10:30:15 Z [ADMIN LOGIN] ✓ LOGIN SUCCESS from IP: 192.168.1.100
+2025-11-01 10:35:20 Z [ADMIN AUTH] Access attempt from IP: 192.168.1.100 (Allowed: private)
+2025-11-01 10:35:20 Z [ADMIN AUTH] ✓ Access ALLOWED from IP: 192.168.1.100
+2025-11-01 11:00:00 Z [ADMIN LOGIN] Attempt from IP: 203.0.113.50 (Allowed: private)
+2025-11-01 11:00:00 Z [ADMIN LOGIN] ⚠️  LOGIN DENIED from unauthorized IP: 203.0.113.50
+```
+
+##### ログが表示されない場合
+
+1. **PM2を再起動**
+   ```bash
+   pm2 restart m-pass
+   ```
+
+2. **ログファイルの存在確認**
+   ```bash
+   ls -la ~/.pm2/logs/
+   ```
+
+3. **Next.jsの出力確認**
+   ```bash
+   # Next.jsが正しく起動しているか確認
+   pm2 info m-pass
+   
+   # すべてのログを確認
+   pm2 logs m-pass --lines 1000
+   ```
+
 ## PM2 コマンド
 
 ### 本番環境のみ稼働時

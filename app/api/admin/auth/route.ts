@@ -61,10 +61,17 @@ export async function POST(request: NextRequest) {
   try {
     // IP制限チェック
     const clientIP = getClientIP(request);
-    console.log(`Admin login attempt from IP: ${clientIP}`);
+    const allowedIPs = process.env.ADMIN_ALLOWED_IPS || 'private';
+    
+    // 標準出力と標準エラー出力の両方に出力
+    const loginAttemptMsg = `[ADMIN LOGIN] Attempt from IP: ${clientIP} (Allowed: ${allowedIPs})`;
+    console.log(loginAttemptMsg);
+    process.stdout.write(`${loginAttemptMsg}\n`);
     
     if (!isAllowedIP(clientIP)) {
-      console.warn(`Admin login denied from unauthorized IP: ${clientIP}`);
+      const denyMessage = `[ADMIN LOGIN] ⚠️  LOGIN DENIED from unauthorized IP: ${clientIP}`;
+      console.error(denyMessage);
+      process.stderr.write(`${denyMessage}\n`);
       return NextResponse.json(
         { success: false, message: 'このネットワークからの管理者アクセスは許可されていません' },
         { status: 403 }
@@ -84,6 +91,10 @@ export async function POST(request: NextRequest) {
     const isValid = await bcrypt.compare(password, ADMIN_PASSWORD_HASH);
 
     if (isValid) {
+      const successMsg = `[ADMIN LOGIN] ✓ LOGIN SUCCESS from IP: ${clientIP}`;
+      console.log(successMsg);
+      process.stdout.write(`${successMsg}\n`);
+      
       // セッショントークン生成（簡易実装）
       const token = Buffer.from(`admin:${Date.now()}`).toString('base64');
 
@@ -100,6 +111,9 @@ export async function POST(request: NextRequest) {
 
       return response;
     } else {
+      const failMsg = `[ADMIN LOGIN] ✗ LOGIN FAILED (wrong password) from IP: ${clientIP}`;
+      console.warn(failMsg);
+      process.stderr.write(`${failMsg}\n`);
       return NextResponse.json(
         { success: false, message: 'パスワードが正しくありません' },
         { status: 401 }
