@@ -1,6 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcrypt';
 
+// ログ出力用のヘルパー関数
+function logToConsole(message: string, isError: boolean = false) {
+  const timestamp = new Date().toISOString();
+  const logMessage = `${timestamp} ${message}`;
+  
+  if (isError) {
+    console.error(logMessage);
+    process.stderr.write(`${logMessage}\n`);
+  } else {
+    console.log(logMessage);
+    process.stdout.write(`${logMessage}\n`);
+  }
+  
+  // 強制的にフラッシュ
+  if (process.stdout.isTTY) {
+    process.stdout.write('');
+  }
+}
+
 // 環境変数から管理者パスワードを取得（本番環境では必ず設定）
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || '$2b$10$eHFkKLHLdUjcLwds5foX..qQ15MU5LY.by7CSpJLIo76BYy4UeK4K'; // デフォルト: "admin123"
 
@@ -58,20 +77,18 @@ function getClientIP(request: NextRequest): string {
 }
 
 export async function POST(request: NextRequest) {
+  logToConsole(`[ADMIN LOGIN] ===== Login Attempt Started =====`);
+  
   try {
     // IP制限チェック
     const clientIP = getClientIP(request);
     const allowedIPs = process.env.ADMIN_ALLOWED_IPS || 'private';
     
     // 標準出力と標準エラー出力の両方に出力
-    const loginAttemptMsg = `[ADMIN LOGIN] Attempt from IP: ${clientIP} (Allowed: ${allowedIPs})`;
-    console.log(loginAttemptMsg);
-    process.stdout.write(`${loginAttemptMsg}\n`);
+    logToConsole(`[ADMIN LOGIN] Attempt from IP: ${clientIP} (Allowed: ${allowedIPs})`);
     
     if (!isAllowedIP(clientIP)) {
-      const denyMessage = `[ADMIN LOGIN] ⚠️  LOGIN DENIED from unauthorized IP: ${clientIP}`;
-      console.error(denyMessage);
-      process.stderr.write(`${denyMessage}\n`);
+      logToConsole(`[ADMIN LOGIN] ⚠️  LOGIN DENIED from unauthorized IP: ${clientIP}`, true);
       return NextResponse.json(
         { success: false, message: 'このネットワークからの管理者アクセスは許可されていません' },
         { status: 403 }
@@ -91,10 +108,6 @@ export async function POST(request: NextRequest) {
     const isValid = await bcrypt.compare(password, ADMIN_PASSWORD_HASH);
 
     if (isValid) {
-      const successMsg = `[ADMIN LOGIN] ✓ LOGIN SUCCESS from IP: ${clientIP}`;
-      console.log(successMsg);
-      process.stdout.write(`${successMsg}\n`);
-      
       // セッショントークン生成（簡易実装）
       const token = Buffer.from(`admin:${Date.now()}`).toString('base64');
 
@@ -109,18 +122,19 @@ export async function POST(request: NextRequest) {
         path: '/',
       });
 
+      logToConsole(`[ADMIN LOGIN] ✓ LOGIN SUCCESS from IP: ${clientIP}`);
+      logToConsole(`[ADMIN LOGIN] ===== Login Attempt Completed =====`);
+      
       return response;
     } else {
-      const failMsg = `[ADMIN LOGIN] ✗ LOGIN FAILED (wrong password) from IP: ${clientIP}`;
-      console.warn(failMsg);
-      process.stderr.write(`${failMsg}\n`);
+      logToConsole(`[ADMIN LOGIN] ✗ Invalid password from IP: ${clientIP}`, true);
       return NextResponse.json(
         { success: false, message: 'パスワードが正しくありません' },
         { status: 401 }
       );
     }
   } catch (error) {
-    console.error('Admin auth error:', error);
+    logToConsole(`[ADMIN LOGIN] ✗ Login error: ${error}`, true);
     return NextResponse.json(
       { success: false, message: '認証エラーが発生しました' },
       { status: 500 }
