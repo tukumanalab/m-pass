@@ -62,6 +62,26 @@ pm2 start deploy/pm2.config.js
 pm2 save
 ```
 
+### 5.1. PM2 自動起動の設定（初回のみ）
+
+サーバー再起動時にm-passが自動起動するように設定します：
+
+```bash
+# PM2のスタートアップスクリプトを生成
+pm2 startup
+
+# 表示されたsudoコマンドをコピーして実行
+# 例: sudo env PATH=$PATH:/home/ky/.nvm/versions/node/v22.21.0/bin /home/ky/.nvm/versions/node/v22.21.0/lib/node_modules/pm2/bin/pm2 startup systemd -u ky --hp /home/ky
+
+# 現在のプロセスリストを保存（これがリブート時に復元される）
+pm2 save
+
+# 設定確認
+systemctl status pm2-ky
+```
+
+> **重要**: `pm2 save`を実行しないと、リブート後にアプリケーションが起動しません。アプリケーションの設定を変更した場合は、必ず`pm2 save`を再実行してください。
+
 ### 6. Nginx 設定を更新
 
 ```bash
@@ -92,6 +112,41 @@ pm2 logs m-pass --lines 50
 ```
 
 ## トラブルシューティング
+
+### サーバー再起動後にアプリケーションが起動しない場合
+
+1. **PM2サービスのステータスを確認**
+
+   ```bash
+   systemctl status pm2-ky
+   ```
+
+2. **PM2プロセスリストを確認**
+
+   ```bash
+   pm2 list
+   ```
+
+3. **PM2のスタートアップ設定を確認**
+
+   ```bash
+   # スタートアップが設定されているか確認
+   systemctl list-unit-files | grep pm2
+   ```
+
+4. **再設定が必要な場合**
+
+   ```bash
+   # アプリケーションを起動
+   cd /srv/m-pass
+   pm2 start deploy/pm2.config.js
+   
+   # プロセスリストを保存
+   pm2 save
+   
+   # systemdサービスを再起動
+   sudo systemctl restart pm2-ky
+   ```
 
 ### 画像や CSS が読み込めない場合
 
