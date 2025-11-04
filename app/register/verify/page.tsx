@@ -201,7 +201,11 @@ function VerifyContent() {
   };
 
   const handleGoToLogin = () => {
-    router.push("/member/login");
+    if (qrCode) {
+      router.push(`/member/login?id=${encodeURIComponent(qrCode)}`);
+    } else {
+      router.push("/member/login");
+    }
   };
 
   if (loading) {

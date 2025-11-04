@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { apiUrl } from "@/lib/api";
+import { Suspense } from "react";
 
-export default function MemberLoginPage() {
+function MemberLoginContent() {
+  const searchParams = useSearchParams();
   const [formData, setFormData] = useState({
     memberId: "",
     password: "",
@@ -13,6 +15,13 @@ export default function MemberLoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+
+  useEffect(() => {
+    const idFromUrl = searchParams.get("id");
+    if (idFromUrl) {
+      setFormData((prev) => ({ ...prev, memberId: idFromUrl }));
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -163,5 +172,22 @@ export default function MemberLoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function MemberLoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center px-4 py-12">
+        <div className="max-w-md w-full">
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-primary-100">
+            <div className="animate-spin w-16 h-16 mx-auto mb-6 border-4 border-primary-500 border-t-transparent rounded-full"></div>
+            <p className="text-center text-gray-600">読み込み中...</p>
+          </div>
+        </div>
+      </div>
+    }>
+      <MemberLoginContent />
+    </Suspense>
   );
 }

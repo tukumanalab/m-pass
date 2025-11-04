@@ -254,7 +254,7 @@ export async function sendRegistrationCompleteEmail(
         </div>
         <p>QRコードカードは、登録完了画面から印刷・ダウンロードできます。</p>
         <div style="text-align: center; margin: 30px 0;">
-          <a href="${APP_URL}/member/login" 
+          <a href="${APP_URL}/member/login?id=${encodeURIComponent(memberId)}" 
              style="background-color: #10B981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block;">
             ログインページへ
           </a>
