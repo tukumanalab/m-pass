@@ -27,7 +27,9 @@ export default function HistoryPage() {
   const [uploadResult, setUploadResult] = useState<{
     successCount: number;
     failedCount: number;
+    duplicateCount: number;
     failedRows: Array<{ row: number; data: string; error: string }>;
+    duplicateRows: Array<{ row: number; data: string; error: string }>;
   } | null>(null);
   const router = useRouter();
 
@@ -180,6 +182,44 @@ export default function HistoryPage() {
     }
   };
 
+  const handleDeleteAll = async () => {
+    const totalCount = checkIns.length;
+    
+    if (!confirm(`全ての履歴（${totalCount}件）を削除しますか？\n\nこの操作は取り消せません。`)) {
+      return;
+    }
+
+    // 二重確認
+    if (!confirm(`本当に全削除してもよろしいですか？`)) {
+      return;
+    }
+
+    setDeleting(true);
+    try {
+      const response = await fetch(apiUrl("/api/checkins"), {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ deleteAll: true }),
+      });
+
+      if (!response.ok) {
+        throw new Error("削除に失敗しました");
+      }
+
+      const result = await response.json();
+      setSelectedIds(new Set());
+      setError(null);
+      await fetchHistory();
+      alert(`${result.deletedCount}件の履歴を削除しました`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "削除エラーが発生しました");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const handleCsvUpload = async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
@@ -210,15 +250,19 @@ export default function HistoryPage() {
       setUploadResult({
         successCount: result.successCount,
         failedCount: result.failedCount,
-        failedRows: result.failedRows,
+        duplicateCount: result.duplicateCount || 0,
+        failedRows: result.failedRows || [],
+        duplicateRows: result.duplicateRows || [],
       });
 
       // 履歴を更新
       await fetchHistory();
 
-      if (result.failedCount === 0) {
+      if (result.failedCount === 0 && result.duplicateCount === 0) {
         alert(`${result.successCount}件のチェックイン履歴を登録しました`);
         setShowCsvUpload(false);
+      } else if (result.duplicateCount > 0) {
+        alert(`${result.successCount}件を登録しました。${result.duplicateCount}件の重複をスキップしました。`);
       }
     } catch (err) {
       setError(
@@ -242,6 +286,20 @@ export default function HistoryPage() {
 
     navigator.clipboard.writeText(csvContent).then(() => {
       alert("失敗したデータをクリップボードにコピーしました");
+    });
+  };
+
+  const copyDuplicateRowsToClipboard = () => {
+    if (!uploadResult?.duplicateRows) return;
+
+    const csvHeader = "timestamp,member_id";
+    const csvContent = [
+      csvHeader,
+      ...uploadResult.duplicateRows.map((r) => r.data),
+    ].join("\n");
+
+    navigator.clipboard.writeText(csvContent).then(() => {
+      alert("重複データをクリップボードにコピーしました");
     });
   };
 
@@ -321,6 +379,26 @@ export default function HistoryPage() {
                 />
               </svg>
               日付指定削除
+            </button>
+            <button
+              onClick={handleDeleteAll}
+              disabled={deleting || checkIns.length === 0}
+              className="flex items-center gap-2 bg-gradient-to-r from-red-600 to-red-700 text-white py-2 px-4 rounded-xl hover:from-red-700 hover:to-red-800 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                />
+              </svg>
+              全削除
             </button>
             <button
               onClick={() => setShowCsvUpload(!showCsvUpload)}
@@ -480,12 +558,48 @@ export default function HistoryPage() {
                     <span className="text-green-600 font-semibold">
                       成功: {uploadResult.successCount}件
                     </span>
+                    {uploadResult.duplicateCount > 0 && (
+                      <span className="ml-4 text-yellow-600 font-semibold">
+                        重複スキップ: {uploadResult.duplicateCount}件
+                      </span>
+                    )}
                     {uploadResult.failedCount > 0 && (
                       <span className="ml-4 text-red-600 font-semibold">
                         失敗: {uploadResult.failedCount}件
                       </span>
                     )}
                   </p>
+
+                  {uploadResult.duplicateRows.length > 0 && (
+                    <div className="mt-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <h5 className="text-sm font-semibold text-yellow-600">
+                          重複データ（スキップ済み）:
+                        </h5>
+                        <button
+                          onClick={copyDuplicateRowsToClipboard}
+                          className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 py-1 px-3 rounded transition-colors"
+                        >
+                          CSVをコピー
+                        </button>
+                      </div>
+                      <div className="max-h-40 overflow-y-auto bg-yellow-50 rounded p-2">
+                        {uploadResult.duplicateRows.map((row, index) => (
+                          <div
+                            key={index}
+                            className="text-xs mb-2 pb-2 border-b border-yellow-200 last:border-0"
+                          >
+                            <p className="text-yellow-700 font-semibold">
+                              行{row.row}: {row.error}
+                            </p>
+                            <p className="text-gray-600 mt-1 font-mono truncate">
+                              {row.data}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {uploadResult.failedRows.length > 0 && (
                     <div className="mt-4">

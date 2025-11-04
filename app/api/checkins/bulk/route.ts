@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { findMemberByMemberId, createCheckInWithTime } from '@/lib/database';
+import { findMemberByMemberId, createCheckInWithTime, checkDuplicateCheckIn } from '@/lib/database';
 
 // CSV形式でチェックイン履歴を一括登録
 export async function POST(request: NextRequest) {
@@ -78,6 +78,12 @@ export async function POST(request: NextRequest) {
       error: string;
     }> = [];
 
+    const duplicateRows: Array<{
+      row: number;
+      data: string;
+      error: string;
+    }> = [];
+
     // データ行を処理
     for (let i = 1; i < cleanedLines.length; i++) {
       const line = cleanedLines[i].trim();
@@ -148,6 +154,16 @@ export async function POST(request: NextRequest) {
           checkInTime = `${match[1]}-${match[2]}-${match[3]} 00:00:00`;
         }
 
+        // 重複チェック
+        if (checkDuplicateCheckIn(member.id, checkInTime)) {
+          duplicateRows.push({
+            row: i + 1,
+            data: line,
+            error: `重複: このメンバーは既に同じ日時にチェックイン済みです`,
+          });
+          continue;
+        }
+
         // チェックインを登録
         createCheckInWithTime(member.id, checkInTime);
 
@@ -168,8 +184,10 @@ export async function POST(request: NextRequest) {
       success: true,
       successCount: successRows.length,
       failedCount: failedRows.length,
+      duplicateCount: duplicateRows.length,
       successRows,
       failedRows,
+      duplicateRows,
     });
   } catch (error) {
     console.error('Error bulk uploading check-ins:', error);

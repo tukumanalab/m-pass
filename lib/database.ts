@@ -298,6 +298,16 @@ export function createCheckIn(memberId: number) {
 }
 
 // チェックインの記録（日時指定、JSTからUTCに変換して保存）
+// チェックイン履歴の重複チェック（同じメンバーID・同じ日時）
+export function checkDuplicateCheckIn(memberId: number, checkInTime: string): boolean {
+  const stmt = db.prepare(`
+    SELECT COUNT(*) as count FROM checkins
+    WHERE member_id = ? AND check_in_time = datetime(?, '-9 hours')
+  `);
+  const result = stmt.get(memberId, checkInTime) as { count: number };
+  return result.count > 0;
+}
+
 export function createCheckInWithTime(memberId: number, checkInTime: string) {
   // メンバー情報を取得
   const member = db.prepare(`
@@ -339,6 +349,13 @@ export function deleteCheckInsByDateRange(startDate: string, endDate: string) {
       AND DATE(datetime(check_in_time, '+9 hours')) <= DATE(?)
   `);
   const result = stmt.run(startDate, endDate);
+  return result.changes;
+}
+
+// 全てのチェックイン履歴を削除
+export function deleteAllCheckIns() {
+  const stmt = db.prepare(`DELETE FROM checkins`);
+  const result = stmt.run();
   return result.changes;
 }
 
