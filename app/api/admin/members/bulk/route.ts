@@ -292,3 +292,58 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+// 全メンバー一括削除
+export async function DELETE(request: NextRequest) {
+  try {
+    // 認証チェック
+    let isAuthenticated = false;
+    try {
+      isAuthenticated = await isAdminAuthenticated();
+    } catch (authError) {
+      console.error('Authentication check error:', authError);
+      return NextResponse.json(
+        { success: false, message: '認証チェックエラー' },
+        { status: 500 }
+      );
+    }
+
+    if (!isAuthenticated) {
+      return NextResponse.json(
+        { success: false, message: '認証が必要です' },
+        { status: 401 }
+      );
+    }
+
+    // 削除前のメンバー数を取得
+    const countResult = db.prepare('SELECT COUNT(*) as count FROM members').get() as { count: number };
+    const memberCount = countResult.count;
+
+    if (memberCount === 0) {
+      return NextResponse.json({
+        success: true,
+        message: '削除するメンバーがいません',
+        deletedCount: 0,
+      });
+    }
+
+    // メンバーを全削除（チェックイン履歴は残す）
+    const deleteMembers = db.prepare('DELETE FROM members');
+    const membersResult = deleteMembers.run();
+
+    return NextResponse.json({
+      success: true,
+      message: `${memberCount}件のメンバーを削除しました（チェックイン履歴は保持されます）`,
+      deletedCount: memberCount,
+    });
+  } catch (error) {
+    console.error('Bulk delete error:', error);
+    return NextResponse.json(
+      {
+        success: false,
+        message: error instanceof Error ? error.message : '一括削除エラー'
+      },
+      { status: 500 }
+    );
+  }
+}

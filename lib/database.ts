@@ -63,11 +63,86 @@ export function initDatabase() {
   db.exec(`
     CREATE TABLE IF NOT EXISTS checkins (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      member_id INTEGER NOT NULL,
+      member_id INTEGER,
+      member_id_str TEXT,
+      affiliation TEXT,
       check_in_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (member_id) REFERENCES members(id)
+      FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE SET NULL
     )
   `);
+
+  // 既存のチェックインテーブルに新しいカラムを追加（マイグレーション）
+  try {
+    db.exec(`ALTER TABLE checkins ADD COLUMN member_id_str TEXT`);
+  } catch (e) {
+    // カラムが既に存在する場合はエラーを無視
+  }
+  try {
+    db.exec(`ALTER TABLE checkins ADD COLUMN affiliation TEXT`);
+  } catch (e) {
+    // カラムが既に存在する場合はエラーを無視
+  }
+
+  // 外部キー制約の変更が必要かチェック
+  const tableInfo = db.pragma('foreign_key_list(checkins)');
+  const needsFKMigration = tableInfo.some((fk: any) => 
+    fk.table === 'members' && fk.on_delete !== 'SET NULL'
+  );
+
+  if (needsFKMigration) {
+    console.log('Migrating checkins table foreign key constraint...');
+    
+    // トランザクション内でテーブルを再作成
+    db.exec(`
+      BEGIN TRANSACTION;
+
+      -- 一時テーブルを作成
+      CREATE TABLE checkins_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        member_id INTEGER,
+        member_id_str TEXT,
+        affiliation TEXT,
+        check_in_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE SET NULL
+      );
+
+      -- データをコピー
+      INSERT INTO checkins_new (id, member_id, member_id_str, affiliation, check_in_time)
+      SELECT id, member_id, member_id_str, affiliation, check_in_time FROM checkins;
+
+      -- 古いテーブルを削除
+      DROP TABLE checkins;
+
+      -- 新しいテーブルをリネーム
+      ALTER TABLE checkins_new RENAME TO checkins;
+
+      COMMIT;
+    `);
+    
+    console.log('Foreign key constraint migration completed.');
+  }
+
+  // 既存のチェックイン履歴にメンバー情報を埋める（一度だけ実行）
+  try {
+    const needsMigration = db.prepare(`
+      SELECT COUNT(*) as count FROM checkins 
+      WHERE member_id IS NOT NULL AND (member_id_str IS NULL OR affiliation IS NULL)
+    `).get() as { count: number };
+
+    if (needsMigration.count > 0) {
+      console.log(`Migrating ${needsMigration.count} checkin records...`);
+      db.exec(`
+        UPDATE checkins 
+        SET 
+          member_id_str = (SELECT member_id FROM members WHERE members.id = checkins.member_id),
+          affiliation = (SELECT affiliation FROM members WHERE members.id = checkins.member_id)
+        WHERE member_id IS NOT NULL AND (member_id_str IS NULL OR affiliation IS NULL)
+      `);
+      console.log('Checkin records migration completed.');
+    }
+  } catch (e) {
+    console.error('Migration error (non-critical):', e);
+  }
 
   // member_id用のインデックス
   db.exec(`
@@ -192,21 +267,48 @@ export function getLatestCheckIn(memberId: number) {
 
 // チェックインの記録（UTCで保存）
 export function createCheckIn(memberId: number) {
+  // メンバー情報を取得
+  const member = db.prepare(`
+    SELECT member_id, affiliation FROM members WHERE id = ?
+  `).get(memberId) as { member_id: string; affiliation: string } | undefined;
+
+  if (!member) {
+    throw new Error(`Member with id ${memberId} not found`);
+  }
+
   const stmt = db.prepare(`
-    INSERT INTO checkins (member_id, check_in_time)
-    VALUES (?, CURRENT_TIMESTAMP)
+    INSERT INTO checkins (member_id, member_id_str, affiliation, check_in_time)
+    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
   `);
-  const result = stmt.run(memberId);
+  const result = stmt.run(
+    memberId,
+    member.member_id,
+    member.affiliation
+  );
   return result.lastInsertRowid;
 }
 
 // チェックインの記録（日時指定、JSTからUTCに変換して保存）
 export function createCheckInWithTime(memberId: number, checkInTime: string) {
+  // メンバー情報を取得
+  const member = db.prepare(`
+    SELECT member_id, affiliation FROM members WHERE id = ?
+  `).get(memberId) as { member_id: string; affiliation: string } | undefined;
+
+  if (!member) {
+    throw new Error(`Member with id ${memberId} not found`);
+  }
+
   const stmt = db.prepare(`
-    INSERT INTO checkins (member_id, check_in_time)
-    VALUES (?, datetime(?, '-9 hours'))
+    INSERT INTO checkins (member_id, member_id_str, affiliation, check_in_time)
+    VALUES (?, ?, ?, datetime(?, '-9 hours'))
   `);
-  const result = stmt.run(memberId, checkInTime);
+  const result = stmt.run(
+    memberId,
+    member.member_id,
+    member.affiliation,
+    checkInTime
+  );
   return result.lastInsertRowid;
 }
 
@@ -231,33 +333,34 @@ export function deleteCheckInsByDateRange(startDate: string, endDate: string) {
   return result.changes;
 }
 
-// 本日のチェックイン一覧を取得（所属情報をJOINで取得）
+// 本日のチェックイン一覧を取得（所属情報はチェックイン時に保存された値を使用）
 // UTCで保存されているデータを、JSTの「今日」でフィルタリング
 export function getTodayCheckIns() {
   const stmt = db.prepare(`
     SELECT
-      c.*,
-      m.affiliation,
-      m.affiliation_detail
-    FROM checkins c
-    LEFT JOIN members m ON c.member_id = m.id
-    WHERE DATE(datetime(c.check_in_time, '+9 hours')) = DATE(datetime('now', '+9 hours'))
-    ORDER BY c.check_in_time DESC
+      id,
+      member_id,
+      member_id_str,
+      affiliation,
+      check_in_time
+    FROM checkins
+    WHERE DATE(datetime(check_in_time, '+9 hours')) = DATE(datetime('now', '+9 hours'))
+    ORDER BY check_in_time DESC
   `);
   return stmt.all();
 }
 
-// 利用履歴を取得（ページネーション付き、所属情報をJOINで取得）
+// 利用履歴を取得（ページネーション付き、所属情報はチェックイン時に保存された値を使用）
 export function getCheckInHistory(limit = 50, offset = 0) {
   const stmt = db.prepare(`
     SELECT
-      c.*,
-      m.member_id,
-      m.affiliation,
-      m.affiliation_detail
-    FROM checkins c
-    LEFT JOIN members m ON c.member_id = m.id
-    ORDER BY c.check_in_time DESC
+      id,
+      member_id,
+      member_id_str,
+      affiliation,
+      check_in_time
+    FROM checkins
+    ORDER BY check_in_time DESC
     LIMIT ? OFFSET ?
   `);
   return stmt.all(limit, offset);
@@ -267,14 +370,14 @@ export function getCheckInHistory(limit = 50, offset = 0) {
 export function getCheckInHistoryByMemberId(memberId: number, limit = 50, offset = 0) {
   const stmt = db.prepare(`
     SELECT
-      c.*,
-      m.member_id,
-      m.affiliation,
-      m.affiliation_detail
-    FROM checkins c
-    LEFT JOIN members m ON c.member_id = m.id
-    WHERE c.member_id = ?
-    ORDER BY c.check_in_time DESC
+      id,
+      member_id,
+      member_id_str,
+      affiliation,
+      check_in_time
+    FROM checkins
+    WHERE member_id = ?
+    ORDER BY check_in_time DESC
     LIMIT ? OFFSET ?
   `);
   return stmt.all(memberId, limit, offset);

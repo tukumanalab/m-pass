@@ -8,13 +8,13 @@ export async function GET() {
     const history = getCheckInHistory(999999, 0) as Array<{
       id: number;
       member_id: number;
+      member_id_str: string | null;
+      affiliation: string | null;
       check_in_time: string;
-      affiliation: string;
-      affiliation_detail: string | null;
-    } & { member_id: string }>;
+    }>;
 
     // CSVヘッダー
-    const headers = ['timestamp', 'member_id', 'affiliation', 'affiliation_detail'];
+    const headers = ['timestamp', 'member_id', 'affiliation'];
 
     // CSVデータ行を生成
     const rows = history.map(item => {
@@ -35,9 +35,8 @@ export async function GET() {
 
       return [
         formattedDate,
-        (item as any).member_id || '',
+        item.member_id_str || '',
         item.affiliation || '',
-        item.affiliation_detail || '',
       ];
     });
 

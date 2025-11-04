@@ -6,10 +6,9 @@ import { apiUrl } from "@/lib/api";
 interface CheckIn {
   id: number;
   member_id: number;
-  member_name: string;
+  member_id_str: string | null;
   check_in_time: string;
-  affiliation: string;
-  affiliation_detail: string | null;
+  affiliation: string | null;
 }
 
 interface HourlyData {

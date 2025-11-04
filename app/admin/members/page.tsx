@@ -536,6 +536,46 @@ export default function AdminMembersPage() {
     }
   };
 
+  // 全メンバー一括削除
+  const handleBulkDelete = async () => {
+    // 二段階確認
+    if (
+      !confirm(
+        `⚠️ 警告 ⚠️\n\n全てのメンバーを削除します。\n（チェックイン履歴は保持されます）\n\nこの操作は取り消せません。\n\n本当に削除してもよろしいですか？`
+      )
+    ) {
+      return;
+    }
+
+    // 最終確認
+    const confirmation = prompt(
+      '全メンバーを削除するには「削除」と入力してください:'
+    );
+
+    if (confirmation !== "削除") {
+      toast.info("削除をキャンセルしました");
+      return;
+    }
+
+    try {
+      const response = await fetch(apiUrl("/api/admin/members/bulk"), {
+        method: "DELETE",
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success(data.message);
+        fetchMembers(searchQuery);
+      } else {
+        toast.error(data.message || "一括削除に失敗しました");
+      }
+    } catch (error) {
+      console.error("Bulk delete error:", error);
+      toast.error("一括削除エラーが発生しました");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <ToastContainer
@@ -574,6 +614,12 @@ export default function AdminMembersPage() {
                   className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
                 >
                   CSV一括登録
+                </button>
+                <button
+                  onClick={handleBulkDelete}
+                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+                >
+                  全メンバー削除
                 </button>
               </div>
             </div>

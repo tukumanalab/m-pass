@@ -7,18 +7,13 @@ import { apiUrl } from "@/lib/api";
 interface CheckIn {
   id: number;
   member_id: number; // 外部キー（members.id）
+  member_id_str: string | null; // メンバーID文字列（チェックイン時に保存）
+  affiliation: string | null; // 所属（チェックイン時に保存）
   check_in_time: string;
-  affiliation: string;
-  affiliation_detail: string | null;
-}
-
-// 拡張型: データベースから返されるJOINされたmember_id文字列を含む
-interface CheckInWithMemberId extends Omit<CheckIn, "member_id"> {
-  member_id: number | string; // 外部キーまたはJOINされたメンバーID文字列
 }
 
 export default function HistoryPage() {
-  const [checkIns, setCheckIns] = useState<CheckInWithMemberId[]>([]);
+  const [checkIns, setCheckIns] = useState<CheckIn[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
@@ -649,9 +644,6 @@ export default function HistoryPage() {
                   <th className="px-6 py-4 text-left text-xs font-semibold text-primary-700 uppercase tracking-wider">
                     所属
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-primary-700 uppercase tracking-wider">
-                    所属詳細
-                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white/50 divide-y divide-primary-100">
@@ -674,13 +666,10 @@ export default function HistoryPage() {
                       {formatDateTime(checkIn.check_in_time)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-primary-600 font-mono font-bold">
-                      {(checkIn as any).member_id || "-"}
+                      {checkIn.member_id_str || "-"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                      {checkIn.affiliation}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {checkIn.affiliation_detail || "-"}
+                      {checkIn.affiliation || "-"}
                     </td>
                   </tr>
                 ))}
