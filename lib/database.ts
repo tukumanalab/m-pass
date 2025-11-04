@@ -84,8 +84,17 @@ export function initDatabase() {
   }
 
   // 外部キー制約の変更が必要かチェック
-  const tableInfo = db.pragma('foreign_key_list(checkins)');
-  const needsFKMigration = tableInfo.some((fk: any) => 
+  const tableInfo = db.pragma('foreign_key_list(checkins)') as Array<{
+    id: number;
+    seq: number;
+    table: string;
+    from: string;
+    to: string;
+    on_update: string;
+    on_delete: string;
+    match: string;
+  }>;
+  const needsFKMigration = tableInfo.some((fk) => 
     fk.table === 'members' && fk.on_delete !== 'SET NULL'
   );
 
