@@ -7,6 +7,17 @@ import { apiUrl } from "@/lib/api";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
+const affiliationOptions = [
+  "幼稚園",
+  "初等部",
+  "中等部",
+  "高等部",
+  "大学",
+  "大学院",
+  "教職員",
+  "その他",
+];
+
 interface Member {
   id: number;
   member_id: string;
@@ -690,8 +701,7 @@ export default function AdminMembersPage() {
                           <label className="block text-sm font-medium text-gray-700">
                             所属 *
                           </label>
-                          <input
-                            type="text"
+                          <select
                             value={editForm.affiliation}
                             onChange={(e) =>
                               setEditForm({
@@ -700,7 +710,20 @@ export default function AdminMembersPage() {
                               })
                             }
                             className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                          />
+                          >
+                            <option value="">選択してください</option>
+                            {affiliationOptions.map((option) => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                            {editForm.affiliation &&
+                              !affiliationOptions.includes(editForm.affiliation) && (
+                                <option value={editForm.affiliation}>
+                                  {editForm.affiliation} (カスタム)
+                                </option>
+                              )}
+                          </select>
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700">

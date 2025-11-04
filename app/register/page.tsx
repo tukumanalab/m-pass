@@ -464,7 +464,7 @@ export default function RegisterPage() {
               <option value="大学">大学</option>
               <option value="大学院">大学院</option>
               <option value="教職員">教職員</option>
-              <option value="関係者">関係者</option>
+              <option value="その他">その他</option>
             </select>
           </div>
 

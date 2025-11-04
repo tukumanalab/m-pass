@@ -3,6 +3,18 @@ import db from '@/lib/database';
 import bcrypt from 'bcrypt';
 import { isAdminAuthenticated } from '@/lib/auth';
 
+// 所属の選択肢
+const AFFILIATION_OPTIONS = [
+  "幼稚園",
+  "初等部",
+  "中等部",
+  "高等部",
+  "大学",
+  "大学院",
+  "教職員",
+  "その他",
+];
+
 // パスワード検証
 function validatePassword(password: string): boolean {
   // 英数記号を含む8文字以上
@@ -250,12 +262,25 @@ export async function POST(request: NextRequest) {
         }
         const createdAtISO = createdAt.toISOString();
 
+        // 所属の処理：選択肢にない場合は「その他」にして、所属詳細に元の所属を追加
+        let affiliation = row.affiliation.trim();
+        let affiliationDetail = row.affiliation_detail ? row.affiliation_detail.trim() : '';
+        
+        if (!AFFILIATION_OPTIONS.includes(affiliation)) {
+          // 所属詳細に元の所属を追加
+          affiliationDetail = affiliationDetail 
+            ? `${affiliation}: ${affiliationDetail}` 
+            : affiliation;
+          // 所属を「その他」に変更
+          affiliation = "その他";
+        }
+
         // メンバー登録（既存の場合は更新）
         upsertMember.run(
           row.member_id,
           row.name,
-          row.affiliation,
-          row.affiliation_detail || '',
+          affiliation,
+          affiliationDetail,
           email,
           hashedPassword,
           createdAtISO

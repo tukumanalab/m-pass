@@ -12,7 +12,7 @@ const affiliationOptions = [
   "大学",
   "大学院",
   "教職員",
-  "関係者",
+  "その他",
 ];
 
 const passwordRegex = /^[A-Za-z\d@$!%*?&_.\-+=^#~,;:/<>{}[\]|()`'"\\]{8,}$/;
