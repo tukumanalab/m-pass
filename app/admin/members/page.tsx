@@ -26,6 +26,7 @@ interface Member {
   affiliation_detail: string;
   email: string;
   created_at: string;
+  mypage_notification_sent_at: string | null;
 }
 
 export default function AdminMembersPage() {
@@ -587,6 +588,60 @@ export default function AdminMembersPage() {
     }
   };
 
+  // マイページ通知フラグをリセット（単一メンバー）
+  const handleResetNotification = async (id: number, name: string) => {
+    if (!confirm(`${name} さんのマイページ通知フラグをリセットしますか？\n次回のマイページ案内メール一括送信の対象になります。`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(apiUrl(`/api/admin/members/${id}/reset-notification`), {
+        method: "POST",
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success("通知フラグをリセットしました");
+        fetchMembers(searchQuery);
+      } else {
+        toast.error(data.message || "リセットに失敗しました");
+      }
+    } catch (error) {
+      console.error("Reset notification error:", error);
+      toast.error("リセットエラーが発生しました");
+    }
+  };
+
+  // 全メンバーの通知フラグをリセット
+  const handleResetAllNotifications = async () => {
+    if (
+      !confirm(
+        `全メンバーのマイページ通知フラグをリセットしますか？\n\n次回のマイページ案内メール一括送信で、全メンバーが送信対象になります。`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const response = await fetch(apiUrl("/api/admin/members/reset-all-notifications"), {
+        method: "POST",
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success(data.message);
+        fetchMembers(searchQuery);
+      } else {
+        toast.error(data.message || "リセットに失敗しました");
+      }
+    } catch (error) {
+      console.error("Reset all notifications error:", error);
+      toast.error("リセットエラーが発生しました");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <ToastContainer
@@ -613,7 +668,7 @@ export default function AdminMembersPage() {
                   メンバーの検索・編集・削除
                 </p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <button
                   onClick={handleCsvDownload}
                   className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -625,6 +680,13 @@ export default function AdminMembersPage() {
                   className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
                 >
                   CSV一括登録
+                </button>
+                <button
+                  onClick={handleResetAllNotifications}
+                  className="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                  title="全メンバーの「マイページのご案内」メール送信済みフラグをリセット"
+                >
+                  通知フラグ一括リセット
                 </button>
                 <button
                   onClick={handleBulkDelete}
@@ -815,10 +877,21 @@ export default function AdminMembersPage() {
                                   "ja-JP"
                                 )}
                               </p>
+                              {member.mypage_notification_sent_at && (
+                                <p className="text-xs text-green-600 mt-1">
+                                  📧 マイページ案内メール送信済み:{" "}
+                                  {new Date(member.mypage_notification_sent_at).toLocaleDateString(
+                                    "ja-JP"
+                                  )}{" "}
+                                  {new Date(member.mypage_notification_sent_at).toLocaleTimeString(
+                                    "ja-JP"
+                                  )}
+                                </p>
+                              )}
                             </div>
                           </div>
                         </div>
-                        <div className="flex gap-2 ml-4">
+                        <div className="flex gap-2 ml-4 flex-wrap">
                           <button
                             onClick={() => handleShowCard(member)}
                             className="px-3 py-1 text-sm bg-green-100 text-green-700 rounded hover:bg-green-200"
@@ -831,6 +904,15 @@ export default function AdminMembersPage() {
                           >
                             編集
                           </button>
+                          {member.mypage_notification_sent_at && (
+                            <button
+                              onClick={() => handleResetNotification(member.id, member.name)}
+                              className="px-3 py-1 text-sm bg-yellow-100 text-yellow-700 rounded hover:bg-yellow-200"
+                              title="マイページ通知フラグをリセット"
+                            >
+                              通知リセット
+                            </button>
+                          )}
                           <button
                             onClick={() => handleDelete(member.id, member.name)}
                             className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200"

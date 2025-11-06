@@ -583,6 +583,22 @@ export function markMyPageNotificationSent(id: number) {
   return stmt.run(id).changes;
 }
 
+// マイページ通知送信済みフラグをリセット（単一メンバー）
+export function resetMyPageNotificationFlag(id: number) {
+  const stmt = db.prepare(`
+    UPDATE members SET mypage_notification_sent_at = NULL WHERE id = ?
+  `);
+  return stmt.run(id).changes;
+}
+
+// マイページ通知送信済みフラグをリセット（全メンバー）
+export function resetAllMyPageNotificationFlags() {
+  const stmt = db.prepare(`
+    UPDATE members SET mypage_notification_sent_at = NULL
+  `);
+  return stmt.run().changes;
+}
+
 // データベース初期化を実行
 initDatabase();
 

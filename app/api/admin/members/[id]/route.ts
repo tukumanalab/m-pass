@@ -12,7 +12,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const { id } = await params;
 
     const member = db.prepare(`
-      SELECT id, member_id, name, affiliation, affiliation_detail, email, created_at
+      SELECT id, member_id, name, affiliation, affiliation_detail, email, created_at, mypage_notification_sent_at
       FROM members
       WHERE id = ?
     `).get(id);
