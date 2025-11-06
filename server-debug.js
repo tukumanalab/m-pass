@@ -43,9 +43,16 @@ const debugEnv = {
 const nextBin = path.join(__dirname, 'node_modules', '.bin', 'next');
 console.log('[DEBUG] Starting Next.js...');
 
+// Next.js内部のdotenv再読み込みを防ぐため、環境変数を明示的に設定
+const finalEnv = {
+  ...debugEnv,
+  // Next.jsのdotenv機能を無効化（環境変数は既に読み込み済み）
+  SKIP_ENV_VALIDATION: 'true',
+};
+
 const child = spawn(nextBin, ['start'], {
   stdio: 'inherit',
-  env: debugEnv,
+  env: finalEnv,
 });
 
 child.on('error', (error) => {

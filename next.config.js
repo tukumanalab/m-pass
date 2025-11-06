@@ -1,7 +1,3 @@
-// .envファイルを明示的に読み込む
-const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '.env') });
-
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // 環境変数でbasePathを設定 (例: /members, /members-debug など)
