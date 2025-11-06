@@ -29,6 +29,7 @@ interface CsvRow {
   affiliation_detail: string;
   member_id: string;
   created_at: string;
+  mypage_notification_sent_at?: string; // オプショナル
 }
 
 function validateCsvRow(row: CsvRow, lineNumber: number): string | null {
@@ -105,6 +106,11 @@ function parseCSV(csvText: string): CsvRow[] {
     throw new Error('CSVファイルが空です');
   }
 
+  // ヘッダー行を確認
+  const headerLine = lines[0];
+  const headers = parseCSVLine(headerLine);
+  const hasNotificationColumn = headers.includes('mypage_notification_sent_at');
+
   // ヘッダー行を除外
   const dataLines = lines.slice(1);
 
@@ -112,18 +118,27 @@ function parseCSV(csvText: string): CsvRow[] {
   for (const line of dataLines) {
     const columns = parseCSVLine(line);
 
-    if (columns.length !== 6) {
-      throw new Error(`列数が不正です。6列必要ですが${columns.length}列です: ${line}`);
+    // カラム数チェック（6列または7列）
+    const expectedColumns = hasNotificationColumn ? 7 : 6;
+    if (columns.length !== expectedColumns) {
+      throw new Error(`列数が不正です。${expectedColumns}列必要ですが${columns.length}列です: ${line}`);
     }
 
-    rows.push({
+    const row: CsvRow = {
       email: columns[0],
       name: columns[1],
       affiliation: columns[2],
       affiliation_detail: columns[3],
       member_id: columns[4],
       created_at: columns[5],
-    });
+    };
+
+    // mypage_notification_sent_at カラムがある場合
+    if (hasNotificationColumn && columns.length > 6) {
+      row.mypage_notification_sent_at = columns[6];
+    }
+
+    rows.push(row);
   }
 
   return rows;
@@ -196,15 +211,16 @@ export async function POST(request: NextRequest) {
 
     // UPSERT用のSQL（member_idで既存データを更新、なければ挿入）
     const upsertMember = db.prepare(`
-      INSERT INTO members (member_id, name, affiliation, affiliation_detail, email, password_hash, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO members (member_id, name, affiliation, affiliation_detail, email, password_hash, created_at, mypage_notification_sent_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(member_id) DO UPDATE SET
         name = excluded.name,
         affiliation = excluded.affiliation,
         affiliation_detail = excluded.affiliation_detail,
         email = excluded.email,
         password_hash = excluded.password_hash,
-        created_at = excluded.created_at
+        created_at = excluded.created_at,
+        mypage_notification_sent_at = excluded.mypage_notification_sent_at
     `);
 
     const results: {
@@ -247,20 +263,41 @@ export async function POST(request: NextRequest) {
         // パスワードハッシュ化
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // 日付をISO形式に変換
-        let createdAt: Date;
-        if (row.created_at.includes(':')) {
-          // 時刻付き (YYYY/MM/DD HH:mm:ss)
+        // created_at: ISO形式の文字列をそのまま使用、またはレガシー形式をISO形式に変換
+        let createdAtISO: string;
+        if (row.created_at.includes('T') || row.created_at.includes('Z')) {
+          // 既にISO形式 (YYYY-MM-DDTHH:mm:ss.sssZ)
+          createdAtISO = row.created_at;
+        } else if (row.created_at.includes(':')) {
+          // レガシー形式: 時刻付き (YYYY/MM/DD HH:mm:ss) - UTCとして扱う
           const [datePart, timePart] = row.created_at.split(' ');
           const [year, month, day] = datePart.split('/').map(Number);
           const [hours, minutes, seconds] = timePart.split(':').map(Number);
-          createdAt = new Date(year, month - 1, day, hours, minutes, seconds, 0);
+          createdAtISO = new Date(Date.UTC(year, month - 1, day, hours, minutes, seconds, 0)).toISOString();
         } else {
-          // 時刻なし (YYYY/MM/DD) - 00:00:00に設定
+          // レガシー形式: 時刻なし (YYYY/MM/DD) - 00:00:00 UTCとして扱う
           const [year, month, day] = row.created_at.split('/').map(Number);
-          createdAt = new Date(year, month - 1, day, 0, 0, 0, 0);
+          createdAtISO = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0)).toISOString();
         }
-        const createdAtISO = createdAt.toISOString();
+
+        // mypage_notification_sent_at: ISO形式の文字列をそのまま使用、またはレガシー形式をISO形式に変換
+        let notificationSentAtISO: string | null = null;
+        if (row.mypage_notification_sent_at && row.mypage_notification_sent_at.trim() !== '') {
+          if (row.mypage_notification_sent_at.includes('T') || row.mypage_notification_sent_at.includes('Z')) {
+            // 既にISO形式 (YYYY-MM-DDTHH:mm:ss.sssZ)
+            notificationSentAtISO = row.mypage_notification_sent_at;
+          } else if (row.mypage_notification_sent_at.includes(':')) {
+            // レガシー形式: 時刻付き (YYYY/MM/DD HH:mm:ss) - UTCとして扱う
+            const [datePart, timePart] = row.mypage_notification_sent_at.split(' ');
+            const [year, month, day] = datePart.split('/').map(Number);
+            const [hours, minutes, seconds] = timePart.split(':').map(Number);
+            notificationSentAtISO = new Date(Date.UTC(year, month - 1, day, hours, minutes, seconds, 0)).toISOString();
+          } else {
+            // レガシー形式: 時刻なし (YYYY/MM/DD) - 00:00:00 UTCとして扱う
+            const [year, month, day] = row.mypage_notification_sent_at.split('/').map(Number);
+            notificationSentAtISO = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0)).toISOString();
+          }
+        }
 
         // 所属の処理：選択肢にない場合は「その他」にして、所属詳細に元の所属を追加
         let affiliation = row.affiliation.trim();
@@ -283,7 +320,8 @@ export async function POST(request: NextRequest) {
           affiliationDetail,
           email,
           hashedPassword,
-          createdAtISO
+          createdAtISO,
+          notificationSentAtISO
         );
 
         if (existing) {

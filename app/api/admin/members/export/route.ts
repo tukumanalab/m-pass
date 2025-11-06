@@ -15,7 +15,7 @@ export async function GET() {
 
     // 全メンバーデータを取得
     const members = db.prepare(`
-      SELECT email, name, affiliation, affiliation_detail, member_id, created_at
+      SELECT email, name, affiliation, affiliation_detail, member_id, created_at, mypage_notification_sent_at
       FROM members
       ORDER BY created_at DESC
     `).all() as Array<{
@@ -25,16 +25,19 @@ export async function GET() {
       affiliation_detail: string | null;
       member_id: string;
       created_at: string;
+      mypage_notification_sent_at: string | null;
     }>;
 
     // CSVヘッダー
-    let csv = 'email,name,affiliation,affiliation_detail,member_id,created_at\n';
+    let csv = 'email,name,affiliation,affiliation_detail,member_id,created_at,mypage_notification_sent_at\n';
 
     // データ行を追加
     for (const member of members) {
-      // 日付をYYYY/MM/DD HH:mm:ss形式に変換
-      const date = new Date(member.created_at);
-      const formattedDate = `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}:${String(date.getSeconds()).padStart(2, '0')}`;
+      // created_at は既にISO形式なのでそのまま使用
+      const createdAt = member.created_at;
+
+      // mypage_notification_sent_at も同じくISO形式
+      const notificationSentAt = member.mypage_notification_sent_at || '';
 
       // 各フィールドをCSV形式に変換（カンマや改行を含む場合はダブルクォートで囲む）
       const fields = [
@@ -43,7 +46,8 @@ export async function GET() {
         member.affiliation,
         member.affiliation_detail || '',
         member.member_id,
-        formattedDate,
+        createdAt,
+        notificationSentAt,
       ];
 
       const csvFields = fields.map(field => {

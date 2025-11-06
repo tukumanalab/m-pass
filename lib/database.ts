@@ -595,10 +595,11 @@ export function updateMemberPassword(id: number, passwordHash: string) {
 
 // マイページ通知送信済みフラグを更新
 export function markMyPageNotificationSent(id: number) {
+  const now = new Date().toISOString(); // ISO 8601形式 (YYYY-MM-DDTHH:mm:ss.sssZ)
   const stmt = db.prepare(`
-    UPDATE members SET mypage_notification_sent_at = CURRENT_TIMESTAMP WHERE id = ?
+    UPDATE members SET mypage_notification_sent_at = ? WHERE id = ?
   `);
-  return stmt.run(id).changes;
+  return stmt.run(now, id).changes;
 }
 
 // マイページ通知送信済みフラグをリセット（単一メンバー）

@@ -62,6 +62,7 @@ export default function AdminMembersPage() {
         affiliation_detail: string;
         member_id: string;
         created_at: string;
+        mypage_notification_sent_at?: string;
       };
       reason: string;
     }>
@@ -480,7 +481,7 @@ export default function AdminMembersPage() {
 
     // CSVヘッダー
     let csv =
-      "email,name,affiliation,affiliation_detail,member_id,created_at\n";
+      "email,name,affiliation,affiliation_detail,member_id,created_at,mypage_notification_sent_at\n";
 
     // 失敗したデータ行を追加
     for (const row of failedRows) {
@@ -491,6 +492,7 @@ export default function AdminMembersPage() {
         row.data.affiliation_detail || "",
         row.data.member_id,
         row.data.created_at,
+        (row.data as any).mypage_notification_sent_at || "",
       ];
 
       // カンマや改行を含む場合はダブルクォートで囲む
@@ -874,17 +876,24 @@ export default function AdminMembersPage() {
                               <p className="text-xs text-gray-500 mt-1">
                                 メンバーID: {member.member_id} | 登録日:{" "}
                                 {new Date(member.created_at).toLocaleDateString(
-                                  "ja-JP"
+                                  "ja-JP",
+                                  { timeZone: "Asia/Tokyo" }
                                 )}
                               </p>
                               {member.mypage_notification_sent_at && (
                                 <p className="text-xs text-green-600 mt-1">
                                   📧 マイページ案内メール送信済み:{" "}
-                                  {new Date(member.mypage_notification_sent_at).toLocaleDateString(
-                                    "ja-JP"
-                                  )}{" "}
-                                  {new Date(member.mypage_notification_sent_at).toLocaleTimeString(
-                                    "ja-JP"
+                                  {new Date(member.mypage_notification_sent_at).toLocaleString(
+                                    "ja-JP",
+                                    { 
+                                      timeZone: "Asia/Tokyo",
+                                      year: "numeric",
+                                      month: "numeric",
+                                      day: "numeric",
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                      second: "2-digit"
+                                    }
                                   )}
                                 </p>
                               )}
@@ -979,7 +988,7 @@ export default function AdminMembersPage() {
                   以下の形式のCSVファイルをアップロードしてください：
                 </p>
                 <code className="block text-xs bg-white p-2 rounded border border-blue-200 text-gray-800">
-                  email,name,affiliation,affiliation_detail,member_id,created_at
+                  email,name,affiliation,affiliation_detail,member_id,created_at,mypage_notification_sent_at
                 </code>
                 <ul className="mt-3 text-sm text-blue-800 space-y-1">
                   <li>
@@ -1000,13 +1009,25 @@ export default function AdminMembersPage() {
                     • <strong>member_id</strong>: 4桁のメンバーID（必須）
                   </li>
                   <li>
-                    • <strong>created_at</strong>: 登録日時（必須）
+                    • <strong>created_at</strong>: 登録日時（必須、ISO 8601形式）
                   </li>
                   <li className="ml-6 text-xs">
-                    - YYYY/MM/DD 形式（時刻なし、00:00:00として登録）
+                    - 推奨: YYYY-MM-DDTHH:mm:ss.sssZ（例: 2025-11-06T12:00:00.000Z）
                   </li>
                   <li className="ml-6 text-xs">
-                    - YYYY/MM/DD HH:mm:ss 形式（時刻あり）
+                    - レガシー対応: YYYY/MM/DD HH:mm:ss（UTC時刻として解釈）
+                  </li>
+                  <li>
+                    • <strong>mypage_notification_sent_at</strong>: マイページ案内メール送信日時（任意、ISO 8601形式）
+                  </li>
+                  <li className="ml-6 text-xs">
+                    - 推奨: YYYY-MM-DDTHH:mm:ss.sssZ（例: 2025-11-06T12:00:00.000Z）
+                  </li>
+                  <li className="ml-6 text-xs">
+                    - レガシー対応: YYYY/MM/DD HH:mm:ss（UTC時刻として解釈）
+                  </li>
+                  <li className="ml-6 text-xs">
+                    - 空欄の場合は未送信として扱われます
                   </li>
                 </ul>
                 <p className="mt-3 text-sm text-blue-800">
@@ -1015,6 +1036,10 @@ export default function AdminMembersPage() {
                   <br />※
                   メールアドレスが空の場合、tukumanalabmember+id_&lt;member_id&gt;@gmail.com
                   が使用されます
+                  <br />※
+                  mypage_notification_sent_at カラムが無い場合は、全て未送信として扱われます
+                  <br />※
+                  日時は全てISO 8601形式（UTC）で保存されます（画面表示時は日本時間に自動変換）
                 </p>
               </div>
 
