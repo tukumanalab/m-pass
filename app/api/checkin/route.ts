@@ -62,6 +62,7 @@ export async function POST(request: NextRequest) {
       member.email;
 
     if (shouldSendAnnouncement) {
+      console.log(`[MyPage Announcement] Member ${member.member_id} is eligible for announcement email`);
       try {
         // マイページ案内メールを非同期で送信（エラーが発生してもチェックインは成功とする）
         await sendMyPageAnnouncementEmail(
@@ -71,10 +72,11 @@ export async function POST(request: NextRequest) {
         );
         // 送信済みフラグを更新
         markMyPageNotificationSent(member.id);
-        console.log(`MyPage announcement email sent to member ${member.member_id} (${member.email})`);
+        console.log(`[MyPage Announcement] Email successfully sent to member ${member.member_id} (${member.email})`);
       } catch (error) {
-        console.error('Failed to send MyPage announcement email:', error);
+        console.error(`[MyPage Announcement] Failed to send email to member ${member.member_id}:`, error);
         // メール送信エラーはログに記録するのみで、チェックインは成功とする
+        // 送信済みフラグは更新しない（次回のチェックイン時に再試行）
       }
     }
 

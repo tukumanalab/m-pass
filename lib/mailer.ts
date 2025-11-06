@@ -32,6 +32,11 @@ async function getAccessToken() {
         return token;
     } catch (error) {
         console.error('Error getting access token:', error);
+        console.error('Gmail OAuth2 configuration check:');
+        console.error('- GMAIL_USER:', GMAIL_USER ? 'Set' : 'NOT SET');
+        console.error('- CLIENT_ID:', CLIENT_ID ? 'Set' : 'NOT SET');
+        console.error('- CLIENT_SECRET:', CLIENT_SECRET ? 'Set' : 'NOT SET');
+        console.error('- REFRESH_TOKEN:', REFRESH_TOKEN ? 'Set' : 'NOT SET');
         throw new Error('Failed to get Gmail access token');
     }
 }
@@ -286,6 +291,12 @@ export async function sendMyPageAnnouncementEmail(
     name: string,
     memberId: string
 ): Promise<void> {
+    // Gmail設定がない場合はスキップ
+    if (!GMAIL_USER || !CLIENT_ID || !CLIENT_SECRET || !REFRESH_TOKEN) {
+        console.log(`Skipping MyPage announcement email to ${to} (Gmail not configured)`);
+        return;
+    }
+
     const loginUrl = `${APP_URL}/member/login?id=${encodeURIComponent(memberId)}`;
 
     const mailOptions = {
