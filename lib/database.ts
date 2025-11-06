@@ -28,9 +28,17 @@ export function initDatabase() {
       affiliation_detail TEXT,
       email TEXT NOT NULL,
       password_hash TEXT NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      mypage_notification_sent_at DATETIME
     )
   `);
+
+  // 既存のmembersテーブルに新しいカラムを追加（マイグレーション）
+  try {
+    db.exec(`ALTER TABLE members ADD COLUMN mypage_notification_sent_at DATETIME`);
+  } catch (e) {
+    // カラムが既に存在する場合はエラーを無視
+  }
 
   // 仮登録メンバーテーブル
   db.exec(`
@@ -565,6 +573,14 @@ export function updateMemberPassword(id: number, passwordHash: string) {
     UPDATE members SET password_hash = ? WHERE id = ?
   `);
   return stmt.run(passwordHash, id).changes;
+}
+
+// マイページ通知送信済みフラグを更新
+export function markMyPageNotificationSent(id: number) {
+  const stmt = db.prepare(`
+    UPDATE members SET mypage_notification_sent_at = CURRENT_TIMESTAMP WHERE id = ?
+  `);
+  return stmt.run(id).changes;
 }
 
 // データベース初期化を実行

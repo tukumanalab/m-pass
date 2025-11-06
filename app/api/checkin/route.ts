@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { findMemberByMemberId, getMemberById, createCheckIn, getLatestCheckIn } from '@/lib/database';
+import { findMemberByMemberId, getMemberById, createCheckIn, getLatestCheckIn, markMyPageNotificationSent } from '@/lib/database';
+import { sendMyPageAnnouncementEmail } from '@/lib/mailer';
+
+// 2025年11月6日 23:59:59 (JST) のUTC時刻
+const MYPAGE_ANNOUNCEMENT_CUTOFF_DATE = new Date('2025-11-06T23:59:59+09:00');
 
 // member_idまたはデータベースIDでチェックイン
 export async function POST(request: NextRequest) {
@@ -48,6 +52,31 @@ export async function POST(request: NextRequest) {
 
     // チェックインを記録
     const checkInId = createCheckIn(member.id);
+
+    // マイページ案内メールの送信判定
+    // 条件: 2025年11月6日以前に登録 & まだ通知を送信していない & メールアドレスがある
+    const memberCreatedAt = new Date(member.created_at);
+    const shouldSendAnnouncement = 
+      memberCreatedAt <= MYPAGE_ANNOUNCEMENT_CUTOFF_DATE && 
+      !member.mypage_notification_sent_at &&
+      member.email;
+
+    if (shouldSendAnnouncement) {
+      try {
+        // マイページ案内メールを非同期で送信（エラーが発生してもチェックインは成功とする）
+        await sendMyPageAnnouncementEmail(
+          member.email,
+          member.name,
+          member.member_id
+        );
+        // 送信済みフラグを更新
+        markMyPageNotificationSent(member.id);
+        console.log(`MyPage announcement email sent to member ${member.member_id} (${member.email})`);
+      } catch (error) {
+        console.error('Failed to send MyPage announcement email:', error);
+        // メール送信エラーはログに記録するのみで、チェックインは成功とする
+      }
+    }
 
     return NextResponse.json({
       success: true,
