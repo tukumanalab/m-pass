@@ -2,11 +2,9 @@ module.exports = {
   apps: [
     {
       name: 'm-pass',
-      script: 'node_modules/.bin/next',
-      args: 'start',
+      script: 'server.js',
       cwd: '/srv/m-pass',
-      // .envファイルから環境変数を読み込む
-      env_file: '/srv/m-pass/.env',
+      // 環境変数はserver.jsで.envから読み込む
       env: {
         NODE_ENV: 'production',
         PORT: 3000,
@@ -37,11 +35,9 @@ module.exports = {
     },
     {
       name: 'm-pass-debug',
-      script: 'npm',
-      args: 'run start:debug',
+      script: 'server-debug.js',
       cwd: '/srv/m-pass',
-      // .envファイルから環境変数を読み込む
-      env_file: '/srv/m-pass/.env',
+      // 環境変数はserver-debug.jsで.envから読み込む
       env: {
         NODE_ENV: 'production',
         PORT: 3001,
