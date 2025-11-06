@@ -284,6 +284,55 @@ export async function sendRegistrationCompleteEmail(
 }
 
 /**
+ * メールアドレス変更確認メールを送信
+ */
+export async function sendEmailChangeVerificationEmail(
+    to: string,
+    name: string,
+    token: string
+): Promise<void> {
+    const verificationUrl = `${APP_URL}/member/verify-email?token=${token}`;
+
+    const mailOptions = {
+        from: `"メンバー登録システム" <${GMAIL_USER}>`,
+        to,
+        subject: 'メールアドレス変更の確認',
+        html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #333;">メールアドレス変更の確認</h2>
+        <p>${name} 様</p>
+        <p>メールアドレスの変更リクエストを受け付けました。</p>
+        <p>新しいメールアドレスを確認するために、以下のリンクをクリックしてください。</p>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${verificationUrl}" 
+             style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block;">
+            メールアドレスを確認する
+          </a>
+        </div>
+        <p style="color: #666; font-size: 14px;">
+          このリンクは1時間有効です。<br>
+          もしこのメールに心当たりがない場合は、無視してください。
+        </p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+        <p style="color: #999; font-size: 12px;">
+          このメールはシステムから自動送信されています。<br>
+          直接返信しないでください。
+        </p>
+      </div>
+    `,
+    };
+
+    try {
+        const transporter = await createTransporter();
+        await transporter.sendMail(mailOptions);
+        console.log(`Email change verification email sent to ${to}`);
+    } catch (error) {
+        console.error('Error sending email change verification email:', error);
+        throw new Error('メールの送信に失敗しました');
+    }
+}
+
+/**
  * マイページ案内メールを送信（既存メンバー向け）
  */
 export async function sendMyPageAnnouncementEmail(

@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createMemberSession, verifyMemberSession } from '@/lib/member-auth';
-import { getMemberById, updateMemberProfile } from '@/lib/database';
+import { 
+    getMemberById, 
+    updateMemberProfile,
+    createPendingEmailChange,
+    deletePendingEmailChangeByMemberId,
+} from '@/lib/database';
+import { sendEmailChangeVerificationEmail } from '@/lib/mailer';
 import bcrypt from 'bcrypt';
+import crypto from 'crypto';
 
 export async function GET() {
     try {
@@ -91,6 +98,81 @@ export async function PUT(request: NextRequest) {
             );
         }
 
+        // メールアドレスが変更される場合は確認メールを送信
+        const emailChanged = email !== member.email;
+        
+        if (emailChanged) {
+            // 既存の保留中のメールアドレス変更申請を削除
+            deletePendingEmailChangeByMemberId(session.memberId);
+
+            // 確認用トークンを生成
+            const token = crypto.randomBytes(32).toString('hex');
+
+            // 有効期限（1時間後）
+            const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+
+            // メールアドレス変更申請を保存
+            createPendingEmailChange(
+                session.memberId,
+                email,
+                token,
+                expiresAt
+            );
+
+            // 確認メールを送信
+            try {
+                await sendEmailChangeVerificationEmail(email, name, token);
+            } catch (mailError) {
+                console.error('Email sending error:', mailError);
+                return NextResponse.json(
+                    { error: 'メールの送信に失敗しました。しばらくしてから再度お試しください。' },
+                    { status: 500 }
+                );
+            }
+
+            // メールアドレス以外の情報を更新
+            let passwordHash: string | undefined;
+            if (password) {
+                if (!/^[A-Za-z\d@$!%*?&_.\-+=^#~,;:/<>{}[\]|()`'"\\]{8,}$/.test(password)) {
+                    return NextResponse.json(
+                        { error: 'パスワードは英数記号を含む8文字以上である必要があります' },
+                        { status: 400 }
+                    );
+                }
+
+                passwordHash = await bcrypt.hash(password, 10);
+            }
+
+            updateMemberProfile(session.memberId, {
+                name,
+                email: member.email, // メールアドレスは変更しない
+                affiliation,
+                affiliationDetail,
+                passwordHash,
+            });
+
+            await createMemberSession({
+                memberId: session.memberId,
+                email: member.email, // メールアドレスは変更しない
+                name,
+            });
+
+            const updatedMember = getMemberById(session.memberId) as any;
+
+            return NextResponse.json({
+                id: updatedMember.id,
+                name: updatedMember.name,
+                email: updatedMember.email,
+                affiliation: updatedMember.affiliation,
+                affiliationDetail: updatedMember.affiliation_detail,
+                memberId: updatedMember.member_id,
+                createdAt: updatedMember.created_at,
+                emailChangeRequested: true,
+                pendingEmail: email,
+            });
+        }
+
+        // メールアドレスが変更されない場合は通常の更新
         let passwordHash: string | undefined;
         if (password) {
             if (!/^[A-Za-z\d@$!%*?&_.\-+=^#~,;:/<>{}[\]|()`'"\\]{8,}$/.test(password)) {

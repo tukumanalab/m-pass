@@ -55,6 +55,19 @@ export function initDatabase() {
     )
   `);
 
+  // メールアドレス変更申請テーブル
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS pending_email_changes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      member_id INTEGER NOT NULL,
+      new_email TEXT NOT NULL,
+      token TEXT UNIQUE NOT NULL,
+      expires_at DATETIME NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE
+    )
+  `);
+
   // パスワードリセットトークンテーブル
   db.exec(`
     CREATE TABLE IF NOT EXISTS password_reset_tokens (
@@ -174,6 +187,11 @@ export function initDatabase() {
   // password_reset_tokens用のインデックス
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_reset_token ON password_reset_tokens(token)
+  `);
+
+  // pending_email_changes用のインデックス
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_email_change_token ON pending_email_changes(token)
   `);
 }
 
@@ -597,6 +615,56 @@ export function resetAllMyPageNotificationFlags() {
     UPDATE members SET mypage_notification_sent_at = NULL
   `);
   return stmt.run().changes;
+}
+
+// メールアドレス変更申請の作成
+export function createPendingEmailChange(
+  memberId: number,
+  newEmail: string,
+  token: string,
+  expiresAt: string
+) {
+  const stmt = db.prepare(`
+    INSERT INTO pending_email_changes (member_id, new_email, token, expires_at)
+    VALUES (?, ?, ?, ?)
+  `);
+  const result = stmt.run(memberId, newEmail, token, expiresAt);
+  return result.lastInsertRowid;
+}
+
+// トークンからメールアドレス変更申請を取得
+export function findPendingEmailChangeByToken(token: string) {
+  const stmt = db.prepare(`
+    SELECT * FROM pending_email_changes WHERE token = ?
+  `);
+  return stmt.get(token);
+}
+
+// メールアドレス変更申請を削除
+export function deletePendingEmailChange(id: number) {
+  const stmt = db.prepare(`
+    DELETE FROM pending_email_changes WHERE id = ?
+  `);
+  const result = stmt.run(id);
+  return result.changes;
+}
+
+// 期限切れのメールアドレス変更申請を削除
+export function deleteExpiredPendingEmailChanges() {
+  const stmt = db.prepare(`
+    DELETE FROM pending_email_changes WHERE expires_at < CURRENT_TIMESTAMP
+  `);
+  const result = stmt.run();
+  return result.changes;
+}
+
+// メンバーIDで保留中のメールアドレス変更申請を削除
+export function deletePendingEmailChangeByMemberId(memberId: number) {
+  const stmt = db.prepare(`
+    DELETE FROM pending_email_changes WHERE member_id = ?
+  `);
+  const result = stmt.run(memberId);
+  return result.changes;
 }
 
 // データベース初期化を実行

@@ -21,6 +21,8 @@ interface MemberResponse {
   email: string;
   affiliation: string;
   affiliationDetail: string | null;
+  emailChangeRequested?: boolean;
+  pendingEmail?: string;
 }
 
 type MemberFormValues = MemberResponse & {
@@ -156,15 +158,33 @@ export default function MemberEditPage() {
       }
 
       const updated = (await response.json()) as MemberResponse;
-      setFormValues({
-        name: updated.name,
-        email: updated.email,
-        affiliation: updated.affiliation,
-        affiliationDetail: updated.affiliationDetail ?? "",
-        password: "",
-        passwordConfirm: "",
-      });
-      setSuccess("メンバー情報を更新しました");
+      
+      if (updated.emailChangeRequested && updated.pendingEmail) {
+        // メールアドレス変更確認が必要な場合
+        setSuccess(
+          `メンバー情報を更新しました。\n新しいメールアドレス（${updated.pendingEmail}）に確認メールを送信しました。メールを確認して変更を完了してください。`
+        );
+        // フォームは元のメールアドレスのままにする
+        setFormValues({
+          name: updated.name,
+          email: updated.email,
+          affiliation: updated.affiliation,
+          affiliationDetail: updated.affiliationDetail ?? "",
+          password: "",
+          passwordConfirm: "",
+        });
+      } else {
+        // メールアドレス変更がない場合は通常の更新
+        setFormValues({
+          name: updated.name,
+          email: updated.email,
+          affiliation: updated.affiliation,
+          affiliationDetail: updated.affiliationDetail ?? "",
+          password: "",
+          passwordConfirm: "",
+        });
+        setSuccess("メンバー情報を更新しました");
+      }
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "メンバー情報の更新に失敗しました"
@@ -217,7 +237,7 @@ export default function MemberEditPage() {
           )}
 
           {success && (
-            <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-xl text-green-700">
+            <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-xl text-green-700 whitespace-pre-line">
               {success}
             </div>
           )}
