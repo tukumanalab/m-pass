@@ -97,6 +97,29 @@ export default function Home() {
             管理者ダッシュボード
           </Link>
         </div>
+
+        {/* フッター */}
+        <footer className="mt-16 pt-8 border-t border-gray-200">
+          <div className="flex flex-col items-center space-y-4">
+            <div className="flex space-x-6 text-sm text-gray-500">
+              <Link
+                href="/privacy-policy"
+                className="hover:text-gray-700 hover:underline"
+              >
+                プライバシーポリシー
+              </Link>
+              <Link
+                href="/terms-of-service"
+                className="hover:text-gray-700 hover:underline"
+              >
+                利用規約
+              </Link>
+            </div>
+            <p className="text-xs text-gray-400">
+              © 2025 Tukumana Lab. All rights reserved.
+            </p>
+          </div>
+        </footer>
       </div>
     </div>
   );

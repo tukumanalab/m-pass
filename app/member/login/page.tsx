@@ -169,6 +169,24 @@ function MemberLoginContent() {
               新規登録はこちら
             </Link>
           </div>
+
+          <div className="mt-6 pt-6 border-t border-gray-200 text-center space-y-2">
+            <div className="flex justify-center space-x-4 text-xs text-gray-500">
+              <Link
+                href="/privacy-policy"
+                className="hover:text-gray-700 hover:underline"
+              >
+                プライバシーポリシー
+              </Link>
+              <span>|</span>
+              <Link
+                href="/terms-of-service"
+                className="hover:text-gray-700 hover:underline"
+              >
+                利用規約
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
     </div>

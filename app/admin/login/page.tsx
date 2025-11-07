@@ -80,13 +80,29 @@ export default function AdminLoginPage() {
             </button>
           </div>
 
-          <div className="text-center">
+          <div className="text-center space-y-4">
             <a
               href={basePath || "/"}
               className="font-medium text-blue-600 hover:text-blue-500"
             >
               ホームに戻る
             </a>
+            
+            <div className="flex justify-center space-x-4 text-xs text-gray-500">
+              <a
+                href="/privacy-policy"
+                className="hover:text-gray-700 hover:underline"
+              >
+                プライバシーポリシー
+              </a>
+              <span>|</span>
+              <a
+                href="/terms-of-service"
+                className="hover:text-gray-700 hover:underline"
+              >
+                利用規約
+              </a>
+            </div>
           </div>
         </form>
       </div>

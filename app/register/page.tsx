@@ -550,6 +550,20 @@ export default function RegisterPage() {
             />
           </div>
 
+          <div className="mb-4 p-4 bg-gray-50 rounded-xl text-sm text-gray-600">
+            <p className="mb-2">
+              登録をすることで、当サイトの
+              <a href="/terms-of-service" target="_blank" className="text-primary-600 hover:text-primary-700 underline mx-1">
+                利用規約
+              </a>
+              および
+              <a href="/privacy-policy" target="_blank" className="text-primary-600 hover:text-primary-700 underline mx-1">
+                プライバシーポリシー
+              </a>
+              に同意したものとみなします。
+            </p>
+          </div>
+
           <button
             type="submit"
             disabled={loading}

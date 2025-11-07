@@ -106,6 +106,23 @@ function ResetPasswordForm() {
               </Link>
             </div>
           </div>
+
+          {/* フッター */}
+          <div className="mt-8 text-center text-sm text-gray-500 space-x-4">
+            <a
+              href="/privacy-policy"
+              className="hover:text-gray-700 underline"
+            >
+              プライバシーポリシー
+            </a>
+            <span>|</span>
+            <a
+              href="/terms-of-service"
+              className="hover:text-gray-700 underline"
+            >
+              利用規約
+            </a>
+          </div>
         </div>
       </div>
     );
@@ -147,6 +164,23 @@ function ResetPasswordForm() {
                 今すぐログイン
               </Link>
             </div>
+          </div>
+
+          {/* フッター */}
+          <div className="mt-8 text-center text-sm text-gray-500 space-x-4">
+            <a
+              href="/privacy-policy"
+              className="hover:text-gray-700 underline"
+            >
+              プライバシーポリシー
+            </a>
+            <span>|</span>
+            <a
+              href="/terms-of-service"
+              className="hover:text-gray-700 underline"
+            >
+              利用規約
+            </a>
           </div>
         </div>
       </div>
@@ -231,6 +265,23 @@ function ResetPasswordForm() {
               {loading ? "設定中..." : "パスワードを設定"}
             </button>
           </form>
+        </div>
+
+        {/* フッター */}
+        <div className="mt-8 text-center text-sm text-gray-500 space-x-4">
+          <a
+            href="/privacy-policy"
+            className="hover:text-gray-700 underline"
+          >
+            プライバシーポリシー
+          </a>
+          <span>|</span>
+          <a
+            href="/terms-of-service"
+            className="hover:text-gray-700 underline"
+          >
+            利用規約
+          </a>
         </div>
       </div>
     </div>

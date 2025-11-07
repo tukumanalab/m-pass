@@ -8,6 +8,22 @@ const CLIENT_SECRET = process.env.GMAIL_CLIENT_SECRET;
 const REFRESH_TOKEN = process.env.GMAIL_REFRESH_TOKEN;
 const APP_URL = process.env.APP_URL || 'http://localhost:3000';
 
+// メール用共通フッター
+function getEmailFooter(): string {
+    return `
+        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+        <div style="text-align: center; margin: 15px 0;">
+          <a href="${APP_URL}/privacy-policy" style="color: #666; font-size: 12px; text-decoration: none; margin: 0 8px;">プライバシーポリシー</a>
+          <span style="color: #ccc; font-size: 12px;">|</span>
+          <a href="${APP_URL}/terms-of-service" style="color: #666; font-size: 12px; text-decoration: none; margin: 0 8px;">利用規約</a>
+        </div>
+        <p style="color: #999; font-size: 12px;">
+          このメールはシステムから自動送信されています。<br>
+          直接返信しないでください。
+        </p>
+    `;
+}
+
 if (!GMAIL_USER || !CLIENT_ID || !CLIENT_SECRET || !REFRESH_TOKEN) {
     console.warn('Warning: Gmail OAuth2 credentials are not configured. Email sending will fail.');
     console.warn('Required: GMAIL_USER, GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN');
@@ -88,11 +104,7 @@ export async function sendVerificationEmail(
           このリンクは24時間有効です。<br>
           もしこのメールに心当たりがない場合は、無視してください。
         </p>
-        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-        <p style="color: #999; font-size: 12px;">
-          このメールはシステムから自動送信されています。<br>
-          直接返信しないでください。
-        </p>
+        ${getEmailFooter()}
       </div>
     `,
     };
@@ -137,11 +149,7 @@ export async function sendPasswordResetEmail(
           このリンクは1時間有効です。<br>
           もしこのメールに心当たりがない場合は、無視してください。
         </p>
-        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-        <p style="color: #999; font-size: 12px;">
-          このメールはシステムから自動送信されています。<br>
-          直接返信しないでください。
-        </p>
+        ${getEmailFooter()}
       </div>
     `,
     };
@@ -200,11 +208,7 @@ export async function sendPasswordResetEmailMultiple(
           <strong>注意:</strong> 1つのリンクを使用すると、そのアカウントのパスワードのみがリセットされます。<br>
           もしこのメールに心当たりがない場合は、無視してください。
         </p>
-        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-        <p style="color: #999; font-size: 12px;">
-          このメールはシステムから自動送信されています。<br>
-          直接返信しないでください。
-        </p>
+        ${getEmailFooter()}
       </div>
     `,
     };
@@ -264,11 +268,7 @@ export async function sendRegistrationCompleteEmail(
             ログインページへ
           </a>
         </div>
-        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-        <p style="color: #999; font-size: 12px;">
-          このメールはシステムから自動送信されています。<br>
-          直接返信しないでください。
-        </p>
+        ${getEmailFooter()}
       </div>
     `,
     };
@@ -313,11 +313,7 @@ export async function sendEmailChangeVerificationEmail(
           このリンクは1時間有効です。<br>
           もしこのメールに心当たりがない場合は、無視してください。
         </p>
-        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-        <p style="color: #999; font-size: 12px;">
-          このメールはシステムから自動送信されています。<br>
-          直接返信しないでください。
-        </p>
+        ${getEmailFooter()}
       </div>
     `,
     };
@@ -401,11 +397,7 @@ export async function sendMyPageAnnouncementEmail(
           </p>
         </div>
 
-        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-        <p style="color: #999; font-size: 12px;">
-          このメールはシステムから自動送信されています。<br>
-          直接返信しないでください。
-        </p>
+        ${getEmailFooter()}
       </div>
     `,
     };

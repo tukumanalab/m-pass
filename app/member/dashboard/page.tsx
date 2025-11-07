@@ -362,6 +362,27 @@ export default function MemberDashboardPage() {
             </div>
           )}
         </div>
+
+        {/* フッター */}
+        <div className="mt-12 pt-8 border-t border-gray-200 text-center space-y-2">
+          <div className="flex justify-center space-x-4 text-xs text-gray-500">
+            <a
+              href="/privacy-policy"
+              target="_blank"
+              className="hover:text-gray-700 hover:underline"
+            >
+              プライバシーポリシー
+            </a>
+            <span>|</span>
+            <a
+              href="/terms-of-service"
+              target="_blank"
+              className="hover:text-gray-700 hover:underline"
+            >
+              利用規約
+            </a>
+          </div>
+        </div>
       </div>
     </div>
   );

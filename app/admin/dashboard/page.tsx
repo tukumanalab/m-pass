@@ -257,6 +257,25 @@ export default async function AdminDashboardPage() {
             </Link>
             <LogoutButton />
           </div>
+
+          {/* フッター */}
+          <div className="mt-12 border-t border-gray-200 pt-6">
+            <div className="text-center text-sm text-gray-500 space-x-4">
+              <Link
+                href="/privacy-policy"
+                className="hover:text-gray-700 underline"
+              >
+                プライバシーポリシー
+              </Link>
+              <span>|</span>
+              <Link
+                href="/terms-of-service"
+                className="hover:text-gray-700 underline"
+              >
+                利用規約
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
     </div>
