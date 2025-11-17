@@ -40,6 +40,13 @@ export function initDatabase() {
     // カラムが既に存在する場合はエラーを無視
   }
 
+  // カード印刷日時カラムを追加
+  try {
+    db.exec(`ALTER TABLE members ADD COLUMN card_printed_at DATETIME`);
+  } catch (e) {
+    // カラムが既に存在する場合はエラーを無視
+  }
+
   // 仮登録メンバーテーブル
   db.exec(`
     CREATE TABLE IF NOT EXISTS pending_members (
@@ -666,6 +673,15 @@ export function deletePendingEmailChangeByMemberId(memberId: number) {
   `);
   const result = stmt.run(memberId);
   return result.changes;
+}
+
+// カード印刷済みフラグを更新
+export function markCardPrinted(id: number) {
+  const now = new Date().toISOString(); // ISO 8601形式 (YYYY-MM-DDTHH:mm:ss.sssZ)
+  const stmt = db.prepare(`
+    UPDATE members SET card_printed_at = ? WHERE id = ?
+  `);
+  return stmt.run(now, id).changes;
 }
 
 // データベース初期化を実行

@@ -27,6 +27,7 @@ interface Member {
   email: string;
   created_at: string;
   mypage_notification_sent_at: string | null;
+  card_printed_at: string | null;
 }
 
 export default function AdminMembersPage() {
@@ -216,6 +217,9 @@ export default function AdminMembersPage() {
         return;
       }
 
+      // 選択されたメンバーを保存
+      setSelectedMember(member);
+
       // カードを生成
       await generateCard(
         data.member.name,
@@ -354,6 +358,31 @@ export default function AdminMembersPage() {
         </html>
       `);
       printWindow.document.close();
+
+      // 印刷ウィンドウが閉じられたかを定期的にチェック
+      const checkPrintWindowClosed = setInterval(async () => {
+        if (printWindow.closed) {
+          clearInterval(checkPrintWindowClosed);
+          
+          // 印刷済みフラグを更新
+          if (selectedMember) {
+            try {
+              const response = await fetch(
+                apiUrl(`/api/admin/members/${selectedMember.id}/mark-printed`),
+                { method: "POST" }
+              );
+              const data = await response.json();
+              if (data.success) {
+                toast.success("印刷済みの印を付けました");
+                await fetchMembers(searchQuery);
+                handleCloseCard(); // モーダルを閉じて更新された一覧を表示
+              }
+            } catch (error) {
+              console.error("Mark printed error:", error);
+            }
+          }
+        }
+      }, 500); // 500msごとにチェック
     } catch (error) {
       console.error("Print error:", error);
       toast.error("印刷に失敗しました");
@@ -384,6 +413,7 @@ export default function AdminMembersPage() {
   const handleCloseCard = () => {
     setShowCard(false);
     setCardData(null);
+    setSelectedMember(null);
   };
 
   // CSVファイル選択
@@ -897,6 +927,23 @@ export default function AdminMembersPage() {
                                   )}
                                 </p>
                               )}
+                              {member.card_printed_at && (
+                                <p className="text-xs text-purple-600 mt-1">
+                                  🖨️ カード印刷済み:{" "}
+                                  {new Date(member.card_printed_at).toLocaleString(
+                                    "ja-JP",
+                                    { 
+                                      timeZone: "Asia/Tokyo",
+                                      year: "numeric",
+                                      month: "numeric",
+                                      day: "numeric",
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                      second: "2-digit"
+                                    }
+                                  )}
+                                </p>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -905,7 +952,7 @@ export default function AdminMembersPage() {
                             onClick={() => handleShowCard(member)}
                             className="px-3 py-1 text-sm bg-green-100 text-green-700 rounded hover:bg-green-200"
                           >
-                            カード表示
+                            {member.card_printed_at ? "カード表示 ✓" : "カード表示"}
                           </button>
                           <button
                             onClick={() => handleEdit(member)}
