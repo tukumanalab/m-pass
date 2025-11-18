@@ -351,6 +351,33 @@ export default function AdminMembersPage() {
             ${cardData.cardSvg}
             <script>
               window.onload = function() {
+                var hasPrinted = false;
+                var targetOrigin = '*';
+
+                try {
+                  if (window.opener && !window.opener.closed) {
+                    targetOrigin = window.opener.location.origin;
+                  }
+                } catch (error) {
+                  targetOrigin = '*';
+                }
+
+                window.addEventListener('afterprint', function() {
+                  hasPrinted = true;
+                  if (window.opener && !window.opener.closed) {
+                    window.opener.postMessage({ type: 'print-completed' }, targetOrigin);
+                  }
+                  setTimeout(function() {
+                    window.close();
+                  }, 0);
+                });
+
+                window.addEventListener('beforeunload', function() {
+                  if (!hasPrinted && window.opener && !window.opener.closed) {
+                    window.opener.postMessage({ type: 'print-cancelled' }, targetOrigin);
+                  }
+                });
+
                 window.print();
               };
             </script>
@@ -359,30 +386,64 @@ export default function AdminMembersPage() {
       `);
       printWindow.document.close();
 
-      // 印刷ウィンドウが閉じられたかを定期的にチェック
-      const checkPrintWindowClosed = setInterval(async () => {
-        if (printWindow.closed) {
-          clearInterval(checkPrintWindowClosed);
-          
-          // 印刷済みフラグを更新
-          if (selectedMember) {
-            try {
-              const response = await fetch(
-                apiUrl(`/api/admin/members/${selectedMember.id}/mark-printed`),
-                { method: "POST" }
-              );
-              const data = await response.json();
-              if (data.success) {
-                toast.success("印刷済みの印を付けました");
-                await fetchMembers(searchQuery);
-                handleCloseCard(); // モーダルを閉じて更新された一覧を表示
-              }
-            } catch (error) {
-              console.error("Mark printed error:", error);
-            }
-          }
+      // 印刷完了のメッセージを受け取るリスナーを設定
+      const messageHandler = async (event: MessageEvent) => {
+        if (event.source !== printWindow) {
+          return;
         }
-      }, 500); // 500msごとにチェック
+
+        if (event.origin !== window.location.origin) {
+          return;
+        }
+
+        const messageType = typeof event.data === 'string' ? event.data : event.data?.type;
+
+        if (messageType === 'print-completed') {
+          if (!selectedMember) {
+            window.removeEventListener('message', messageHandler);
+            return;
+          }
+
+          try {
+            const response = await fetch(
+              apiUrl(`/api/admin/members/${selectedMember.id}/mark-printed`),
+              { method: "POST" }
+            );
+            const data = await response.json();
+
+            if (!data.success) {
+              toast.error(data.message || "印刷済みフラグの更新に失敗しました");
+              return;
+            }
+
+            const printedAt: string = data.cardPrintedAt || new Date().toISOString();
+
+            setMembers((prevMembers) =>
+              prevMembers.map((member) =>
+                member.id === selectedMember.id
+                  ? { ...member, card_printed_at: printedAt }
+                  : member
+              )
+            );
+
+            toast.success("印刷済みの印を付けました");
+            handleCloseCard();
+          } catch (error) {
+            console.error("Mark printed error:", error);
+            toast.error("印刷済みフラグの更新中にエラーが発生しました");
+          } finally {
+            window.removeEventListener('message', messageHandler);
+          }
+
+          return;
+        }
+
+        if (messageType === 'print-cancelled') {
+          window.removeEventListener('message', messageHandler);
+        }
+      };
+
+      window.addEventListener('message', messageHandler);
     } catch (error) {
       console.error("Print error:", error);
       toast.error("印刷に失敗しました");

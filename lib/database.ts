@@ -681,7 +681,11 @@ export function markCardPrinted(id: number) {
   const stmt = db.prepare(`
     UPDATE members SET card_printed_at = ? WHERE id = ?
   `);
-  return stmt.run(now, id).changes;
+  const result = stmt.run(now, id);
+  return {
+    changes: result.changes,
+    cardPrintedAt: result.changes > 0 ? now : null,
+  };
 }
 
 // データベース初期化を実行

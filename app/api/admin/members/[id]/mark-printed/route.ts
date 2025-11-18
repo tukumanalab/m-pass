@@ -18,7 +18,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const changes = markCardPrinted(memberId);
+    const { changes, cardPrintedAt } = markCardPrinted(memberId);
 
     if (changes === 0) {
       return NextResponse.json(
@@ -29,7 +29,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ 
       success: true, 
-      message: 'カード印刷済みフラグを更新しました' 
+      message: 'カード印刷済みフラグを更新しました',
+      cardPrintedAt,
     });
   } catch (error) {
     console.error('Mark card printed error:', error);
