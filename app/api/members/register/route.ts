@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createPendingMember, findMemberByEmailAndName, countMembersByEmail } from '@/lib/database';
 import { sendVerificationEmail } from '@/lib/mailer';
+import { logger } from '@/lib/logger';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 
@@ -15,21 +16,26 @@ export async function POST(request: NextRequest) {
 
         // バリデーション
         if (!name) {
+
             return NextResponse.json({ error: '氏名は必須です' }, { status: 400 });
         }
         if (!affiliation) {
+
             return NextResponse.json({ error: '所属は必須です' }, { status: 400 });
         }
         if (!email) {
+
             return NextResponse.json({ error: 'メールアドレスは必須です' }, { status: 400 });
         }
         if (!password) {
+
             return NextResponse.json({ error: 'パスワードは必須です' }, { status: 400 });
         }
 
         // メールアドレスの形式チェック
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email)) {
+
             return NextResponse.json({
                 error: 'メールアドレスの形式が正しくありません'
             }, { status: 400 });
@@ -38,6 +44,7 @@ export async function POST(request: NextRequest) {
         // 同じメールアドレスで登録されているメンバー数をチェック
         const memberCount = countMembersByEmail(email);
         if (memberCount >= MAX_MEMBERS_PER_EMAIL) {
+
             return NextResponse.json({
                 error: `このメールアドレスでは最大${MAX_MEMBERS_PER_EMAIL}人まで登録できます`
             }, { status: 400 });
@@ -46,6 +53,7 @@ export async function POST(request: NextRequest) {
         // メールアドレスと名前での重複チェック（既に登録済みのメンバー）
         const existingMember = findMemberByEmailAndName(email, name);
         if (existingMember) {
+
             return NextResponse.json({
                 error: '同じメールアドレスと名前の組み合わせは既に登録されています'
             }, { status: 409 });
@@ -54,6 +62,7 @@ export async function POST(request: NextRequest) {
         // パスワードの強度チェック（英数記号を含む8文字以上）
         const passwordRegex = /^[A-Za-z\d@$!%*?&_.\-+=^#~,;:/<>{}[\]|()`'"\\]{8,}$/;
         if (!passwordRegex.test(password)) {
+
             return NextResponse.json({
                 error: 'パスワードは英数記号を含む8文字以上である必要があります'
             }, { status: 400 });
@@ -83,7 +92,9 @@ export async function POST(request: NextRequest) {
         // 確認メールを送信
         try {
             await sendVerificationEmail(email, name, token);
+            logger.info('Registration verification email sent', { email, name });
         } catch (mailError) {
+            logger.error('Registration failed: Email sending error', { email, name, error: mailError });
             console.error('Email sending error:', mailError);
             return NextResponse.json({
                 error: 'メールの送信に失敗しました。しばらくしてから再度お試しください。'
@@ -95,6 +106,7 @@ export async function POST(request: NextRequest) {
             message: '確認メールを送信しました。メールをご確認ください。',
         });
     } catch (error) {
+        logger.error('Registration failed: System error', { error });
         console.error('Error in member registration:', error);
         return NextResponse.json({ error: '登録処理中にエラーが発生しました' }, { status: 500 });
     }
