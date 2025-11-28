@@ -200,6 +200,22 @@ export function initDatabase() {
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_email_change_token ON pending_email_changes(token)
   `);
+
+  // ログテーブル
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      level TEXT NOT NULL,
+      message TEXT NOT NULL,
+      meta TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // ログ作成日時用のインデックス
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_logs_created_at ON logs(created_at)
+  `);
 }
 
 // メンバーの登録
@@ -686,6 +702,57 @@ export function markCardPrinted(id: number) {
     changes: result.changes,
     cardPrintedAt: result.changes > 0 ? now : null,
   };
+}
+
+// ログの作成
+export function createLog(level: string, message: string, meta?: any) {
+  const stmt = db.prepare(`
+    INSERT INTO logs (level, message, meta)
+    VALUES (?, ?, ?)
+  `);
+  const metaStr = meta ? JSON.stringify(meta) : null;
+  return stmt.run(level, message, metaStr).lastInsertRowid;
+}
+
+// ログの取得
+export function getLogs(limit = 100, offset = 0, level?: string) {
+  let query = `SELECT * FROM logs`;
+  const params: any[] = [];
+
+  if (level) {
+    query += ` WHERE level = ?`;
+    params.push(level);
+  }
+
+  query += ` ORDER BY created_at DESC LIMIT ? OFFSET ?`;
+  params.push(limit, offset);
+
+  const stmt = db.prepare(query);
+  return stmt.all(...params);
+}
+
+// ログの総数取得
+export function getLogsCount(level?: string) {
+  let query = `SELECT COUNT(*) as count FROM logs`;
+  const params: any[] = [];
+
+  if (level) {
+    query += ` WHERE level = ?`;
+    params.push(level);
+  }
+
+  const stmt = db.prepare(query);
+  const result = stmt.get(...params) as { count: number };
+  return result.count;
+}
+
+// 古いログの削除
+export function deleteOldLogs(days: number) {
+  const stmt = db.prepare(`
+    DELETE FROM logs WHERE created_at < datetime('now', '-' || ? || ' days')
+  `);
+  const result = stmt.run(days);
+  return result.changes;
 }
 
 // データベース初期化を実行

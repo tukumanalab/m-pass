@@ -52,5 +52,5 @@ site-settings.json
 /public/uploads/
 
 # Logs
-logs
+/logs
 *.log

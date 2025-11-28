@@ -1,11 +1,12 @@
 import { cookies, headers } from 'next/headers';
+import { logger } from './logger';
 
 // ログ出力用のヘルパー関数
 function logToConsole(message: string, isError: boolean = false) {
   if (isError) {
-    console.error(message);
+    logger.error(message);
   } else {
-    console.log(message);
+    logger.info(message);
   }
 }
 
