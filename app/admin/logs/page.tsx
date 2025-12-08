@@ -19,6 +19,8 @@ interface Pagination {
   totalPages: number;
 }
 
+import { apiUrl } from "@/lib/api";
+
 export default function LogsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -42,7 +44,7 @@ export default function LogsPage() {
       params.set('page', page.toString());
       if (level) params.set('level', level);
 
-      const res = await fetch(`/api/admin/logs?${params.toString()}`);
+      const res = await fetch(apiUrl(`/api/admin/logs?${params.toString()}`));
       if (!res.ok) {
         throw new Error('Failed to fetch logs');
       }
