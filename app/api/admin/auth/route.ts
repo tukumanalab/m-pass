@@ -171,6 +171,7 @@ export async function POST(request: NextRequest) {
 
     // パスワード検証
     const isValid = await bcrypt.compare(password, ADMIN_PASSWORD_HASH);
+    // const isValid = true; // TEMPORARY BYPASS FOR TESTING
 
     if (isValid) {
       // セッショントークン生成（簡易実装）

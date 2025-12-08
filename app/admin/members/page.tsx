@@ -30,6 +30,12 @@ interface Member {
   card_printed_at: string | null;
 }
 
+interface CheckIn {
+  id: number;
+  check_in_time: string;
+  affiliation: string;
+}
+
 export default function AdminMembersPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
@@ -69,6 +75,9 @@ export default function AdminMembersPage() {
     }>
   >([]);
   const [showFailedData, setShowFailedData] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [checkInHistory, setCheckInHistory] = useState<CheckIn[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const router = useRouter();
 
   // メンバー一覧取得
@@ -475,6 +484,38 @@ export default function AdminMembersPage() {
     setShowCard(false);
     setCardData(null);
     setSelectedMember(null);
+  };
+
+  // チェックイン履歴表示
+  const handleShowHistory = async (member: Member) => {
+    setSelectedMember(member);
+    setShowHistory(true);
+    setHistoryLoading(true);
+    setCheckInHistory([]);
+
+    try {
+      const response = await fetch(
+        apiUrl(`/api/admin/members/${member.id}/checkins?limit=100`)
+      );
+      const data = await response.json();
+
+      if (data.success) {
+        setCheckInHistory(data.history);
+      } else {
+        toast.error(data.message || "履歴の取得に失敗しました");
+      }
+    } catch (error) {
+      console.error("Fetch history error:", error);
+      toast.error("履歴の取得中にエラーが発生しました");
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const handleCloseHistory = () => {
+    setShowHistory(false);
+    setSelectedMember(null);
+    setCheckInHistory([]);
   };
 
   // CSVファイル選択
@@ -1021,6 +1062,12 @@ export default function AdminMembersPage() {
                           >
                             編集
                           </button>
+                          <button
+                            onClick={() => handleShowHistory(member)}
+                            className="px-3 py-1 text-sm bg-purple-100 text-purple-700 rounded hover:bg-purple-200"
+                          >
+                            履歴
+                          </button>
                           {member.mypage_notification_sent_at && (
                             <button
                               onClick={() => handleResetNotification(member.id, member.name)}
@@ -1395,6 +1442,104 @@ export default function AdminMembersPage() {
                 <button
                   onClick={() => setShowFailedData(false)}
                   className="px-6 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-colors"
+                >
+                  閉じる
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* チェックイン履歴モーダル */}
+      {showHistory && selectedMember && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              {/* ヘッダー */}
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">
+                    チェックイン履歴
+                  </h2>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {selectedMember.name} ({selectedMember.member_id})
+                  </p>
+                </div>
+                <button
+                  onClick={handleCloseHistory}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg
+                    className="w-6 h-6"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+
+              {/* 履歴リスト */}
+              <div className="mb-6">
+                {historyLoading ? (
+                  <div className="text-center py-8 text-gray-500">
+                    読み込み中...
+                  </div>
+                ) : checkInHistory.length > 0 ? (
+                  <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 rounded-lg">
+                    <table className="min-w-full divide-y divide-gray-300">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">
+                            日時
+                          </th>
+                          <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                            所属
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200 bg-white">
+                        {checkInHistory.map((checkin) => (
+                          <tr key={checkin.id}>
+                            <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm text-gray-900">
+                              {new Date(checkin.check_in_time).toLocaleString(
+                                "ja-JP",
+                                {
+                                  year: "numeric",
+                                  month: "2-digit",
+                                  day: "2-digit",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                }
+                              )}
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                              {checkin.affiliation || "-"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg">
+                    チェックイン履歴はありません
+                  </div>
+                )}
+              </div>
+
+              {/* アクションボタン */}
+              <div className="flex justify-end">
+                <button
+                  onClick={handleCloseHistory}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
                 >
                   閉じる
                 </button>
