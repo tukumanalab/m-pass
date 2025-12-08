@@ -12,6 +12,16 @@ interface CheckIn {
   check_in_time: string;
 }
 
+interface Member {
+  id: number;
+  member_id: string;
+  name: string;
+  affiliation: string;
+  affiliation_detail: string;
+  email: string;
+  created_at: string;
+}
+
 export default function HistoryPage() {
   const [checkIns, setCheckIns] = useState<CheckIn[]>([]);
   const [loading, setLoading] = useState(true);
@@ -31,6 +41,13 @@ export default function HistoryPage() {
     failedRows: Array<{ row: number; data: string; error: string }>;
     duplicateRows: Array<{ row: number; data: string; error: string }>;
   } | null>(null);
+  
+  // Member Detail Modal State
+  const [showMemberModal, setShowMemberModal] = useState(false);
+  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+  const [memberHistory, setMemberHistory] = useState<CheckIn[]>([]);
+  const [memberLoading, setMemberLoading] = useState(false);
+
   const router = useRouter();
 
   // 認証チェック
@@ -301,6 +318,52 @@ export default function HistoryPage() {
     navigator.clipboard.writeText(csvContent).then(() => {
       alert("重複データをクリップボードにコピーしました");
     });
+  };
+
+  // メンバー詳細と履歴を取得
+  const handleMemberClick = async (memberId: number) => {
+    if (!memberId) return;
+
+    setMemberLoading(true);
+    setShowMemberModal(true);
+    setSelectedMember(null);
+    setMemberHistory([]);
+
+    try {
+      // メンバー詳細取得
+      const memberRes = await fetch(apiUrl(`/api/admin/members/${memberId}`));
+      const memberData = await memberRes.json();
+
+      if (memberData.success) {
+        setSelectedMember(memberData.member);
+      } else {
+        alert("メンバー情報の取得に失敗しました");
+      }
+
+      // チェックイン履歴取得
+      // check_in_timeの降順で取得するためlimitを大きめに設定
+      const historyRes = await fetch(
+        apiUrl(`/api/admin/members/${memberId}/checkins?limit=100`)
+      );
+      const historyData = await historyRes.json();
+
+      if (historyData.success) {
+        setMemberHistory(historyData.history);
+      } else {
+        console.error("History fetch failed:", historyData.message);
+      }
+    } catch (error) {
+      console.error("Error fetching member details:", error);
+      alert("情報の取得中にエラーが発生しました");
+    } finally {
+      setMemberLoading(false);
+    }
+  };
+
+  const handleCloseMemberModal = () => {
+    setShowMemberModal(false);
+    setSelectedMember(null);
+    setMemberHistory([]);
   };
 
   if (!authChecked || loading) {
@@ -779,7 +842,10 @@ export default function HistoryPage() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
                       {formatDateTime(checkIn.check_in_time)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-primary-600 font-mono font-bold">
+                    <td 
+                      className="px-6 py-4 whitespace-nowrap text-sm text-primary-600 font-mono font-bold cursor-pointer hover:underline hover:text-primary-800"
+                      onClick={() => handleMemberClick(checkIn.member_id)}
+                    >
                       {checkIn.member_id_str || "-"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
@@ -792,6 +858,120 @@ export default function HistoryPage() {
           </div>
         )}
       </div>
+
+      {/* メンバー詳細モーダル */}
+      {showMemberModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              {/* ヘッダー */}
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-2xl font-bold text-gray-900">
+                  メンバー詳細 & 履歴
+                </h2>
+                <button
+                  onClick={handleCloseMemberModal}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg
+                    className="w-6 h-6"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+
+              {memberLoading ? (
+                <div className="text-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                  <p className="mt-4 text-gray-600">読み込み中...</p>
+                </div>
+              ) : selectedMember ? (
+                <>
+                  {/* メンバー情報 */}
+                  <div className="bg-gray-50 rounded-xl p-6 mb-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm text-gray-500">名前</p>
+                        <p className="font-semibold text-lg text-gray-900">{selectedMember.name}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500">メンバーID</p>
+                        <p className="font-mono font-bold text-primary-600">{selectedMember.member_id}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500">所属</p>
+                        <p className="text-gray-900">{selectedMember.affiliation}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500">所属詳細</p>
+                        <p className="text-gray-900">{selectedMember.affiliation_detail || "-"}</p>
+                      </div>
+                      <div className="col-span-1 md:col-span-2">
+                        <p className="text-sm text-gray-500">メールアドレス</p>
+                        <p className="text-gray-900">{selectedMember.email}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* チェックイン履歴 */}
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900 mb-3">チェックイン履歴 (直近100件)</h3>
+                    {memberHistory.length > 0 ? (
+                      <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 rounded-lg max-h-60 overflow-y-auto">
+                        <table className="min-w-full divide-y divide-gray-300">
+                          <thead className="bg-gray-50 sticky top-0">
+                            <tr>
+                              <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">
+                                日時
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-200 bg-white">
+                            {memberHistory.map((history) => (
+                              <tr key={history.id}>
+                                <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm text-gray-900">
+                                  {formatDateTime(history.check_in_time)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg">
+                        履歴はありません
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-8 text-red-500">
+                  情報の取得に失敗しました
+                </div>
+              )}
+
+              {/* フッターアクション */}
+              <div className="mt-6 flex justify-end">
+                <button
+                  onClick={handleCloseMemberModal}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  閉じる
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
