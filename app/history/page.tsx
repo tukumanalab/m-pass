@@ -104,6 +104,34 @@ export default function HistoryPage() {
     }).format(date);
   };
 
+  const calculateDaysSincePrevious = (currentIndex: number) => {
+    // 履歴は降順（新しい順）で表示されていると仮定
+    // 次のインデックスが「前回のチェックイン」になる
+    const prevIndex = currentIndex + 1;
+    
+    if (prevIndex >= memberHistory.length) {
+      return "-";
+    }
+
+    const currentStr = memberHistory[currentIndex].check_in_time;
+    const prevStr = memberHistory[prevIndex].check_in_time;
+
+    // Convert UTC strings to Date objects
+    const current = new Date(currentStr);
+    const prev = new Date(prevStr);
+
+    // Calculate difference in milliseconds
+    const diffTime = current.getTime() - prev.getTime();
+    
+    // Convert to days (rounding down to ensure full days)
+    // using Math.floor might be misleading if checkins are on same day but few hours apart.
+    // User asked for "days". Usually "0 days" or "1 day".
+    // Let's use simple difference in days.
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+    return `${diffDays}日`;
+  };
+
   const toggleSelection = (id: number) => {
     const newSelected = new Set(selectedIds);
     if (newSelected.has(id)) {
@@ -933,6 +961,12 @@ export default function HistoryPage() {
                               <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">
                                 日時
                               </th>
+                              <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                                所属
+                              </th>
+                              <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                                間隔
+                              </th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-gray-200 bg-white">
@@ -940,6 +974,12 @@ export default function HistoryPage() {
                               <tr key={history.id}>
                                 <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm text-gray-900">
                                   {formatDateTime(history.check_in_time)}
+                                </td>
+                                <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                  {history.affiliation || "-"}
+                                </td>
+                                <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                  {calculateDaysSincePrevious(memberHistory.indexOf(history))}
                                 </td>
                               </tr>
                             ))}
