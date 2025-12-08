@@ -512,6 +512,31 @@ export default function AdminMembersPage() {
     }
   };
 
+  const calculateDaysSincePrevious = (currentIndex: number) => {
+    // 履歴は降順（新しい順）で表示されていると仮定
+    // 次のインデックスが「前回のチェックイン」になる
+    const prevIndex = currentIndex + 1;
+    
+    if (prevIndex >= checkInHistory.length) {
+      return "-";
+    }
+
+    const currentStr = checkInHistory[currentIndex].check_in_time;
+    const prevStr = checkInHistory[prevIndex].check_in_time;
+
+    // Convert UTC strings to Date objects
+    const current = new Date(currentStr);
+    const prev = new Date(prevStr);
+
+    // Calculate difference in milliseconds
+    const diffTime = current.getTime() - prev.getTime();
+    
+    // Convert to days (rounding down to ensure full days)
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+    return `${diffDays}日`;
+  };
+
   const handleCloseHistory = () => {
     setShowHistory(false);
     setSelectedMember(null);
@@ -1503,6 +1528,9 @@ export default function AdminMembersPage() {
                           <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
                             所属
                           </th>
+                          <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                            間隔
+                          </th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200 bg-white">
@@ -1522,6 +1550,9 @@ export default function AdminMembersPage() {
                             </td>
                             <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                               {checkin.affiliation || "-"}
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                              {calculateDaysSincePrevious(checkInHistory.indexOf(checkin))}
                             </td>
                           </tr>
                         ))}
