@@ -531,8 +531,8 @@ export default function AdminMembersPage() {
     // Calculate difference in milliseconds
     const diffTime = current.getTime() - prev.getTime();
     
-    // Convert to days (rounding down to ensure full days)
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    // Convert to days (rounding up to ensure full days)
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
     return `${diffDays}日`;
   };
