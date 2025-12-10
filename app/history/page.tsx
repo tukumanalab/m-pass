@@ -10,6 +10,7 @@ interface CheckIn {
   member_id_str: string | null; // メンバーID文字列（チェックイン時に保存）
   affiliation: string | null; // 所属（チェックイン時に保存）
   check_in_time: string;
+  name: string | null; // メンバー名
 }
 
 interface Member {
@@ -127,7 +128,7 @@ export default function HistoryPage() {
     // using Math.floor might be misleading if checkins are on same day but few hours apart.
     // User asked for "days". Usually "0 days" or "1 day".
     // Let's use simple difference in days.
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
     return `${diffDays}日`;
   };
@@ -349,8 +350,8 @@ export default function HistoryPage() {
   };
 
   // メンバー詳細と履歴を取得
-  const handleMemberClick = async (memberId: number) => {
-    if (!memberId) return;
+  const handleMemberClick = async (memberIdStr: string | null) => {
+    if (!memberIdStr) return;
 
     setMemberLoading(true);
     setShowMemberModal(true);
@@ -359,7 +360,7 @@ export default function HistoryPage() {
 
     try {
       // メンバー詳細取得
-      const memberRes = await fetch(apiUrl(`/api/admin/members/${memberId}`));
+      const memberRes = await fetch(apiUrl(`/api/admin/members/${memberIdStr}`));
       const memberData = await memberRes.json();
 
       if (memberData.success) {
@@ -371,7 +372,7 @@ export default function HistoryPage() {
       // チェックイン履歴取得
       // check_in_timeの降順で取得するためlimitを大きめに設定
       const historyRes = await fetch(
-        apiUrl(`/api/admin/members/${memberId}/checkins?limit=100`)
+        apiUrl(`/api/admin/members/${memberIdStr}/checkins?limit=100`)
       );
       const historyData = await historyRes.json();
 
@@ -844,7 +845,7 @@ export default function HistoryPage() {
                     日時
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-primary-700 uppercase tracking-wider">
-                    メンバーID
+                    名前
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-primary-700 uppercase tracking-wider">
                     所属
@@ -871,10 +872,10 @@ export default function HistoryPage() {
                       {formatDateTime(checkIn.check_in_time)}
                     </td>
                     <td 
-                      className="px-6 py-4 whitespace-nowrap text-sm text-primary-600 font-mono font-bold cursor-pointer hover:underline hover:text-primary-800"
-                      onClick={() => handleMemberClick(checkIn.member_id)}
+                      className="px-6 py-4 whitespace-nowrap text-sm text-primary-600 font-bold cursor-pointer hover:underline hover:text-primary-800"
+                      onClick={() => handleMemberClick(checkIn.member_id_str)}
                     >
-                      {checkIn.member_id_str || "-"}
+                      {checkIn.name || "-"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                       {checkIn.affiliation || "-"}

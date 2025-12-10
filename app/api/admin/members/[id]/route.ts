@@ -11,11 +11,23 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
 
-    const member = db.prepare(`
-      SELECT id, member_id, name, affiliation, affiliation_detail, email, created_at, mypage_notification_sent_at
-      FROM members
-      WHERE id = ?
-    `).get(id);
+    // idが数値の場合はinteger ID、そうでない場合はmember_idとして検索
+    const isNumericId = /^\d+$/.test(id);
+    
+    let member;
+    if (isNumericId) {
+      member = db.prepare(`
+        SELECT id, member_id, name, affiliation, affiliation_detail, email, created_at, mypage_notification_sent_at
+        FROM members
+        WHERE id = ?
+      `).get(id);
+    } else {
+      member = db.prepare(`
+        SELECT id, member_id, name, affiliation, affiliation_detail, email, created_at, mypage_notification_sent_at
+        FROM members
+        WHERE member_id = ?
+      `).get(id);
+    }
 
     if (!member) {
       return NextResponse.json(

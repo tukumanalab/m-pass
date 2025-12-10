@@ -429,13 +429,15 @@ export function getTodayCheckIns() {
 export function getCheckInHistory(limit = 50, offset = 0) {
   const stmt = db.prepare(`
     SELECT
-      id,
-      member_id,
-      member_id_str,
-      affiliation,
-      check_in_time
-    FROM checkins
-    ORDER BY check_in_time DESC
+      c.id,
+      c.member_id,
+      c.member_id_str,
+      c.affiliation,
+      c.check_in_time,
+      m.name
+    FROM checkins c
+    LEFT JOIN members m ON c.member_id_str = m.member_id
+    ORDER BY c.check_in_time DESC
     LIMIT ? OFFSET ?
   `);
   return stmt.all(limit, offset);
