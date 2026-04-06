@@ -1,5 +1,4 @@
 {
-  "typescript.tsdk": "node_modules/typescript/lib",
   "typescript.enablePromptUseWorkspaceTsdk": true,
   
   // ============================================
@@ -8,7 +7,7 @@
   
   // TypeScriptサーバーのメモリ制限を512MBに設定
   // (システム全体2GBのため、TSサーバーには控えめに割り当て)
-  "typescript.tsserver.maxTsServerMemory": 512,
+  // "typescript.tsserver.maxTsServerMemory": 512,
   
   // TypeScript言語サーバーの安定性・パフォーマンス向上
   "typescript.tsserver.log": "off",
