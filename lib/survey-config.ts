@@ -18,7 +18,8 @@ export interface SurveyOption {
 export const SURVEY_OPTIONS: SurveyOption[] = [
   { label: "X",               url: "https://x.com/TukumanaLab" },
   { label: "Instagram",       url: "https://www.instagram.com/agu_tukumanalab/" },
-  { label: "Web",             url: "https://sites.google.com/view/tukumanalab/" },
+  { label: "Web", url: "https://sites.google.com/view/tukumanalab/" },
+  { label: "学生ポータル" },
   { label: "立て看板" },
   { label: "友達から聞いた" },
   { label: "教職員から聞いた" },
