@@ -4,6 +4,8 @@ import {
     deletePendingMember,
     createMember,
     isMemberIdExists,
+    createSurveyResponse,
+    findMemberByMemberId,
 } from '@/lib/database';
 import { sendRegistrationCompleteEmail } from '@/lib/mailer';
 import QRCode from 'qrcode';
@@ -84,6 +86,17 @@ export async function POST(request: NextRequest) {
 
         // 仮登録データを削除
         deletePendingMember(pendingMember.id);
+
+        // メンバーの登録時刻を取得してアンケート回答を保存（回答がある場合のみ）
+        if (pendingMember.how_did_you_know) {
+            const member = findMemberByMemberId(memberId) as any;
+            createSurveyResponse(
+                memberId,
+                pendingMember.affiliation,
+                pendingMember.how_did_you_know,
+                member.created_at
+            );
+        }
 
         // QRコード画像をBase64データURLとして生成
         const qrCodeDataUrl = await QRCode.toDataURL(memberId, {

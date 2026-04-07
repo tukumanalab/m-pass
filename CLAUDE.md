@@ -57,7 +57,7 @@ pm2 restart m-pass   # 再起動
 
 ### データフロー
 
-1. **メンバー登録**: フォーム入力 → API → DB 登録 → QR コード生成（Base64 データ URL） → カード生成・表示
+1. **メンバー登録**: フォーム入力（アンケート含む） → API → DB 登録 → QR コード生成（Base64 データ URL） → カード生成・表示
 2. **チェックイン**: カメラで QR スキャン → API → QR コード検証 → DB 記録 → 完了画面表示
 
 ### データベース構造
@@ -73,6 +73,13 @@ pm2 restart m-pass   # 再起動
 
 - member_id でメンバーと紐付け
 - check_in_time で時系列管理
+
+**survey_responses テーブル**: アンケート回答
+
+- member_id（4 桁 ID）と affiliation（所属）を保存
+- how_did_you_know にアンケート回答を保存（「その他」の場合は `"その他: {自由記述}"` 形式）
+- created_at はメンバー登録時刻（UTC）を使用
+- members テーブルとは独立（外部キー制約なし）
 
 ### API 設計
 
@@ -94,12 +101,17 @@ pm2 restart m-pass   # 再起動
 - `GET /api/checkins/today` - 本日のチェックイン一覧（SQLite で日付フィルタ）
 - `GET /api/checkins/history` - 履歴取得（limit/offset でページネーション）
 
+**アンケート API:**
+
+- `GET /api/admin/survey` - アンケート集計データ取得（`startDate`/`endDate` クエリパラメータで期間フィルタ）
+- `GET /api/admin/survey/export` - アンケート回答 CSV エクスポート（`startDate`/`endDate` で期間フィルタ、ファイル名に期間が入る）
+
 ### フロントエンド構成
 
 **公開ページ:**
 
 - `/` - ホーム（4 つの主要機能へのリンク）
-- `/register` - メンバー登録フォーム（Client Component）
+- `/register` - メンバー登録フォーム（Client Component、アンケート含む）
 - `/scan` - QR コードスキャン（html5-qrcode、カメラ使用）
 - `/dashboard` - 本日のチェックイン表示（30 秒自動更新）
 - `/history` - 過去の利用履歴
@@ -110,6 +122,7 @@ pm2 restart m-pass   # 再起動
 - `/admin/dashboard` - 管理ダッシュボード
 - `/admin/members` - メンバー管理（検索、編集、削除、CSV 一括登録・ダウンロード）
 - `/admin/settings` - サイト設定、カードテンプレート管理
+- `/admin/survey` - アンケート集計（棒グラフ表示、期間フィルタ、CSV ダウンロード）
 
 ## 重要な実装ポイント
 
@@ -246,6 +259,42 @@ example@example.com,山田太郎,開発部,第一グループ,5a1b,2025/01/15 10
 - ファイル名: `members_YYYY-MM-DD.csv`
 - 日時は時刻付き（`YYYY/MM/DD HH:mm:ss`）で出力
 - ダウンロードした CSV をそのまま再アップロード可能
+
+### アンケート機能
+
+登録フォームに「つくまなラボをどうやって知りましたか？」というアンケートを設置。
+
+**設定ファイル**: `lib/survey-config.ts`
+
+- `SURVEY_QUESTION` - 質問文
+- `SURVEY_OPTIONS` - 選択肢の配列（`label` と任意の `url` を持つオブジェクト）。`url` を指定すると選択肢の横に新規タブで開くリンクが表示される
+- `SURVEY_OTHER_OPTION` - 自由記述欄を表示するトリガーとなる選択肢のラベル値（デフォルト `"その他"`）
+
+選択肢・質問文を変更する場合は `lib/survey-config.ts` のみ編集すればよい。
+
+**データフロー**:
+
+1. 登録フォームで回答 → `howDidYouKnow` として `POST /api/members/register` に送信
+2. `pending_members.how_did_you_know` に一時保存
+3. メール確認完了（`POST /api/members/verify`）時に `survey_responses` テーブルへ保存
+   - 「その他」選択時は `"その他: {自由記述}"` 形式で保存
+   - 未回答の場合は保存しない
+   - `created_at` はメンバー登録時刻（UTC）を使用
+
+**アンケート集計ページ** (`/admin/survey`):
+
+- 選択肢ごとの横棒グラフ（件数・回答率%）を表示
+- 総登録者数・回答あり件数・未回答件数のサマリ
+- 開始日・終了日で期間フィルタ（JST 基準）
+- 指定期間を反映した CSV ダウンロード（ファイル名: `survey_{startDate}_{endDate}.csv`）
+
+**CSV 形式**:
+
+```csv
+member_id,affiliation,how_did_you_know,created_at
+6a1b,大学,Web,2026/04/07 10:30:00
+6a2c,高等部,その他: 学校の掲示板,2026/04/07 11:00:00
+```
 
 ### カードテンプレート機能
 

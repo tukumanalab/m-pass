@@ -201,6 +201,24 @@ export function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_email_change_token ON pending_email_changes(token)
   `);
 
+  // アンケート回答テーブル
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS survey_responses (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      member_id TEXT NOT NULL,
+      affiliation TEXT NOT NULL,
+      how_did_you_know TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // pending_membersにアンケート列を追加（マイグレーション）
+  try {
+    db.exec(`ALTER TABLE pending_members ADD COLUMN how_did_you_know TEXT`);
+  } catch (e) {
+    // カラムが既に存在する場合はエラーを無視
+  }
+
   // ログテーブル
   db.exec(`
     CREATE TABLE IF NOT EXISTS logs (
@@ -526,13 +544,14 @@ export function createPendingMember(
   affiliationDetail: string | null,
   email: string,
   passwordHash: string,
-  expiresAt: string
+  expiresAt: string,
+  howDidYouKnow: string | null = null
 ) {
   const stmt = db.prepare(`
-    INSERT INTO pending_members (token, name, affiliation, affiliation_detail, email, password_hash, expires_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO pending_members (token, name, affiliation, affiliation_detail, email, password_hash, expires_at, how_did_you_know)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `);
-  const result = stmt.run(token, name, affiliation, affiliationDetail, email, passwordHash, expiresAt);
+  const result = stmt.run(token, name, affiliation, affiliationDetail, email, passwordHash, expiresAt, howDidYouKnow);
   return result.lastInsertRowid;
 }
 
@@ -755,6 +774,52 @@ export function deleteOldLogs(days: number) {
   `);
   const result = stmt.run(days);
   return result.changes;
+}
+
+// アンケート回答の作成（createdAt はメンバー登録時刻＝UTC）
+export function createSurveyResponse(
+  memberId: string,
+  affiliation: string,
+  howDidYouKnow: string | null,
+  createdAt: string
+) {
+  const stmt = db.prepare(`
+    INSERT INTO survey_responses (member_id, affiliation, how_did_you_know, created_at)
+    VALUES (?, ?, ?, ?)
+  `);
+  const result = stmt.run(memberId, affiliation, howDidYouKnow, createdAt);
+  return result.lastInsertRowid;
+}
+
+// 全アンケート回答を取得（期間フィルタ付き、JSTで比較・返却）
+export function getAllSurveyResponses(startDate?: string, endDate?: string) {
+  let query = `
+    SELECT member_id, affiliation, how_did_you_know,
+           strftime('%Y/%m/%d %H:%M:%S', datetime(created_at, '+9 hours')) AS created_at
+    FROM survey_responses
+  `;
+  const params: string[] = [];
+
+  if (startDate && endDate) {
+    query += ` WHERE DATE(datetime(created_at, '+9 hours')) >= DATE(?) AND DATE(datetime(created_at, '+9 hours')) <= DATE(?)`;
+    params.push(startDate, endDate);
+  } else if (startDate) {
+    query += ` WHERE DATE(datetime(created_at, '+9 hours')) >= DATE(?)`;
+    params.push(startDate);
+  } else if (endDate) {
+    query += ` WHERE DATE(datetime(created_at, '+9 hours')) <= DATE(?)`;
+    params.push(endDate);
+  }
+
+  query += ` ORDER BY created_at DESC`;
+
+  const stmt = db.prepare(query);
+  return stmt.all(...params) as Array<{
+    member_id: string;
+    affiliation: string;
+    how_did_you_know: string | null;
+    created_at: string;
+  }>;
 }
 
 // データベース初期化を実行

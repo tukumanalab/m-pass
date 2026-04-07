@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { apiUrl } from "@/lib/api";
+import { SURVEY_QUESTION, SURVEY_OPTIONS, SURVEY_OTHER_OPTION } from "@/lib/survey-config";
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -12,6 +13,8 @@ export default function RegisterPage() {
     email: "",
     password: "",
     passwordConfirm: "",
+    howDidYouKnow: "",
+    howDidYouKnowOther: "",
   });
   const [emailSent, setEmailSent] = useState(false);
   const [registeredEmail, setRegisteredEmail] = useState<string>("");
@@ -36,7 +39,10 @@ export default function RegisterPage() {
     }
 
     try {
-      const { passwordConfirm, ...submitData } = formData;
+      const { passwordConfirm, howDidYouKnowOther, ...submitData } = formData;
+      if (submitData.howDidYouKnow === SURVEY_OTHER_OPTION && howDidYouKnowOther) {
+        submitData.howDidYouKnow = `${SURVEY_OTHER_OPTION}: ${howDidYouKnowOther}`;
+      }
       const response = await fetch(apiUrl("/api/members/register"), {
         method: "POST",
         headers: {
@@ -69,6 +75,8 @@ export default function RegisterPage() {
       email: "",
       password: "",
       passwordConfirm: "",
+      howDidYouKnow: "",
+      howDidYouKnowOther: "",
     });
     setEmailSent(false);
     setRegisteredEmail("");
@@ -548,6 +556,51 @@ export default function RegisterPage() {
               className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
               placeholder="パスワードを再入力"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              {SURVEY_QUESTION}
+            </label>
+            <div className="space-y-2">
+              {SURVEY_OPTIONS.map((option) => (
+                <label key={option.label} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="howDidYouKnow"
+                    value={option.label}
+                    checked={formData.howDidYouKnow === option.label}
+                    onChange={(e) =>
+                      setFormData({ ...formData, howDidYouKnow: e.target.value, howDidYouKnowOther: "" })
+                    }
+                    className="w-4 h-4 text-primary-600 border-gray-300 focus:ring-primary-500"
+                  />
+                  <span className="text-sm text-gray-700">{option.label}</span>
+                  {option.url && (
+                    <a
+                      href={option.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-primary-600 hover:text-primary-700 underline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      ↗
+                    </a>
+                  )}
+                </label>
+              ))}
+            </div>
+            {formData.howDidYouKnow === SURVEY_OTHER_OPTION && (
+              <input
+                type="text"
+                value={formData.howDidYouKnowOther}
+                onChange={(e) =>
+                  setFormData({ ...formData, howDidYouKnowOther: e.target.value })
+                }
+                className="mt-2 w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
+                placeholder="詳しく教えてください"
+              />
+            )}
           </div>
 
           <div className="mb-4 p-4 bg-gray-50 rounded-xl text-sm text-gray-600">
