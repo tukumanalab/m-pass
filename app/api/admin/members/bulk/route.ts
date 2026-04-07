@@ -390,9 +390,11 @@ export async function DELETE(request: NextRequest) {
       });
     }
 
+    // アンケート回答を全削除
+    db.prepare('DELETE FROM survey_responses').run();
+
     // メンバーを全削除（チェックイン履歴は残す）
-    const deleteMembers = db.prepare('DELETE FROM members');
-    const membersResult = deleteMembers.run();
+    db.prepare('DELETE FROM members').run();
 
     return NextResponse.json({
       success: true,

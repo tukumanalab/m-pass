@@ -111,7 +111,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const { id } = await params;
 
     // メンバーの存在確認
-    const member = db.prepare('SELECT id FROM members WHERE id = ?').get(id);
+    const member = db.prepare('SELECT id, member_id FROM members WHERE id = ?').get(id) as { id: number; member_id: string } | undefined;
 
     if (!member) {
       return NextResponse.json(
@@ -122,6 +122,9 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     // 関連するチェックイン記録も削除
     db.prepare('DELETE FROM checkins WHERE member_id = ?').run(id);
+
+    // アンケート回答を削除
+    db.prepare('DELETE FROM survey_responses WHERE member_id = ?').run(member.member_id);
 
     // メンバー削除
     db.prepare('DELETE FROM members WHERE id = ?').run(id);
