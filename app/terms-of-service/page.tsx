@@ -217,12 +217,6 @@ export default function TermsOfServicePage() {
           </div>
         </section>
       </div>
-
-      <div className="mt-12 pt-6 border-t border-gray-200">
-        <p className="text-sm text-gray-500 text-center">
-          この利用規約は、Google OAuth認証および日本の法律に準拠して作成されています。
-        </p>
-      </div>
     </div>
   );
 }

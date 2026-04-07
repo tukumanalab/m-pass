@@ -157,12 +157,6 @@ export default function PrivacyPolicyPage() {
           </p>
         </section>
       </div>
-
-      <div className="mt-12 pt-6 border-t border-gray-200">
-        <p className="text-sm text-gray-500 text-center">
-          このプライバシーポリシーは、Google OAuth認証画面での表示および法的要件を満たすために作成されています。
-        </p>
-      </div>
     </div>
   );
 }
