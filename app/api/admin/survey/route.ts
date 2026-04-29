@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAllSurveyResponses } from '@/lib/database';
 import { isAdminAuthenticated } from '@/lib/auth';
-import { SURVEY_OPTIONS } from '@/lib/survey-config';
+import { SURVEY_OPTIONS, SURVEY_OTHER_OPTION } from '@/lib/survey-config';
 
 export async function GET(request: NextRequest) {
   try {
@@ -22,8 +22,8 @@ export async function GET(request: NextRequest) {
     for (const label of optionLabels) {
       countMap[label] = 0;
     }
-    let otherCount = 0;
     let noAnswerCount = 0;
+    const otherTexts: string[] = [];
 
     for (const row of responses) {
       if (!row.how_did_you_know) {
@@ -36,8 +36,10 @@ export async function GET(request: NextRequest) {
       );
       if (matchedLabel) {
         countMap[matchedLabel]++;
-      } else {
-        otherCount++;
+        // 「その他」の自由記述テキストを収集
+        if (matchedLabel === SURVEY_OTHER_OPTION && row.how_did_you_know!.startsWith(SURVEY_OTHER_OPTION + ': ')) {
+          otherTexts.push(row.how_did_you_know!.slice(SURVEY_OTHER_OPTION.length + 2));
+        }
       }
     }
 
@@ -51,6 +53,7 @@ export async function GET(request: NextRequest) {
       total: responses.length,
       noAnswerCount,
       chartData,
+      otherTexts,
     });
   } catch (error) {
     console.error('Survey stats error:', error);

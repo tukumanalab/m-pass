@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { apiUrl } from '@/lib/api';
-import { SURVEY_QUESTION } from '@/lib/survey-config';
+import { SURVEY_QUESTION, SURVEY_OTHER_OPTION } from '@/lib/survey-config';
 
 interface ChartItem {
   label: string;
@@ -14,6 +14,7 @@ interface SurveyStats {
   total: number;
   noAnswerCount: number;
   chartData: ChartItem[];
+  otherTexts: string[];
 }
 
 export default function SurveyPage() {
@@ -156,6 +157,7 @@ export default function SurveyPage() {
                     const answerPct = answeredCount > 0
                       ? Math.round((item.count / answeredCount) * 100)
                       : 0;
+                    const isOther = item.label === SURVEY_OTHER_OPTION;
                     return (
                       <div key={item.label}>
                         <div className="flex items-center justify-between mb-1">
@@ -171,6 +173,16 @@ export default function SurveyPage() {
                             style={{ width: `${pct}%` }}
                           />
                         </div>
+                        {isOther && stats.otherTexts.length > 0 && (
+                          <ul className="mt-2 ml-2 space-y-1">
+                            {stats.otherTexts.map((text, i) => (
+                              <li key={i} className="text-xs text-gray-600 flex items-start gap-1">
+                                <span className="text-gray-400 shrink-0">・</span>
+                                <span>{text}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
                       </div>
                     );
                   })}
