@@ -13,6 +13,7 @@ QR コードを使った利用者の入館管理 Web アプリケーション
 - **ダッシュボード**: 本日のチェックイン状況をリアルタイム表示
 - **利用履歴**: 過去のチェックイン履歴を確認
 - **管理機能**: サイト設定、カードテンプレート管理、メンバー管理
+- **アンケート機能**: メンバー登録時に「どこで知ったか」を収集し、管理画面でグラフ集計・CSV エクスポート
 
 ## 技術スタック
 
@@ -393,6 +394,20 @@ db.close();
 | expires_at         | DATETIME | トークン有効期限（24時間）      |
 | created_at         | DATETIME | 仮登録日時                      |
 
+### survey_responses テーブル
+
+登録時アンケートの回答を保存
+
+| カラム名         | 型       | 説明                                                    |
+| ---------------- | -------- | ------------------------------------------------------- |
+| id               | INTEGER  | 主キー                                                  |
+| member_id        | TEXT     | QR コード（4 桁）                                       |
+| affiliation      | TEXT     | 所属                                                    |
+| how_did_you_know | TEXT     | アンケート回答（「その他」の場合は `"その他: {自由記述}"` 形式）|
+| created_at       | DATETIME | メンバー登録日時（UTC）                                 |
+
+**注**: `members` テーブルとは独立して管理され、外部キー制約なし。
+
 ### checkins テーブル
 
 チェックイン記録を保存
@@ -423,6 +438,11 @@ db.close();
 - `POST /api/checkin` - QR コードによるチェックイン実行
 - `GET /api/checkins/today` - 本日のチェックイン一覧
 - `GET /api/checkins/history` - チェックイン履歴（ページネーション対応）
+
+### アンケート
+
+- `GET /api/admin/survey` - アンケート集計データ取得（`startDate`/`endDate` で期間フィルタ）
+- `GET /api/admin/survey/export` - アンケート回答 CSV エクスポート（ファイル名: `survey_{startDate}_{endDate}.csv`）
 
 ### QR コード形式
 
@@ -474,6 +494,56 @@ timestamp,qr_code
 - 日時は時刻付き（`YYYY/MM/DD HH:mm:ss`）で出力
 - 出力内容: timestamp、qr_code、affiliation、affiliation_detail
 - 所属情報は`member_id`でメンバーテーブルから自動的に取得
+
+## アンケート機能
+
+メンバー登録フォームに「つくまなラボをどうやって知りましたか？」というアンケートを設置し、回答を収集・集計できます。
+
+### 設定
+
+選択肢や質問文は `lib/survey-config.ts` で一元管理しています。このファイルのみ編集すれば、登録フォームと集計画面の両方に反映されます。
+
+```ts
+// lib/survey-config.ts
+export const SURVEY_QUESTION = "つくまなラボをどうやって知りましたか？";
+
+export const SURVEY_OPTIONS: SurveyOption[] = [
+  { label: "X",         url: "https://x.com/TukumanaLab" },   // url指定でリンク表示
+  { label: "Instagram", url: "https://www.instagram.com/..." },
+  { label: "Web",       url: "https://sites.google.com/..." },
+  { label: "学生ポータル" },
+  { label: "友達から聞いた" },
+  { label: "その他" },   // この選択肢を選ぶと自由記述欄が表示される
+];
+
+export const SURVEY_OTHER_OPTION = "その他"; // 自由記述を促すトリガーラベル
+```
+
+- `url` を指定すると、選択肢の横に新規タブで開くリンクが表示されます
+- `SURVEY_OTHER_OPTION` と一致するラベルを選ぶと自由記述欄が表示されます
+
+### データフロー
+
+1. 登録フォームで回答 → `howDidYouKnow` として `POST /api/members/register` に送信
+2. `pending_members.how_did_you_know` に一時保存
+3. メール確認完了（`POST /api/members/verify`）時に `survey_responses` テーブルへ保存
+   - 「その他」選択時は `"その他: {自由記述}"` 形式で保存
+   - 未回答の場合は保存しない
+
+### 管理画面（`/admin/survey`）
+
+- 選択肢ごとの横棒グラフ（件数・回答率%）
+- 総登録者数・回答あり件数・未回答件数のサマリ
+- 開始日・終了日で期間フィルタ（JST 基準）
+- CSV ダウンロード（ファイル名: `survey_{startDate}_{endDate}.csv`）
+
+### CSV 形式
+
+```csv
+member_id,affiliation,how_did_you_know,created_at
+6a1b,大学,Web,2026/04/07 10:30:00
+6a2c,高等部,その他: 学校の掲示板,2026/04/07 11:00:00
+```
 
 ## カードテンプレート
 
