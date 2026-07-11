@@ -8,6 +8,9 @@ export interface SiteSettings {
   logoPath: string;
   faviconPath: string;
   heroImagePath: string;
+  checkInIntervalMinutes: number;
+  successDisplaySeconds: number;
+  checkOutIntervalMinutes: number;
 }
 
 const DEFAULT_SETTINGS: SiteSettings = {
@@ -17,6 +20,9 @@ const DEFAULT_SETTINGS: SiteSettings = {
   logoPath: '/api/resource/logo.png',
   faviconPath: '/api/resource/favicon.png',
   heroImagePath: '/api/resource/hero.png',
+  checkInIntervalMinutes: 10,
+  successDisplaySeconds: 10,
+  checkOutIntervalMinutes: 10,
 };
 
 const SETTINGS_FILE = path.join(process.cwd(), 'site-settings.json');
@@ -69,6 +75,15 @@ export function loadSettings(): SiteSettings {
       settings.siteName = fileSettings.siteName || settings.siteName;
       settings.pageTitle = fileSettings.pageTitle || settings.pageTitle;
       settings.pageSubtitle = fileSettings.pageSubtitle || settings.pageSubtitle;
+      settings.checkInIntervalMinutes = typeof fileSettings.checkInIntervalMinutes === 'number' 
+        ? fileSettings.checkInIntervalMinutes 
+        : settings.checkInIntervalMinutes;
+      settings.successDisplaySeconds = typeof fileSettings.successDisplaySeconds === 'number' 
+        ? fileSettings.successDisplaySeconds 
+        : settings.successDisplaySeconds;
+      settings.checkOutIntervalMinutes = typeof fileSettings.checkOutIntervalMinutes === 'number'
+        ? fileSettings.checkOutIntervalMinutes
+        : settings.checkOutIntervalMinutes;
     }
 
     // 画像パスをファイルシステムから自動検索（カスタム画像が優先）
@@ -98,6 +113,9 @@ export function saveSettings(settings: SiteSettings): void {
       siteName: settings.siteName,
       pageTitle: settings.pageTitle,
       pageSubtitle: settings.pageSubtitle,
+      checkInIntervalMinutes: settings.checkInIntervalMinutes,
+      successDisplaySeconds: settings.successDisplaySeconds,
+      checkOutIntervalMinutes: settings.checkOutIntervalMinutes,
     };
     fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settingsToSave, null, 2), 'utf-8');
   } catch (error) {

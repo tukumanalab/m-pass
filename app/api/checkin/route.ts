@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { findMemberByMemberId, getMemberById, createCheckIn, getLatestCheckIn, markMyPageNotificationSent } from '@/lib/database';
+import { findMemberByMemberId, getMemberById, findMemberByNfcId, createCheckIn, getLatestCheckIn, updateCheckOutTime, markMyPageNotificationSent } from '@/lib/database';
 import { sendMyPageAnnouncementEmail } from '@/lib/mailer';
+import { loadSettings } from '@/lib/settings';
 
 // 2025年11月6日 23:59:59 (JST) のUTC時刻
 const MYPAGE_ANNOUNCEMENT_CUTOFF_DATE = new Date('2025-11-06T23:59:59+09:00');
@@ -9,7 +10,7 @@ const MYPAGE_ANNOUNCEMENT_CUTOFF_DATE = new Date('2025-11-06T23:59:59+09:00');
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { qrCode, memberId } = body;
+    const { qrCode, memberId, nfcId } = body;
 
     let member: any = null;
 
@@ -21,7 +22,17 @@ export async function POST(request: NextRequest) {
     else if (qrCode) {
       member = findMemberByMemberId(qrCode) as any;
     }
-    // どちらも指定されていない場合はエラー
+    // nfcIdが指定されている場合は、NFC IDから検索
+    else if (nfcId) {
+      member = findMemberByNfcId(nfcId) as any;
+      if (!member) {
+        return NextResponse.json(
+          { error: '未登録のNFCカードです', unregisteredNfcId: nfcId },
+          { status: 404 }
+        );
+      }
+    }
+    // どれも指定されていない場合はエラー
     else {
       return NextResponse.json({ error: 'メンバーIDが読み取れませんでした' }, { status: 400 });
     }
@@ -30,28 +41,73 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '登録されていないメンバーIDです' }, { status: 404 });
     }
 
-    // 最新のチェックイン時刻を確認
+    // 最新のチェックインレコードを確認
     const latestCheckIn = getLatestCheckIn(member.id);
+    const settings = loadSettings();
+
+    let actionType: 'checkin' | 'checkout' | 'checkout_extension' = 'checkin';
+    let checkInId = null;
+    let stayDurationMinutes: number | null = null;
 
     if (latestCheckIn) {
-      // SQLiteのタイムスタンプ（UTC）をJavaScriptのDateオブジェクトに変換
-      // CURRENT_TIMESTAMPで保存されているため、UTCとして解釈
       const lastCheckInTime = new Date(latestCheckIn.check_in_time + 'Z').getTime();
       const currentTime = Date.now();
-      const oneHourInMs = 60 * 60 * 1000; // 1時間 = 60分 × 60秒 × 1000ミリ秒
-      const timeDiff = currentTime - lastCheckInTime;
 
-      // 1時間以内に既にチェックインしている場合はエラー
-      if (timeDiff < oneHourInMs) {
-        return NextResponse.json(
-          { error: 'このメンバーは既にチェックイン済みです。' },
-          { status: 429 }
-        );
+      // チェックアウトされていない場合 -> チェックアウトを実行
+      if (!latestCheckIn.check_out_time) {
+        // 同じ日のチェックインかどうかを判定（JST基準）
+        const lastCheckInJstDate = new Date(lastCheckInTime + 9 * 60 * 60 * 1000).toDateString();
+        const currentJstDate = new Date(currentTime + 9 * 60 * 60 * 1000).toDateString();
+
+        if (lastCheckInJstDate === currentJstDate) {
+          // 同日の未チェックアウトなのでチェックアウトする
+          updateCheckOutTime(latestCheckIn.id);
+          actionType = 'checkout';
+          checkInId = latestCheckIn.id;
+          stayDurationMinutes = Math.round((currentTime - lastCheckInTime) / (60 * 1000));
+        } else {
+          // 日をまたいでいる場合は、前のチェックインは放置して新規チェックインとする
+          checkInId = createCheckIn(member.id);
+          actionType = 'checkin';
+        }
+      } 
+      // すでにチェックアウトされている場合
+      else {
+        const lastCheckOutTime = new Date(latestCheckIn.check_out_time + 'Z').getTime();
+        const checkoutIntervalMinutes = settings.checkOutIntervalMinutes !== undefined ? settings.checkOutIntervalMinutes : 10;
+        const checkoutIntervalMs = checkoutIntervalMinutes * 60 * 1000;
+        const timeDiffFromCheckout = currentTime - lastCheckOutTime;
+
+        // チェックアウトからインターバル時間内 -> チェックアウト時刻を現在時刻に延長（更新）
+        if (timeDiffFromCheckout < checkoutIntervalMs) {
+          updateCheckOutTime(latestCheckIn.id);
+          actionType = 'checkout_extension';
+          checkInId = latestCheckIn.id;
+          stayDurationMinutes = Math.round((currentTime - lastCheckInTime) / (60 * 1000));
+        } 
+        // インターバル時間を超えている場合 -> 新規チェックイン
+        else {
+          // 重複チェックイン防止（前回のチェックインから一定時間未満はエラー）
+          const checkInIntervalMinutes = settings.checkInIntervalMinutes !== undefined ? settings.checkInIntervalMinutes : 10;
+          const checkInIntervalMs = checkInIntervalMinutes * 60 * 1000;
+          const timeDiffFromCheckIn = currentTime - lastCheckInTime;
+
+          if (timeDiffFromCheckIn < checkInIntervalMs) {
+            return NextResponse.json(
+              { error: 'このメンバーは既にチェックイン済みです。' },
+              { status: 429 }
+            );
+          }
+
+          checkInId = createCheckIn(member.id);
+          actionType = 'checkin';
+        }
       }
+    } else {
+      // 過去に一度もチェックインしていない場合
+      checkInId = createCheckIn(member.id);
+      actionType = 'checkin';
     }
-
-    // チェックインを記録
-    const checkInId = createCheckIn(member.id);
 
     // マイページ案内メールの送信判定
     // 条件: 2025年11月6日以前に登録 & まだ通知を送信していない & メールアドレスがある
@@ -82,12 +138,14 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      action: actionType,
       checkIn: {
         id: checkInId,
         memberId: member.id,
         memberName: member.name,
         affiliation: member.affiliation,
         email: member.email,
+        stayDurationMinutes,
       },
     });
   } catch (error) {

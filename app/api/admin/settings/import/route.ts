@@ -10,6 +10,9 @@ type ExportData = {
     siteName: string;
     pageTitle: string;
     pageSubtitle: string;
+    checkInIntervalMinutes?: number;
+    successDisplaySeconds?: number;
+    checkOutIntervalMinutes?: number;
   };
   files: Array<{ name: string; data: string; type: string }>;
 };
@@ -79,6 +82,15 @@ export async function POST(request: NextRequest) {
         logoPath: '', // ダミー値（saveSettingsで無視される）
         faviconPath: '', // ダミー値（saveSettingsで無視される）
         heroImagePath: '', // ダミー値（saveSettingsで無視される）
+        checkInIntervalMinutes: typeof exportData.settings.checkInIntervalMinutes === 'number'
+          ? exportData.settings.checkInIntervalMinutes
+          : 10,
+        successDisplaySeconds: typeof exportData.settings.successDisplaySeconds === 'number'
+          ? exportData.settings.successDisplaySeconds
+          : 10,
+        checkOutIntervalMinutes: typeof exportData.settings.checkOutIntervalMinutes === 'number'
+          ? exportData.settings.checkOutIntervalMinutes
+          : 10,
       };
       saveSettings(settingsToSave);
 

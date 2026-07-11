@@ -6,6 +6,7 @@ import Link from "next/link";
 import { apiUrl } from "@/lib/api";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { useWebUSBFeliCa } from "@/app/hooks/useWebUSBFeliCa";
 
 const affiliationOptions = [
   "幼稚園",
@@ -18,6 +19,14 @@ const affiliationOptions = [
   "その他",
 ];
 
+interface NfcCard {
+  id: number;
+  member_id: number;
+  nfc_id: string;
+  card_name: string;
+  created_at: string;
+}
+
 interface Member {
   id: number;
   member_id: string;
@@ -28,6 +37,7 @@ interface Member {
   created_at: string;
   mypage_notification_sent_at: string | null;
   card_printed_at: string | null;
+  nfc_cards?: NfcCard[];
 }
 
 interface CheckIn {
@@ -79,6 +89,87 @@ export default function AdminMembersPage() {
   const [checkInHistory, setCheckInHistory] = useState<CheckIn[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const router = useRouter();
+
+  // WebUSB FeliCa フック
+  const { status: nfcStatus, connect: connectNfc, readIdm: readNfcIdm, disconnect: disconnectNfc, errorMessage: nfcError } = useWebUSBFeliCa();
+  const [nfcInput, setNfcInput] = useState("");
+  const [nfcCardNameInput, setNfcCardNameInput] = useState("NFCカード");
+
+  // 編集状態が終了した（editingId が null になった）ら自動で PaSori を切断して解放する
+  useEffect(() => {
+    if (editingId === null) {
+      disconnectNfc();
+      setNfcInput("");
+      setNfcCardNameInput("NFCカード");
+    }
+  }, [editingId, disconnectNfc]);
+
+  // アンマウント時に確実にカードリーダーを解放する
+  useEffect(() => {
+    return () => {
+      disconnectNfc();
+    };
+  }, [disconnectNfc]);
+
+  // NFCカード追加
+  const handleAddNfcCard = async (memberId: number) => {
+    if (!nfcInput || !nfcInput.trim()) {
+      toast.error("NFC IDを入力してください");
+      return;
+    }
+    if (!nfcCardNameInput || !nfcCardNameInput.trim()) {
+      toast.error("カード名を入力してください");
+      return;
+    }
+
+    try {
+      const response = await fetch(apiUrl(`/api/admin/members/${memberId}/nfc-cards`), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nfcId: nfcInput,
+          cardName: nfcCardNameInput
+        })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        toast.success("NFCカードを登録しました");
+        setNfcInput("");
+        setNfcCardNameInput("NFCカード");
+        fetchMembers(searchQuery); // 再取得して反映
+      } else {
+        toast.error(data.message || "登録に失敗しました");
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("登録中にエラーが発生しました");
+    }
+  };
+
+  // NFCカード削除
+  const handleRemoveNfcCard = async (memberId: number, cardId: number) => {
+    if (!confirm("このNFCカードを削除してもよろしいですか？")) {
+      return;
+    }
+
+    try {
+      const response = await fetch(apiUrl(`/api/admin/members/${memberId}/nfc-cards?cardId=${cardId}`), {
+        method: "DELETE"
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        toast.success("NFCカードを削除しました");
+        fetchMembers(searchQuery); // 再取得して反映
+      } else {
+        toast.error(data.message || "削除に失敗しました");
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("削除中にエラーが発生しました");
+    }
+  };
 
   // メンバー一覧取得
   const fetchMembers = async (query: string = "") => {
@@ -996,7 +1087,97 @@ export default function AdminMembersPage() {
                             className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                           />
                         </div>
-                        <div className="flex gap-2">
+                        {/* NFCカード管理セクション */}
+                        <div className="border-t pt-3 mt-3 bg-gray-50/50 p-3 rounded-lg border">
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">
+                            NFCカード管理（最大5枚）
+                          </label>
+                          
+                          {/* 登録済みカードリスト */}
+                          {member.nfc_cards && member.nfc_cards.length > 0 ? (
+                            <ul className="space-y-2 mb-3">
+                              {member.nfc_cards.map((card) => (
+                                <li key={card.id} className="flex justify-between items-center bg-white p-2 rounded-md border text-sm shadow-sm">
+                                  <div>
+                                    <span className="font-medium text-gray-800">{card.card_name}</span>
+                                    <span className="text-gray-500 ml-2 font-mono text-xs">({card.nfc_id})</span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveNfcCard(member.id, card.id)}
+                                    className="text-red-600 hover:text-red-800 text-xs px-2 py-1 bg-red-50 hover:bg-red-100 rounded transition-colors"
+                                  >
+                                    削除
+                                  </button>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="text-sm text-gray-500 mb-3">登録されたNFCカードはありません</p>
+                          )}
+
+                          {/* 新規追加フォーム */}
+                          <div className="bg-blue-50/30 p-3 rounded-lg border border-blue-100 space-y-2">
+                            <span className="block text-xs font-semibold text-blue-800">新規NFCカード追加</span>
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                placeholder="NFC ID (IDm/UID)"
+                                value={nfcInput}
+                                onChange={(e) => setNfcInput(e.target.value)}
+                                className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-mono"
+                              />
+                              <input
+                                type="text"
+                                placeholder="カード名"
+                                value={nfcCardNameInput}
+                                onChange={(e) => setNfcCardNameInput(e.target.value)}
+                                className="w-28 px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleAddNfcCard(member.id)}
+                                className="px-4 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 font-medium"
+                              >
+                                追加
+                              </button>
+                            </div>
+
+                            {/* PaSoriスキャンボタン */}
+                            <div className="flex items-center gap-2 pt-1">
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  try {
+                                    let connected = nfcStatus === 'connected' || nfcStatus === 'reading' || nfcStatus === 'success';
+                                    if (!connected) {
+                                      connected = await connectNfc();
+                                    }
+                                    if (connected) {
+                                      const id = await readNfcIdm();
+                                      if (id) {
+                                        setNfcInput(id);
+                                      }
+                                    }
+                                  } catch (e) {
+                                    console.error(e);
+                                  }
+                                }}
+                                className="px-3 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700 flex items-center gap-1 font-medium transition-colors"
+                              >
+                                {nfcStatus === 'connecting' ? 'PaSori接続中...' :
+                                 nfcStatus === 'reading' ? 'カードをかざしてください...' :
+                                 'PaSoriでスキャン'}
+                              </button>
+                              <span className="text-xs text-gray-500">
+                                {nfcStatus === 'error' && `接続エラーが発生しました。${nfcError ? `(${nfcError})` : ''}`}
+                                {nfcStatus === 'connected' && 'PaSori接続完了。カードをかざして再度ボタンを押してください。'}
+                                {nfcStatus === 'success' && '読み取り成功。'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex gap-2 pt-2">
                           <button
                             type="button"
                             onClick={() => handleUpdate(member.id)}
@@ -1037,6 +1218,17 @@ export default function AdminMembersPage() {
                                   { timeZone: "Asia/Tokyo" }
                                 )}
                               </p>
+                              {/* NFCカード一覧表示 */}
+                              {member.nfc_cards && member.nfc_cards.length > 0 && (
+                                <div className="text-xs text-gray-600 mt-1 flex flex-wrap gap-1.5 items-center">
+                                  <span className="font-semibold text-gray-700">💳 NFCカード:</span>
+                                  {member.nfc_cards.map(card => (
+                                    <span key={card.id} className="bg-blue-50 border border-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-mono text-[10px]" title={card.nfc_id}>
+                                      {card.card_name} ({card.nfc_id})
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
                               {member.mypage_notification_sent_at && (
                                 <p className="text-xs text-green-600 mt-1">
                                   📧 マイページ案内メール送信済み:{" "}

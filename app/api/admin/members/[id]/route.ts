@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/database';
+import db, { getMemberNfcCards } from '@/lib/database';
 import bcrypt from 'bcrypt';
 
 interface RouteParams {
@@ -14,7 +14,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     // idが数値の場合はinteger ID、そうでない場合はmember_idとして検索
     const isNumericId = /^\d+$/.test(id);
     
-    let member;
+    let member: any;
     if (isNumericId) {
       member = db.prepare(`
         SELECT id, member_id, name, affiliation, affiliation_detail, email, created_at, mypage_notification_sent_at
@@ -36,7 +36,16 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    return NextResponse.json({ success: true, member });
+    // NFCカードリストを取得
+    const nfcCards = getMemberNfcCards(member.id);
+
+    return NextResponse.json({ 
+      success: true, 
+      member: { 
+        ...member, 
+        nfc_cards: nfcCards 
+      } 
+    });
   } catch (error) {
     console.error('Get member error:', error);
     return NextResponse.json(

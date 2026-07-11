@@ -28,6 +28,36 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+    if (
+      settings.checkInIntervalMinutes !== undefined &&
+      (typeof settings.checkInIntervalMinutes !== 'number' || settings.checkInIntervalMinutes < 1)
+    ) {
+      return NextResponse.json(
+        { success: false, message: '再チェックイン間隔は1分以上の数値で指定してください' },
+        { status: 400 }
+      );
+    }
+
+    if (
+      settings.successDisplaySeconds !== undefined &&
+      (typeof settings.successDisplaySeconds !== 'number' || settings.successDisplaySeconds < 1)
+    ) {
+      return NextResponse.json(
+        { success: false, message: 'チェックイン表示時間は1秒以上の数値で指定してください' },
+        { status: 400 }
+      );
+    }
+
+    if (
+      settings.checkOutIntervalMinutes !== undefined &&
+      (typeof settings.checkOutIntervalMinutes !== 'number' || settings.checkOutIntervalMinutes < 0)
+    ) {
+      return NextResponse.json(
+        { success: false, message: 'チェックアウト延長間隔は0分以上の数値で指定してください' },
+        { status: 400 }
+      );
+    }
+
     saveSettings(settings);
 
     return NextResponse.json({ success: true, message: '設定を保存しました' });

@@ -95,6 +95,7 @@ export function initDatabase() {
       member_id_str TEXT,
       affiliation TEXT,
       check_in_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+      check_out_time DATETIME,
       FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE SET NULL
     )
   `);
@@ -107,6 +108,11 @@ export function initDatabase() {
   }
   try {
     db.exec(`ALTER TABLE checkins ADD COLUMN affiliation TEXT`);
+  } catch (e) {
+    // カラムが既に存在する場合はエラーを無視
+  }
+  try {
+    db.exec(`ALTER TABLE checkins ADD COLUMN check_out_time DATETIME`);
   } catch (e) {
     // カラムが既に存在する場合はエラーを無視
   }
@@ -234,6 +240,26 @@ export function initDatabase() {
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_logs_created_at ON logs(created_at)
   `);
+
+  // NFCカードテーブル
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS member_nfc_cards (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      member_id INTEGER NOT NULL,
+      nfc_id TEXT UNIQUE NOT NULL,
+      card_name TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE
+    )
+  `);
+
+  // NFCカード用のインデックス
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_nfc_card_nfc_id ON member_nfc_cards(nfc_id)
+  `);
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_nfc_card_member_id ON member_nfc_cards(member_id)
+  `);
 }
 
 // メンバーの登録
@@ -330,15 +356,34 @@ export function findMemberByNameNormalized(name: string) {
   return undefined;
 }
 
-// 最新のチェックイン時刻を取得（1時間制限チェック用）
+// 最新のチェックインレコードを取得
 export function getLatestCheckIn(memberId: number) {
   const stmt = db.prepare(`
-    SELECT check_in_time FROM checkins
+    SELECT id, check_in_time, check_out_time FROM checkins
     WHERE member_id = ?
     ORDER BY check_in_time DESC
     LIMIT 1
   `);
-  return stmt.get(memberId) as { check_in_time: string } | undefined;
+  return stmt.get(memberId) as { id: number; check_in_time: string; check_out_time: string | null } | undefined;
+}
+
+// チェックアウト時刻を更新
+export function updateCheckOutTime(checkInId: number, checkOutTime?: string) {
+  if (checkOutTime) {
+    const stmt = db.prepare(`
+      UPDATE checkins
+      SET check_out_time = datetime(?, '-9 hours')
+      WHERE id = ?
+    `);
+    return stmt.run(checkOutTime, checkInId).changes;
+  } else {
+    const stmt = db.prepare(`
+      UPDATE checkins
+      SET check_out_time = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `);
+    return stmt.run(checkInId).changes;
+  }
 }
 
 // チェックインの記録（UTCで保存）
@@ -435,7 +480,8 @@ export function getTodayCheckIns() {
       member_id,
       member_id_str,
       affiliation,
-      check_in_time
+      check_in_time,
+      check_out_time
     FROM checkins
     WHERE DATE(datetime(check_in_time, '+9 hours')) = DATE(datetime('now', '+9 hours'))
     ORDER BY check_in_time DESC
@@ -452,6 +498,7 @@ export function getCheckInHistory(limit = 50, offset = 0) {
       c.member_id_str,
       c.affiliation,
       c.check_in_time,
+      c.check_out_time,
       m.name
     FROM checkins c
     LEFT JOIN members m ON c.member_id_str = m.member_id
@@ -469,7 +516,8 @@ export function getCheckInHistoryByMemberId(memberId: number, limit = 50, offset
       member_id,
       member_id_str,
       affiliation,
-      check_in_time
+      check_in_time,
+      check_out_time
     FROM checkins
     WHERE member_id = ?
     ORDER BY check_in_time DESC
@@ -820,6 +868,74 @@ export function getAllSurveyResponses(startDate?: string, endDate?: string) {
     how_did_you_know: string | null;
     created_at: string;
   }>;
+}
+
+// メンバーに紐づくNFCカード一覧を取得
+export function getMemberNfcCards(memberId: number) {
+  const stmt = db.prepare(`
+    SELECT id, member_id, nfc_id, card_name, created_at
+    FROM member_nfc_cards
+    WHERE member_id = ?
+    ORDER BY created_at DESC
+  `);
+  return stmt.all(memberId) as Array<{
+    id: number;
+    member_id: number;
+    nfc_id: string;
+    card_name: string;
+    created_at: string;
+  }>;
+}
+
+// NFC IDから紐づくメンバー情報を取得
+export function findMemberByNfcId(nfcId: string) {
+  const stmt = db.prepare(`
+    SELECT m.*
+    FROM members m
+    JOIN member_nfc_cards c ON m.id = c.member_id
+    WHERE c.nfc_id = ?
+  `);
+  return stmt.get(nfcId);
+}
+
+// NFCカードを新規登録
+export function addMemberNfcCard(memberId: number, nfcId: string, cardName: string) {
+  const stmt = db.prepare(`
+    INSERT INTO member_nfc_cards (member_id, nfc_id, card_name)
+    VALUES (?, ?, ?)
+  `);
+  const result = stmt.run(memberId, nfcId, cardName);
+  return result.lastInsertRowid;
+}
+
+// NFCカードを削除
+export function deleteMemberNfcCard(cardId: number) {
+  const stmt = db.prepare(`
+    DELETE FROM member_nfc_cards
+    WHERE id = ?
+  `);
+  const result = stmt.run(cardId);
+  return result.changes;
+}
+
+// NFCカード名を変更
+export function updateMemberNfcCardName(cardId: number, cardName: string) {
+  const stmt = db.prepare(`
+    UPDATE member_nfc_cards
+    SET card_name = ?
+    WHERE id = ?
+  `);
+  const result = stmt.run(cardName, cardId);
+  return result.changes;
+}
+
+// NFC IDが既に登録されているか重複チェック
+export function isNfcIdExists(nfcId: string): boolean {
+  const stmt = db.prepare(`
+    SELECT COUNT(*) as count FROM member_nfc_cards WHERE nfc_id = ?
+  `);
+  const result = stmt.get(nfcId) as { count: number };
+  return result.count > 0;
 }
 
 // データベース初期化を実行

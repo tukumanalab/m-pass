@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Html5Qrcode } from "html5-qrcode";
 import { apiUrl } from "@/lib/api";
+import { useWebUSBFeliCa } from "@/app/hooks/useWebUSBFeliCa";
 
 interface CheckIn {
   id: number;
@@ -41,6 +42,34 @@ export default function ScanPage() {
   const processingRef = useRef(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const router = useRouter();
+
+  // WebUSB FeliCa フック
+  const { status: nfcStatus, connect: connectNfc, readIdm: readNfcIdm, disconnect: disconnectNfc, errorMessage: nfcError, isPolling: nfcIsPolling } = useWebUSBFeliCa();
+  const nfcLoopActiveRef = useRef(false);
+  const [unregisteredNfcId, setUnregisteredNfcId] = useState<string | null>(null);
+  const [showNfcRegisterModal, setShowNfcRegisterModal] = useState(false);
+  const [nfcMemberSearchQuery, setNfcMemberSearchQuery] = useState("");
+  const [nfcMemberSearchResults, setNfcMemberSearchResults] = useState<any[]>([]);
+  const [isNfcMemberSearching, setIsNfcMemberSearching] = useState(false);
+  const [successDisplaySeconds, setSuccessDisplaySeconds] = useState(10);
+
+  // 設定情報（チェックイン表示時間など）を取得
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const response = await fetch(apiUrl("/api/settings"));
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.settings && typeof data.settings.successDisplaySeconds === "number") {
+            setSuccessDisplaySeconds(data.settings.successDisplaySeconds);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch settings:", err);
+      }
+    };
+    fetchSettings();
+  }, []);
 
   // 時間帯別の所属別データを集計（13:00以前、13:00-18:00、18:00以降）
   const getHourlyData = (): HourlyData[] => {
@@ -181,6 +210,75 @@ export default function ScanPage() {
     const interval = setInterval(fetchTodayCheckIns, 30000);
     return () => clearInterval(interval);
   }, [router]);
+
+  // NFC読み取りループ
+  // nfcStatus が 'connected' になったときだけ起動。ループ中は nfcStatus が変わらないため cleanup も発火しない。
+  useEffect(() => {
+    if (nfcStatus !== 'connected') {
+      // connected 以外になった場合はループを止める
+      nfcLoopActiveRef.current = false;
+      return;
+    }
+    if (nfcLoopActiveRef.current) {
+      // すでにループが走っていれば二重起動しない
+      return;
+    }
+
+    nfcLoopActiveRef.current = true;
+
+    const startNfcReadLoop = async () => {
+      try {
+        while (nfcLoopActiveRef.current) {
+          // 他のモーダルやダイアログが表示中の場合は待機
+          if (processingRef.current || showNfcRegisterModalRef.current || showConfirmDialogRef.current) {
+            await new Promise(resolve => setTimeout(resolve, 300));
+            continue;
+          }
+
+          const idm = await readNfcIdm();
+
+          // ループが止まっていたら処理しない
+          if (!nfcLoopActiveRef.current) break;
+
+          if (idm) {
+            const now = Date.now();
+            // 設定された秒数以内の連続読み取り防止
+            if (idm === lastScannedCode && now - lastScannedTime < successDisplaySeconds * 1000) {
+              await new Promise(resolve => setTimeout(resolve, 500));
+              continue;
+            }
+
+            setLastScannedCode(idm);
+            setLastScannedTime(now);
+
+            // チェックイン処理を実行
+            await handleCheckIn(undefined, idm);
+          } else {
+            // idm が null（エラー or カードなし）の場合は少し待って再試行
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+        }
+      } catch (e) {
+        console.error("NFC read loop error:", e);
+      } finally {
+        nfcLoopActiveRef.current = false;
+      }
+    };
+
+    startNfcReadLoop();
+
+    // cleanup: connected から外れたときはループを止める
+    return () => {
+      nfcLoopActiveRef.current = false;
+    };
+  }, [nfcStatus]); // nfcStatus だけを依存配列に入れる（ポーリング中に変化しないため cleanup が不要に発火しない）
+
+  // showNfcRegisterModal / showConfirmDialog はループ内で参照するため ref で追跡
+  const showNfcRegisterModalRef = useRef(showNfcRegisterModal);
+  useEffect(() => { showNfcRegisterModalRef.current = showNfcRegisterModal; }, [showNfcRegisterModal]);
+  const showConfirmDialogRef = useRef(showConfirmDialog);
+  useEffect(() => { showConfirmDialogRef.current = showConfirmDialog; }, [showConfirmDialog]);
+
 
   useEffect(() => {
     return () => {
@@ -596,7 +694,63 @@ export default function ScanPage() {
     }
   };
 
-  const handleCheckIn = async (qrCode: string) => {
+  const handleNfcMemberSearch = async (query: string) => {
+    if (!query || query.trim().length === 0) {
+      setNfcMemberSearchResults([]);
+      return;
+    }
+
+    setIsNfcMemberSearching(true);
+    try {
+      const response = await fetch(
+        apiUrl(`/api/admin/members/search?q=${encodeURIComponent(query)}`)
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setNfcMemberSearchResults(data.members || []);
+      }
+    } catch (e) {
+      console.error("NFC Member search error:", e);
+    } finally {
+      setIsNfcMemberSearching(false);
+    }
+  };
+
+  const handleAssociateNfcCard = async (member: any) => {
+    if (!unregisteredNfcId) return;
+
+    try {
+      // 1. NFCカードをメンバーに登録
+      const response = await fetch(apiUrl(`/api/admin/members/${member.id}/nfc-cards`), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nfcId: unregisteredNfcId,
+          cardName: "NFCカード"
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        alert(data.message || "カードの登録に失敗しました");
+        return;
+      }
+
+      // モーダルを閉じる
+      setShowNfcRegisterModal(false);
+      setUnregisteredNfcId(null);
+      setNfcMemberSearchQuery("");
+      setNfcMemberSearchResults([]);
+
+      // 2. そのままチェックインを実行
+      await handleCheckIn(undefined, data.card.nfc_id);
+    } catch (e) {
+      console.error(e);
+      alert("通信エラーが発生しました");
+    }
+  };
+
+  const handleCheckIn = async (qrCode?: string, nfcId?: string) => {
     // メッセージ処理開始（refを使って即座に反映）
     processingRef.current = true;
 
@@ -606,7 +760,7 @@ export default function ScanPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ qrCode }),
+        body: JSON.stringify({ qrCode, nfcId }),
       });
 
       const data = await response.json();
@@ -615,17 +769,25 @@ export default function ScanPage() {
         // エラー音を鳴らす
         playErrorSound();
 
+        // 未登録のNFCカードの場合は、メンバー紐付けモーダルを表示する
+        if (response.status === 404 && data.unregisteredNfcId) {
+          setUnregisteredNfcId(data.unregisteredNfcId);
+          setShowNfcRegisterModal(true);
+          processingRef.current = false;
+          return;
+        }
+
         // エラーメッセージを設定（サーバーからのメッセージを優先）
         let errorMessage = data.error || "チェックインに失敗しました";
 
         // ステータスコード別のフォールバックメッセージ
         if (!data.error) {
           if (response.status === 404) {
-            errorMessage = "登録されていないQRコードです";
+            errorMessage = "登録されていないQRコードまたはNFCカードです";
           } else if (response.status === 429) {
             errorMessage = "既にチェックイン済みです";
           } else if (response.status === 400) {
-            errorMessage = "QRコードが読み取れませんでした";
+            errorMessage = "IDが読み取れませんでした";
           } else if (response.status >= 500) {
             errorMessage = "サーバーエラーが発生しました";
           }
@@ -635,9 +797,9 @@ export default function ScanPage() {
         setResult(null);
         setMessageOpacity(1);
 
-        // フェードアウトアニメーション（3秒かけて透明に）
+        // フェードアウトアニメーション
         const fadeStart = Date.now();
-        const fadeDuration = 3000;
+        const fadeDuration = successDisplaySeconds * 1000;
         const fadeInterval = setInterval(() => {
           const elapsed = Date.now() - fadeStart;
           const opacity = Math.max(0, 1 - elapsed / fadeDuration);
@@ -657,16 +819,16 @@ export default function ScanPage() {
       // 成功音を鳴らす
       playSuccessSound();
 
-      setResult(data.checkIn);
+      setResult({ ...data.checkIn, action: data.action });
       setError(null);
       setMessageOpacity(1);
 
       // チェックイン一覧を即座に更新
       fetchTodayCheckIns();
 
-      // フェードアウトアニメーション（3秒かけて透明に）
+      // フェードアウトアニメーション
       const fadeStart = Date.now();
-      const fadeDuration = 3000;
+      const fadeDuration = successDisplaySeconds * 1000;
       const fadeInterval = setInterval(() => {
         const elapsed = Date.now() - fadeStart;
         const opacity = Math.max(0, 1 - elapsed / fadeDuration);
@@ -752,7 +914,7 @@ export default function ScanPage() {
                 </svg>
               </div>
               <h2 className="text-xl font-bold text-gray-900">
-                QRコードスキャン
+                チェックインスキャン
               </h2>
             </div>
 
@@ -785,76 +947,7 @@ export default function ScanPage() {
                 </svg>
               </button>
 
-              {/* メッセージオーバーレイ */}
-              {(result || error) && (
-                <div
-                  className="absolute inset-0 flex items-center justify-center p-4 bg-black/50 rounded-xl"
-                  style={{
-                    opacity: messageOpacity,
-                    transition: "opacity 0.05s linear",
-                  }}
-                >
-                  {/* チェックイン成功メッセージ */}
-                  {result && (
-                    <div className="p-6 bg-white rounded-xl shadow-2xl max-w-md w-full">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center">
-                          <svg
-                            className="w-7 h-7 text-white"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M5 13l4 4L19 7"
-                            />
-                          </svg>
-                        </div>
-                        <h2 className="text-2xl font-bold text-green-800">
-                          チェックイン完了
-                        </h2>
-                      </div>
-                      <div className="space-y-2">
-                        <p className="text-xl font-bold text-gray-900">
-                          {result.memberName}
-                        </p>
-                        {result.company && (
-                          <p className="text-base text-gray-700">
-                            {result.company}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* エラーメッセージ */}
-                  {error && (
-                    <div className="p-6 bg-white rounded-xl shadow-2xl max-w-md w-full">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-red-600 rounded-full flex items-center justify-center flex-shrink-0">
-                          <svg
-                            className="w-7 h-7 text-white"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M6 18L18 6M6 6l12 12"
-                            />
-                          </svg>
-                        </div>
-                        <p className="text-lg font-bold text-red-600">{error}</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
+              {/* カメラエリア内オーバーレイは削除（ページルートに移動） */}
             </div>
 
             {!scanning && (
@@ -927,6 +1020,44 @@ export default function ScanPage() {
                   QRコードをカメラに向けてください
                 </p>
               </div>
+            </div>
+
+            {/* NFCリーダー接続状態 */}
+            <div className="mt-6 p-4 rounded-xl border flex items-center justify-between bg-gray-50/50 border-gray-200">
+              <div className="flex items-center gap-2.5">
+                <div className={`w-3.5 h-3.5 rounded-full ${
+                  nfcIsPolling ? 'bg-blue-500 animate-ping' :
+                  nfcStatus === 'connected' ? 'bg-green-500 animate-pulse' :
+                  nfcStatus === 'connecting' ? 'bg-yellow-500 animate-pulse' :
+                  'bg-gray-400'
+                }`} />
+                <div>
+                  <h3 className="text-sm font-bold text-gray-800">NFCカードリーダー</h3>
+                  <p className="text-xs text-gray-500 font-medium">
+                    {nfcStatus === 'idle' && '未接続（タッチチェックインには接続が必要です）'}
+                    {nfcStatus === 'connecting' && 'リーダーに接続しています...'}
+                    {nfcStatus === 'connected' && !nfcIsPolling && '接続完了（自動読み取り中：カードをかざしてください）'}
+                    {nfcIsPolling && 'カード読み取り中...'}
+                    {nfcStatus === 'error' && `接続エラーが発生しました。${nfcError ? `(${nfcError})` : '再度お試しください。'}`}
+                  </p>
+                </div>
+              </div>
+              
+              {nfcStatus !== 'connected' ? (
+                <button
+                  onClick={connectNfc}
+                  className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-all whitespace-nowrap"
+                >
+                  PaSoriを接続
+                </button>
+              ) : (
+                <button
+                  onClick={disconnectNfc}
+                  className="px-3.5 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg text-xs font-semibold transition-all whitespace-nowrap"
+                >
+                  接続解除
+                </button>
+              )}
             </div>
 
             {/* 検索でチェックイン */}
@@ -1250,6 +1381,77 @@ export default function ScanPage() {
           </div>
         )}
 
+        {/* 未登録NFCカード登録・紐付けモーダル */}
+        {showNfcRegisterModal && unregisteredNfcId && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-2">
+                未登録のNFCカード検出
+              </h2>
+              <p className="text-sm text-gray-500 mb-4 font-mono">
+                NFC ID: {unregisteredNfcId}
+              </p>
+              <p className="text-sm text-gray-600 mb-4">
+                このカードを登録するメンバーを検索して選択してください。
+              </p>
+
+              {/* 検索入力 */}
+              <div className="mb-4">
+                <input
+                  type="text"
+                  value={nfcMemberSearchQuery}
+                  onChange={(e) => {
+                    setNfcMemberSearchQuery(e.target.value);
+                    handleNfcMemberSearch(e.target.value);
+                  }}
+                  placeholder="名前、所属、メンバーIDで検索"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                />
+              </div>
+
+              {/* 検索結果 */}
+              <div className="max-h-48 overflow-y-auto mb-4 border rounded-lg divide-y bg-gray-50/50">
+                {isNfcMemberSearching ? (
+                  <div className="text-center py-4 text-sm text-gray-500">検索中...</div>
+                ) : nfcMemberSearchResults.length === 0 ? (
+                  <div className="text-center py-4 text-sm text-gray-500">
+                    {nfcMemberSearchQuery ? "見つかりませんでした" : "キーワードを入力してください"}
+                  </div>
+                ) : (
+                  nfcMemberSearchResults.map((m) => (
+                    <button
+                      key={m.id}
+                      onClick={() => handleAssociateNfcCard(m)}
+                      className="w-full text-left p-3 hover:bg-blue-50 flex flex-col transition-colors text-sm"
+                    >
+                      <span className="font-semibold text-gray-900">{m.name}</span>
+                      <span className="text-xs text-gray-500">
+                        ID: {m.member_id} | {m.affiliation} {m.affiliation_detail}
+                      </span>
+                    </button>
+                  ))
+                )}
+              </div>
+
+              {/* アクションボタン */}
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowNfcRegisterModal(false);
+                    setUnregisteredNfcId(null);
+                    setNfcMemberSearchQuery("");
+                    setNfcMemberSearchResults([]);
+                  }}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
+                >
+                  キャンセル
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* 管理者ダッシュボードへのリンク */}
         <div className="mt-6 text-center">
           <a
@@ -1260,6 +1462,127 @@ export default function ScanPage() {
           </a>
         </div>
       </div>
+      {/* チェックイン結果オーバーレイ（全画面・transform親要素の外に配置） */}
+      {(result || error) && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          style={{
+            opacity: messageOpacity,
+            transition: "opacity 0.05s linear",
+          }}
+        >
+          {/* チェックイン/チェックアウト成功メッセージ */}
+          {result && (
+            <div className={`p-8 bg-white rounded-2xl shadow-2xl max-w-md w-full border ${
+              result.action === 'checkin' ? 'border-green-100' : 'border-blue-100'
+            }`}>
+              <div className="flex items-center gap-4 mb-4">
+                <div className={`w-14 h-14 bg-gradient-to-br ${
+                  result.action === 'checkin' 
+                    ? 'from-green-500 to-green-600 shadow-green-100' 
+                    : 'from-blue-500 to-blue-600 shadow-blue-100'
+                } rounded-full flex items-center justify-center shadow-lg`}>
+                  {result.action === 'checkin' ? (
+                    <svg
+                      className="w-8 h-8 text-white"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2.5}
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                  ) : (
+                    <svg
+                      className="w-8 h-8 text-white"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2.5}
+                        d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                      />
+                    </svg>
+                  )}
+                </div>
+                <div>
+                  <span className={`text-sm font-semibold tracking-wider uppercase block ${
+                    result.action === 'checkin' ? 'text-green-600' : 'text-blue-600'
+                  }`}>
+                    {result.action === 'checkin' 
+                      ? 'Checkin Success' 
+                      : result.action === 'checkout_extension' 
+                        ? 'Checkout Updated' 
+                        : 'Checkout Success'}
+                  </span>
+                  <h2 className="text-2xl font-black text-gray-900 leading-tight">
+                    {result.action === 'checkin' 
+                      ? 'チェックイン完了' 
+                      : result.action === 'checkout_extension' 
+                        ? 'チェックアウト更新' 
+                        : 'チェックアウト完了'}
+                  </h2>
+                </div>
+              </div>
+              <div className="space-y-2 border-t pt-4 mt-2">
+                <p className="text-2xl font-black text-gray-900">
+                  {result.memberName}
+                </p>
+                {result.affiliation && (
+                  <p className="text-lg font-bold text-gray-700">
+                    {result.affiliation}
+                  </p>
+                )}
+                {result.action !== 'checkin' && result.stayDurationMinutes !== undefined && result.stayDurationMinutes !== null && (
+                  <div className="mt-3 p-3 bg-blue-50 rounded-xl border border-blue-100 flex justify-between items-center">
+                    <span className="text-sm font-bold text-blue-700">滞在時間</span>
+                    <span className="text-lg font-black text-blue-900">
+                      {(() => {
+                        const mins = result.stayDurationMinutes;
+                        if (mins < 60) return `${mins}分`;
+                        const hrs = Math.floor(mins / 60);
+                        const rMins = mins % 60;
+                        return rMins > 0 ? `${hrs}時間${rMins}分` : `${hrs}時間`;
+                      })()}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* エラーメッセージ */}
+          {error && (
+            <div className="p-6 bg-white rounded-xl shadow-2xl max-w-md w-full">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-red-600 rounded-full flex items-center justify-center flex-shrink-0">
+                  <svg
+                    className="w-7 h-7 text-white"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </div>
+                <p className="text-lg font-bold text-red-600">{error}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

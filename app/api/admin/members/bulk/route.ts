@@ -30,6 +30,7 @@ interface CsvRow {
   member_id: string;
   created_at: string;
   mypage_notification_sent_at?: string; // オプショナル
+  nfc_id?: string; // オプショナル
 }
 
 function validateCsvRow(row: CsvRow, lineNumber: number): string | null {
@@ -99,7 +100,7 @@ function parseCSVLine(line: string): string[] {
 }
 
 // CSVパース関数
-function parseCSV(csvText: string): CsvRow[] {
+function parseCSV(csvText: string, nfcIdxRef: { value: number }): CsvRow[] {
   const lines = csvText.split('\n').map(line => line.trim()).filter(line => line);
 
   if (lines.length === 0) {
@@ -109,7 +110,22 @@ function parseCSV(csvText: string): CsvRow[] {
   // ヘッダー行を確認
   const headerLine = lines[0];
   const headers = parseCSVLine(headerLine);
-  const hasNotificationColumn = headers.includes('mypage_notification_sent_at');
+  
+  const emailIdx = headers.indexOf('email');
+  const nameIdx = headers.indexOf('name');
+  const affiliationIdx = headers.indexOf('affiliation');
+  const detailIdx = headers.indexOf('affiliation_detail');
+  const memberIdIdx = headers.indexOf('member_id');
+  const createdAtIdx = headers.indexOf('created_at');
+  const notificationIdx = headers.indexOf('mypage_notification_sent_at');
+  const nfcIdx = headers.indexOf('nfc_id');
+
+  // 参照用に保存
+  nfcIdxRef.value = nfcIdx;
+
+  if (emailIdx === -1 || nameIdx === -1 || affiliationIdx === -1 || detailIdx === -1 || memberIdIdx === -1 || createdAtIdx === -1) {
+    throw new Error('CSVに必要なカラムが不足しています。 (email, name, affiliation, affiliation_detail, member_id, created_at は必須です)');
+  }
 
   // ヘッダー行を除外
   const dataLines = lines.slice(1);
@@ -118,24 +134,24 @@ function parseCSV(csvText: string): CsvRow[] {
   for (const line of dataLines) {
     const columns = parseCSVLine(line);
 
-    // カラム数チェック（6列または7列）
-    const expectedColumns = hasNotificationColumn ? 7 : 6;
-    if (columns.length !== expectedColumns) {
-      throw new Error(`列数が不正です。${expectedColumns}列必要ですが${columns.length}列です: ${line}`);
+    if (columns.length < 6) {
+      throw new Error(`列数が不足しています。最低6列必要ですが${columns.length}列です: ${line}`);
     }
 
     const row: CsvRow = {
-      email: columns[0],
-      name: columns[1],
-      affiliation: columns[2],
-      affiliation_detail: columns[3],
-      member_id: columns[4],
-      created_at: columns[5],
+      email: columns[emailIdx] || '',
+      name: columns[nameIdx] || '',
+      affiliation: columns[affiliationIdx] || '',
+      affiliation_detail: columns[detailIdx] || '',
+      member_id: columns[memberIdIdx] || '',
+      created_at: columns[createdAtIdx] || '',
     };
 
-    // mypage_notification_sent_at カラムがある場合
-    if (hasNotificationColumn && columns.length > 6) {
-      row.mypage_notification_sent_at = columns[6];
+    if (notificationIdx !== -1 && columns.length > notificationIdx) {
+      row.mypage_notification_sent_at = columns[notificationIdx];
+    }
+    if (nfcIdx !== -1 && columns.length > nfcIdx) {
+      row.nfc_id = columns[nfcIdx];
     }
 
     rows.push(row);
@@ -177,8 +193,9 @@ export async function POST(request: NextRequest) {
 
     // CSVパース
     let rows: CsvRow[];
+    const nfcIdxRef = { value: -1 };
     try {
-      rows = parseCSV(csvData);
+      rows = parseCSV(csvData, nfcIdxRef);
     } catch (error) {
       return NextResponse.json(
         {
@@ -243,7 +260,7 @@ export async function POST(request: NextRequest) {
 
       try {
         // 既存データをチェック（統計用）
-        const existing = db.prepare('SELECT id FROM members WHERE member_id = ?').get(row.member_id);
+        const existing = db.prepare('SELECT id FROM members WHERE member_id = ?').get(row.member_id) as { id: number } | undefined;
 
         // メールアドレスが空の場合はデフォルト値を生成
         let email = row.email && row.email.trim() !== '' ? row.email.trim() : `tukumanalabmember+id_${row.member_id}@gmail.com`;
@@ -313,7 +330,7 @@ export async function POST(request: NextRequest) {
         }
 
         // メンバー登録（既存の場合は更新）
-        upsertMember.run(
+        const info = upsertMember.run(
           row.member_id,
           row.name,
           affiliation,
@@ -323,6 +340,43 @@ export async function POST(request: NextRequest) {
           createdAtISO,
           notificationSentAtISO
         );
+
+        // データベース内メンバーIDを取得
+        let dbMemberId: number;
+        if (existing) {
+          dbMemberId = existing.id;
+        } else {
+          dbMemberId = info.lastInsertRowid as number;
+        }
+
+        // NFCカード情報の更新
+        if (row.nfc_id && row.nfc_id.trim() !== '') {
+          const nfcIds = row.nfc_id.split(';').map(id => id.trim().toUpperCase()).filter(id => id !== '');
+
+          // 重複チェック
+          for (const nfcId of nfcIds) {
+            const conflictingCard = db.prepare(`
+              SELECT member_id FROM member_nfc_cards WHERE nfc_id = ?
+            `).get(nfcId) as { member_id: number } | undefined;
+
+            if (conflictingCard && conflictingCard.member_id !== dbMemberId) {
+              throw new Error(`NFC ID '${nfcId}' は既に他のユーザーに登録されています`);
+            }
+          }
+
+          // 既存カードを全削除して再登録
+          db.prepare('DELETE FROM member_nfc_cards WHERE member_id = ?').run(dbMemberId);
+
+          for (const nfcId of nfcIds) {
+            db.prepare('INSERT INTO member_nfc_cards (member_id, nfc_id, card_name) VALUES (?, ?, ?)')
+              .run(dbMemberId, nfcId, 'NFCカード');
+          }
+        } else {
+          // CSVヘッダーに nfc_id カラムが存在し、値が空の場合は全削除する
+          if (nfcIdxRef.value !== -1) {
+            db.prepare('DELETE FROM member_nfc_cards WHERE member_id = ?').run(dbMemberId);
+          }
+        }
 
         if (existing) {
           results.updated++;

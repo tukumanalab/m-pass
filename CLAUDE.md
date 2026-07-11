@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository: m-pass
 
-QR コードを使ったメンバーの入館管理 Web アプリケーション
+QR コードを使ったメンバーの入室管理 Web アプリケーション
 
 ## 技術スタック
 
@@ -69,10 +69,10 @@ pm2 restart m-pass   # 再起動
 - パスワードハッシュ（bcrypt、saltRounds=10）を保存
 - 登録時に 4 桁の ID 生成（年+英字+数字+英字）
 
-**checkins テーブル**: チェックイン記録
+**checkins テーブル**: チェックイン・チェックアウト記録
 
 - member_id でメンバーと紐付け
-- check_in_time で時系列管理
+- check_in_time, check_out_time で在館・滞在時間管理
 
 **survey_responses テーブル**: アンケート回答
 
@@ -95,11 +95,11 @@ pm2 restart m-pass   # 再起動
 - `POST /api/admin/members/bulk` - CSV 一括登録・更新（UPSERT、重複は上書き）
 - `GET /api/admin/members/export` - 全メンバーデータ CSV エクスポート
 
-**チェックイン API:**
+**チェックイン・チェックアウト API:**
 
-- `POST /api/checkin` - QR コードでチェックイン実行
-- `GET /api/checkins/today` - 本日のチェックイン一覧（SQLite で日付フィルタ）
-- `GET /api/checkins/history` - 履歴取得（limit/offset でページネーション）
+- `POST /api/checkin` - QR コード/NFCカードでチェックイン・チェックアウトの自動切り替え（トグル）実行
+- `GET /api/checkins/today` - 本日の入退室一覧（SQLite で日付フィルタ）
+- `GET /api/checkins/history` - 履歴取得（limit/offset でページネーション、退室時刻・滞在時間付き）
 
 **アンケート API:**
 

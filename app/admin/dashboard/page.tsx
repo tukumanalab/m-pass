@@ -85,10 +85,10 @@ export default async function AdminDashboardPage() {
                   <div className="ml-5 w-0 flex-1">
                     <dl>
                       <dt className="text-sm font-medium text-gray-500 truncate">
-                        本日のチェックイン
+                        本日の入退室
                       </dt>
                       <dd className="text-sm text-gray-900 mt-1">
-                        今日の入館状況を確認
+                        今日の入退室状況を確認
                       </dd>
                     </dl>
                   </div>

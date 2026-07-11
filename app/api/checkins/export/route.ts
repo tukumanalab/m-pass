@@ -11,10 +11,11 @@ export async function GET() {
       member_id_str: string | null;
       affiliation: string | null;
       check_in_time: string;
+      check_out_time: string | null;
     }>;
 
     // CSVヘッダー
-    const headers = ['timestamp', 'member_id', 'affiliation'];
+    const headers = ['timestamp', 'checkout_time', 'stay_duration_minutes', 'member_id', 'affiliation'];
 
     // CSVデータ行を生成
     const rows = history.map(item => {
@@ -25,16 +26,32 @@ export async function GET() {
       const jstDate = new Date(date.getTime() + 9 * 60 * 60 * 1000);
 
       // YYYY/MM/DD HH:mm:ss形式にフォーマット
-      const year = jstDate.getUTCFullYear();
-      const month = String(jstDate.getUTCMonth() + 1).padStart(2, '0');
-      const day = String(jstDate.getUTCDate()).padStart(2, '0');
-      const hour = String(jstDate.getUTCHours()).padStart(2, '0');
-      const minute = String(jstDate.getUTCMinutes()).padStart(2, '0');
-      const second = String(jstDate.getUTCSeconds()).padStart(2, '0');
-      const formattedDate = `${year}/${month}/${day} ${hour}:${minute}:${second}`;
+      const formatJst = (d: Date) => {
+        const year = d.getUTCFullYear();
+        const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(d.getUTCDate()).padStart(2, '0');
+        const hour = String(d.getUTCHours()).padStart(2, '0');
+        const minute = String(d.getUTCMinutes()).padStart(2, '0');
+        const second = String(d.getUTCSeconds()).padStart(2, '0');
+        return `${year}/${month}/${day} ${hour}:${minute}:${second}`;
+      };
+
+      const formattedCheckIn = formatJst(jstDate);
+
+      let formattedCheckOut = '';
+      let stayDuration = '';
+
+      if (item.check_out_time) {
+        const outDate = new Date(item.check_out_time + 'Z');
+        const jstOutDate = new Date(outDate.getTime() + 9 * 60 * 60 * 1000);
+        formattedCheckOut = formatJst(jstOutDate);
+        stayDuration = String(Math.round((outDate.getTime() - date.getTime()) / (60 * 1000)));
+      }
 
       return [
-        formattedDate,
+        formattedCheckIn,
+        formattedCheckOut,
+        stayDuration,
         item.member_id_str || '',
         item.affiliation || '',
       ];

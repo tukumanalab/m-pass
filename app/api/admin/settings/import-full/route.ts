@@ -34,6 +34,9 @@ export async function POST(request: NextRequest) {
       logoPath: data.logoPath || '',
       faviconPath: data.faviconPath || '',
       heroImagePath: data.heroImagePath || '',
+      checkInIntervalMinutes: typeof data.checkInIntervalMinutes === 'number' ? data.checkInIntervalMinutes : 10,
+      successDisplaySeconds: typeof data.successDisplaySeconds === 'number' ? data.successDisplaySeconds : 10,
+      checkOutIntervalMinutes: typeof data.checkOutIntervalMinutes === 'number' ? data.checkOutIntervalMinutes : 10,
     };
 
     // バリデーション
@@ -82,7 +85,7 @@ export async function POST(request: NextRequest) {
 
             // BASE_PATHを使用してパスを生成
             const basePath = process.env.BASE_PATH || '';
-            settings[key as keyof SiteSettings] = `${basePath}/uploads/${filename}` as any;
+            (settings as any)[key] = `${basePath}/uploads/${filename}`;
           }
         } catch (error) {
           console.error(`Failed to restore image ${dataKey}:`, error);

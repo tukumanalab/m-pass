@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import db from '@/lib/database';
+import db, { getMemberNfcCards } from '@/lib/database';
 import { isAdminAuthenticated } from '@/lib/auth';
 
 export async function GET() {
@@ -15,10 +15,11 @@ export async function GET() {
 
     // 全メンバーデータを取得
     const members = db.prepare(`
-      SELECT email, name, affiliation, affiliation_detail, member_id, created_at, mypage_notification_sent_at
+      SELECT id, email, name, affiliation, affiliation_detail, member_id, created_at, mypage_notification_sent_at
       FROM members
       ORDER BY created_at DESC
     `).all() as Array<{
+      id: number;
       email: string;
       name: string;
       affiliation: string;
@@ -29,7 +30,7 @@ export async function GET() {
     }>;
 
     // CSVヘッダー
-    let csv = 'email,name,affiliation,affiliation_detail,member_id,created_at,mypage_notification_sent_at\n';
+    let csv = 'email,name,affiliation,affiliation_detail,member_id,created_at,mypage_notification_sent_at,nfc_id\n';
 
     // データ行を追加
     for (const member of members) {
@@ -38,6 +39,10 @@ export async function GET() {
 
       // mypage_notification_sent_at も同じくISO形式
       const notificationSentAt = member.mypage_notification_sent_at || '';
+
+      // NFC IDを取得 (セミコロン区切り)
+      const nfcCards = getMemberNfcCards(member.id);
+      const nfcIds = nfcCards.map(c => c.nfc_id).join(';');
 
       // 各フィールドをCSV形式に変換（カンマや改行を含む場合はダブルクォートで囲む）
       const fields = [
@@ -48,6 +53,7 @@ export async function GET() {
         member.member_id,
         createdAt,
         notificationSentAt,
+        nfcIds,
       ];
 
       const csvFields = fields.map(field => {

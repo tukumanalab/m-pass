@@ -9,6 +9,7 @@ interface CheckIn {
   member_id_str: string | null;
   check_in_time: string;
   affiliation: string | null;
+  check_out_time: string | null;
 }
 
 interface HourlyData {
@@ -166,12 +167,20 @@ export default function DashboardPage() {
           </div>
         )}
 
-        <div className="mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           <div className="bg-gradient-to-br from-primary-500 to-primary-600 rounded-2xl p-6 text-center shadow-lg">
             <p className="text-sm text-primary-100 mb-2 font-medium">
-              本日の利用者数
+              本日の延べ利用者数
             </p>
-            <p className="text-5xl font-bold text-white">{checkIns.length}</p>
+            <p className="text-5xl font-bold text-white">{checkIns.length}人</p>
+          </div>
+          <div className="bg-gradient-to-br from-teal-500 to-teal-600 rounded-2xl p-6 text-center shadow-lg">
+            <p className="text-sm text-teal-100 mb-2 font-medium">
+              現在の在室者数
+            </p>
+            <p className="text-5xl font-bold text-white">
+              {checkIns.filter(c => !c.check_out_time).length}人
+            </p>
           </div>
         </div>
 

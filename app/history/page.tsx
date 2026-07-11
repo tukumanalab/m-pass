@@ -10,6 +10,7 @@ interface CheckIn {
   member_id_str: string | null; // メンバーID文字列（チェックイン時に保存）
   affiliation: string | null; // 所属（チェックイン時に保存）
   check_in_time: string;
+  check_out_time: string | null;
   name: string | null; // メンバー名
 }
 
@@ -103,6 +104,17 @@ export default function HistoryPage() {
       hour12: false,
       timeZone: "Asia/Tokyo",
     }).format(date);
+  };
+
+  const calculateStayDuration = (checkInStr: string, checkOutStr: string | null | undefined): string => {
+    if (!checkOutStr) return "-";
+    const start = new Date(checkInStr + "Z").getTime();
+    const end = new Date(checkOutStr + "Z").getTime();
+    const mins = Math.round((end - start) / (60 * 1000));
+    if (mins < 60) return `${mins}分`;
+    const hrs = Math.floor(mins / 60);
+    const rMins = mins % 60;
+    return rMins > 0 ? `${hrs}時間${rMins}分` : `${hrs}時間`;
   };
 
   const calculateDaysSincePrevious = (currentIndex: number) => {
@@ -842,7 +854,13 @@ export default function HistoryPage() {
                     />
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-primary-700 uppercase tracking-wider">
-                    日時
+                    入室
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-primary-700 uppercase tracking-wider">
+                    退室
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-primary-700 uppercase tracking-wider">
+                    滞在時間
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-primary-700 uppercase tracking-wider">
                     名前
@@ -870,6 +888,22 @@ export default function HistoryPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
                       {formatDateTime(checkIn.check_in_time)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {checkIn.check_out_time ? (
+                        <span className="text-gray-900 font-medium">{formatDateTime(checkIn.check_out_time)}</span>
+                      ) : (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-teal-100 text-teal-800">
+                          在室中
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-medium">
+                      {checkIn.check_out_time ? (
+                        <span>{calculateStayDuration(checkIn.check_in_time, checkIn.check_out_time)}</span>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
                     </td>
                     <td 
                       className="px-6 py-4 whitespace-nowrap text-sm text-primary-600 font-bold cursor-pointer hover:underline hover:text-primary-800"
@@ -960,7 +994,13 @@ export default function HistoryPage() {
                           <thead className="bg-gray-50 sticky top-0">
                             <tr>
                               <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">
-                                日時
+                                入室
+                              </th>
+                              <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                                退室
+                              </th>
+                              <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                                滞在時間
                               </th>
                               <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
                                 所属
@@ -975,6 +1015,22 @@ export default function HistoryPage() {
                               <tr key={history.id}>
                                 <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm text-gray-900">
                                   {formatDateTime(history.check_in_time)}
+                                </td>
+                                <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                  {history.check_out_time ? (
+                                    formatDateTime(history.check_out_time)
+                                  ) : (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-teal-100 text-teal-800">
+                                      在室中
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                  {history.check_out_time ? (
+                                    calculateStayDuration(history.check_in_time, history.check_out_time)
+                                  ) : (
+                                    "-"
+                                  )}
                                 </td>
                                 <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                                   {history.affiliation || "-"}

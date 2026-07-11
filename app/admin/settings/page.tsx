@@ -12,6 +12,9 @@ interface SiteSettings {
   logoPath: string;
   faviconPath: string;
   heroImagePath: string;
+  checkInIntervalMinutes: number;
+  successDisplaySeconds: number;
+  checkOutIntervalMinutes: number;
 }
 
 export default function SettingsPage() {
@@ -22,6 +25,9 @@ export default function SettingsPage() {
     logoPath: "",
     faviconPath: "",
     heroImagePath: "",
+    checkInIntervalMinutes: 10,
+    successDisplaySeconds: 10,
+    checkOutIntervalMinutes: 10,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -614,9 +620,63 @@ export default function SettingsPage() {
                   setSettings({ ...settings, pageSubtitle: e.target.value })
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                placeholder="QRコードを使った入館管理システム"
+                placeholder="QRコードを使った入退室管理システム"
               />
               <p className="mt-1 text-xs text-gray-500">トップページの説明文</p>
+            </div>
+
+            {/* 再チェックイン間隔 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                再チェックイン制限時間（分）
+              </label>
+              <input
+                type="number"
+                min="1"
+                value={settings.checkInIntervalMinutes || 10}
+                onChange={(e) =>
+                  setSettings({ ...settings, checkInIntervalMinutes: parseInt(e.target.value, 10) || 10 })
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                placeholder="10"
+              />
+              <p className="mt-1 text-xs text-gray-500">同一メンバーが再度チェックイン可能になるまでの時間制限（分）です（デフォルト: 10分）</p>
+            </div>
+
+            {/* チェックイン表示時間 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                チェックイン成功画面表示時間（秒）
+              </label>
+              <input
+                type="number"
+                min="1"
+                value={settings.successDisplaySeconds || 10}
+                onChange={(e) =>
+                  setSettings({ ...settings, successDisplaySeconds: parseInt(e.target.value, 10) || 10 })
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                placeholder="10"
+              />
+              <p className="mt-1 text-xs text-gray-500">チェックイン成功時に、登録者情報を画面に表示する時間（秒）です（デフォルト: 10秒）</p>
+            </div>
+
+            {/* チェックアウト延長制限時間 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                チェックアウト延長制限時間（分）
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={settings.checkOutIntervalMinutes === undefined ? 10 : settings.checkOutIntervalMinutes}
+                onChange={(e) =>
+                  setSettings({ ...settings, checkOutIntervalMinutes: parseInt(e.target.value, 10) || 0 })
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                placeholder="10"
+              />
+              <p className="mt-1 text-xs text-gray-500">チェックアウト後に再スキャンした際、退室時刻の更新（延長）とする時間制限（分）です（0分以上、デフォルト: 10分）</p>
             </div>
 
             {/* ロゴ */}

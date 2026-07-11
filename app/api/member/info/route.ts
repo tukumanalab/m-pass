@@ -5,6 +5,7 @@ import {
     updateMemberProfile,
     createPendingEmailChange,
     deletePendingEmailChangeByMemberId,
+    getMemberNfcCards,
 } from '@/lib/database';
 import { sendEmailChangeVerificationEmail } from '@/lib/mailer';
 import bcrypt from 'bcrypt';
@@ -30,6 +31,9 @@ export async function GET() {
             );
         }
 
+        // NFCカードリストを取得
+        const cards = getMemberNfcCards(session.memberId);
+
         return NextResponse.json({
             id: member.id,
             name: member.name,
@@ -38,6 +42,7 @@ export async function GET() {
             affiliationDetail: member.affiliation_detail,
             memberId: member.member_id,
             createdAt: member.created_at,
+            cards: cards,
         });
     } catch (error) {
         console.error('Get member info error:', error);
