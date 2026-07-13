@@ -893,9 +893,7 @@ export default function HistoryPage() {
                       {checkIn.check_out_time ? (
                         <span className="text-gray-900 font-medium">{formatDateTime(checkIn.check_out_time)}</span>
                       ) : (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-teal-100 text-teal-800">
-                          在室中
-                        </span>
+                        <span className="text-gray-400">-</span>
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-medium">
@@ -1020,9 +1018,7 @@ export default function HistoryPage() {
                                   {history.check_out_time ? (
                                     formatDateTime(history.check_out_time)
                                   ) : (
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-teal-100 text-teal-800">
-                                      在室中
-                                    </span>
+                                    <span className="text-gray-400">-</span>
                                   )}
                                 </td>
                                 <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
