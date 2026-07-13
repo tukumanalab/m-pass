@@ -643,7 +643,7 @@ export default function RegisterPage() {
             disabled={loading}
             className="w-full bg-gradient-to-r from-primary-500 to-primary-600 text-white py-3 px-4 rounded-xl hover:from-primary-600 hover:to-primary-700 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed font-medium"
           >
-            {loading ? "登録中..." : "QRコードを発行"}
+            {loading ? "登録中..." : "登録"}
           </button>
         </form>
       </div>
