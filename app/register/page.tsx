@@ -10,6 +10,7 @@ export default function RegisterPage() {
     name: "",
     affiliation: "",
     affiliationDetail: "",
+    organizationMemberId: "",
     email: "",
     password: "",
     passwordConfirm: "",
@@ -72,6 +73,7 @@ export default function RegisterPage() {
       name: "",
       affiliation: "",
       affiliationDetail: "",
+      organizationMemberId: "",
       email: "",
       password: "",
       passwordConfirm: "",
@@ -492,6 +494,25 @@ export default function RegisterPage() {
               }
               className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
               placeholder="3年1組、○○学部、○○課など"
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="organizationMemberId"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
+              組織内ID
+            </label>
+            <input
+              type="text"
+              id="organizationMemberId"
+              value={formData.organizationMemberId}
+              onChange={(e) =>
+                setFormData({ ...formData, organizationMemberId: e.target.value })
+              }
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
+              placeholder="学生番号、職員番号など"
             />
           </div>
 

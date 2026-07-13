@@ -81,7 +81,8 @@ export async function POST(request: NextRequest) {
             pendingMember.affiliation_detail,
             pendingMember.email,
             pendingMember.password_hash,
-            memberId
+            memberId,
+            pendingMember.organization_member_id
         );
 
         // 仮登録データを削除
@@ -121,6 +122,7 @@ export async function POST(request: NextRequest) {
                 name: pendingMember.name,
                 affiliation: pendingMember.affiliation,
                 affiliationDetail: pendingMember.affiliation_detail,
+                organizationMemberId: pendingMember.organization_member_id,
                 email: pendingMember.email,
                 memberId,
                 qrCodeUrl: qrCodeDataUrl,

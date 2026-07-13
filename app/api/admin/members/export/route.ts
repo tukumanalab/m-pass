@@ -15,7 +15,7 @@ export async function GET() {
 
     // 全メンバーデータを取得
     const members = db.prepare(`
-      SELECT id, email, name, affiliation, affiliation_detail, member_id, created_at, mypage_notification_sent_at
+      SELECT id, email, name, affiliation, affiliation_detail, organization_member_id, member_id, created_at, mypage_notification_sent_at
       FROM members
       ORDER BY created_at DESC
     `).all() as Array<{
@@ -24,13 +24,14 @@ export async function GET() {
       name: string;
       affiliation: string;
       affiliation_detail: string | null;
+      organization_member_id: string | null;
       member_id: string;
       created_at: string;
       mypage_notification_sent_at: string | null;
     }>;
 
     // CSVヘッダー
-    let csv = 'email,name,affiliation,affiliation_detail,member_id,created_at,mypage_notification_sent_at,nfc_id\n';
+    let csv = 'email,name,affiliation,affiliation_detail,organization_member_id,member_id,created_at,mypage_notification_sent_at,nfc_id\n';
 
     // データ行を追加
     for (const member of members) {
@@ -50,6 +51,7 @@ export async function GET() {
         member.name,
         member.affiliation,
         member.affiliation_detail || '',
+        member.organization_member_id || '',
         member.member_id,
         createdAt,
         notificationSentAt,

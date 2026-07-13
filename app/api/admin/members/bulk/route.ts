@@ -31,6 +31,7 @@ interface CsvRow {
   created_at: string;
   mypage_notification_sent_at?: string; // オプショナル
   nfc_id?: string; // オプショナル
+  organization_member_id?: string; // オプショナル
 }
 
 function validateCsvRow(row: CsvRow, lineNumber: number): string | null {
@@ -119,6 +120,7 @@ function parseCSV(csvText: string, nfcIdxRef: { value: number }): CsvRow[] {
   const createdAtIdx = headers.indexOf('created_at');
   const notificationIdx = headers.indexOf('mypage_notification_sent_at');
   const nfcIdx = headers.indexOf('nfc_id');
+  const orgMemberIdIdx = headers.indexOf('organization_member_id');
 
   // 参照用に保存
   nfcIdxRef.value = nfcIdx;
@@ -147,6 +149,9 @@ function parseCSV(csvText: string, nfcIdxRef: { value: number }): CsvRow[] {
       created_at: columns[createdAtIdx] || '',
     };
 
+    if (orgMemberIdIdx !== -1 && columns.length > orgMemberIdIdx) {
+      row.organization_member_id = columns[orgMemberIdIdx];
+    }
     if (notificationIdx !== -1 && columns.length > notificationIdx) {
       row.mypage_notification_sent_at = columns[notificationIdx];
     }
@@ -228,12 +233,13 @@ export async function POST(request: NextRequest) {
 
     // UPSERT用のSQL（member_idで既存データを更新、なければ挿入）
     const upsertMember = db.prepare(`
-      INSERT INTO members (member_id, name, affiliation, affiliation_detail, email, password_hash, created_at, mypage_notification_sent_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO members (member_id, name, affiliation, affiliation_detail, organization_member_id, email, password_hash, created_at, mypage_notification_sent_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(member_id) DO UPDATE SET
         name = excluded.name,
         affiliation = excluded.affiliation,
         affiliation_detail = excluded.affiliation_detail,
+        organization_member_id = excluded.organization_member_id,
         email = excluded.email,
         password_hash = excluded.password_hash,
         created_at = excluded.created_at,
@@ -335,6 +341,7 @@ export async function POST(request: NextRequest) {
           row.name,
           affiliation,
           affiliationDetail,
+          row.organization_member_id || null,
           email,
           hashedPassword,
           createdAtISO,

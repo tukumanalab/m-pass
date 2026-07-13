@@ -12,7 +12,7 @@ const MAX_MEMBERS_PER_EMAIL = 3;
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { name, affiliation, affiliationDetail, email, password, howDidYouKnow } = body;
+        const { name, affiliation, affiliationDetail, email, password, howDidYouKnow, organizationMemberId } = body;
 
         // バリデーション
         if (!name) {
@@ -87,7 +87,8 @@ export async function POST(request: NextRequest) {
             email,
             passwordHash,
             expiresAt,
-            howDidYouKnow || null
+            howDidYouKnow || null,
+            organizationMemberId || null
         );
 
         // 確認メールを送信

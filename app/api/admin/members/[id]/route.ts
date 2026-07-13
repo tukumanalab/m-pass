@@ -17,13 +17,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     let member: any;
     if (isNumericId) {
       member = db.prepare(`
-        SELECT id, member_id, name, affiliation, affiliation_detail, email, created_at, mypage_notification_sent_at
+        SELECT id, member_id, name, affiliation, affiliation_detail, organization_member_id, email, created_at, mypage_notification_sent_at
         FROM members
         WHERE id = ?
       `).get(id);
     } else {
       member = db.prepare(`
-        SELECT id, member_id, name, affiliation, affiliation_detail, email, created_at, mypage_notification_sent_at
+        SELECT id, member_id, name, affiliation, affiliation_detail, organization_member_id, email, created_at, mypage_notification_sent_at
         FROM members
         WHERE member_id = ?
       `).get(id);
@@ -59,7 +59,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
-    const { name, affiliation, affiliation_detail, email, password } = await request.json();
+    const { name, affiliation, affiliation_detail, organization_member_id, email, password } = await request.json();
 
     // バリデーション
     if (!name || !affiliation || !email) {
@@ -92,16 +92,16 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
       db.prepare(`
         UPDATE members
-        SET name = ?, affiliation = ?, affiliation_detail = ?, email = ?, password_hash = ?
+        SET name = ?, affiliation = ?, affiliation_detail = ?, email = ?, password_hash = ?, organization_member_id = ?
         WHERE id = ?
-      `).run(name, affiliation, affiliation_detail || '', email, hashedPassword, id);
+      `).run(name, affiliation, affiliation_detail || '', email, hashedPassword, organization_member_id || null, id);
     } else {
       // パスワードなしで更新
       db.prepare(`
         UPDATE members
-        SET name = ?, affiliation = ?, affiliation_detail = ?, email = ?
+        SET name = ?, affiliation = ?, affiliation_detail = ?, email = ?, organization_member_id = ?
         WHERE id = ?
-      `).run(name, affiliation, affiliation_detail || '', email, id);
+      `).run(name, affiliation, affiliation_detail || '', email, organization_member_id || null, id);
     }
 
     return NextResponse.json({ success: true, message: 'メンバー情報を更新しました' });

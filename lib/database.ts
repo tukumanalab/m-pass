@@ -26,6 +26,7 @@ export function initDatabase() {
       name TEXT NOT NULL,
       affiliation TEXT NOT NULL,
       affiliation_detail TEXT,
+      organization_member_id TEXT,
       email TEXT NOT NULL,
       password_hash TEXT NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -36,6 +37,13 @@ export function initDatabase() {
   // 既存のmembersテーブルに新しいカラムを追加（マイグレーション）
   try {
     db.exec(`ALTER TABLE members ADD COLUMN mypage_notification_sent_at DATETIME`);
+  } catch (e) {
+    // カラムが既に存在する場合はエラーを無視
+  }
+
+  // 組織内IDカラムを追加
+  try {
+    db.exec(`ALTER TABLE members ADD COLUMN organization_member_id TEXT`);
   } catch (e) {
     // カラムが既に存在する場合はエラーを無視
   }
@@ -55,12 +63,20 @@ export function initDatabase() {
       name TEXT NOT NULL,
       affiliation TEXT NOT NULL,
       affiliation_detail TEXT,
+      organization_member_id TEXT,
       email TEXT NOT NULL,
       password_hash TEXT NOT NULL,
       expires_at DATETIME NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  // 仮登録テーブルに組織内IDカラムを追加（マイグレーション）
+  try {
+    db.exec(`ALTER TABLE pending_members ADD COLUMN organization_member_id TEXT`);
+  } catch (e) {
+    // カラムが既に存在する場合はエラーを無視
+  }
 
   // メールアドレス変更申請テーブル
   db.exec(`
@@ -269,13 +285,14 @@ export function createMember(
   affiliationDetail: string | null,
   email: string,
   passwordHash: string,
-  memberId: string
+  memberId: string,
+  organizationMemberId: string | null = null
 ) {
   const stmt = db.prepare(`
-    INSERT INTO members (name, affiliation, affiliation_detail, email, password_hash, member_id)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO members (name, affiliation, affiliation_detail, email, password_hash, member_id, organization_member_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `);
-  const result = stmt.run(name, affiliation, affiliationDetail, email, passwordHash, memberId);
+  const result = stmt.run(name, affiliation, affiliationDetail, email, passwordHash, memberId, organizationMemberId);
   return result.lastInsertRowid;
 }
 
@@ -552,18 +569,20 @@ export function updateMemberProfile(
     affiliationDetail,
     email,
     passwordHash,
+    organizationMemberId,
   }: {
     name: string;
     affiliation: string;
     affiliationDetail: string | null;
     email: string;
     passwordHash?: string;
+    organizationMemberId?: string | null;
   }
 ) {
   if (passwordHash) {
     const stmtWithPassword = db.prepare(`
       UPDATE members
-      SET name = ?, affiliation = ?, affiliation_detail = ?, email = ?, password_hash = ?
+      SET name = ?, affiliation = ?, affiliation_detail = ?, email = ?, password_hash = ?, organization_member_id = ?
       WHERE id = ?
     `);
     return stmtWithPassword.run(
@@ -572,16 +591,17 @@ export function updateMemberProfile(
       affiliationDetail ?? '',
       email,
       passwordHash,
+      organizationMemberId ?? null,
       id
     ).changes;
   }
 
   const stmt = db.prepare(`
     UPDATE members
-    SET name = ?, affiliation = ?, affiliation_detail = ?, email = ?
+    SET name = ?, affiliation = ?, affiliation_detail = ?, email = ?, organization_member_id = ?
     WHERE id = ?
   `);
-  return stmt.run(name, affiliation, affiliationDetail ?? '', email, id).changes;
+  return stmt.run(name, affiliation, affiliationDetail ?? '', email, organizationMemberId ?? null, id).changes;
 }
 
 // 仮登録メンバーの作成
@@ -593,13 +613,14 @@ export function createPendingMember(
   email: string,
   passwordHash: string,
   expiresAt: string,
-  howDidYouKnow: string | null = null
+  howDidYouKnow: string | null = null,
+  organizationMemberId: string | null = null
 ) {
   const stmt = db.prepare(`
-    INSERT INTO pending_members (token, name, affiliation, affiliation_detail, email, password_hash, expires_at, how_did_you_know)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO pending_members (token, name, affiliation, affiliation_detail, email, password_hash, expires_at, how_did_you_know, organization_member_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
-  const result = stmt.run(token, name, affiliation, affiliationDetail, email, passwordHash, expiresAt, howDidYouKnow);
+  const result = stmt.run(token, name, affiliation, affiliationDetail, email, passwordHash, expiresAt, howDidYouKnow, organizationMemberId);
   return result.lastInsertRowid;
 }
 

@@ -66,6 +66,7 @@ pm2 restart m-pass   # 再起動
 
 - QR コードでユニーク制約（4 桁形式）
 - 所属情報（affiliation/affiliation_detail）を保存
+- 組織内ID（organization_member_id。学生番号や職員番号など）を保存
 - パスワードハッシュ（bcrypt、saltRounds=10）を保存
 - 登録時に 4 桁の ID 生成（年+英字+数字+英字）
 
@@ -88,7 +89,7 @@ pm2 restart m-pass   # 再起動
 **メンバー管理 API:**
 
 - `GET /api/members` - 全メンバー一覧取得
-- `POST /api/members` - メンバー登録 & QR コード生成（4 桁 ID: 年+英字+数字+英字、bcrypt でパスワードハッシュ化）
+- `POST /api/members` - メンバー登録 & QR コード生成（4 桁 ID: 年+英字+数字+英字、組織内IDもあわせて仮登録保存、bcrypt でパスワードハッシュ化）
 - `GET /api/admin/members/search` - メンバー検索（名前、所属、メール、QR コード）
 - `PUT /api/admin/members/[id]` - メンバー情報更新
 - `DELETE /api/admin/members/[id]` - メンバー削除（チェックイン履歴も削除）
@@ -225,16 +226,16 @@ docker-compose up -d
 **CSV 形式:**
 
 ```csv
-email,name,affiliation,affiliation_detail,qr_code,created_at
-example@example.com,山田太郎,開発部,第一グループ,5a1b,2025/01/15 10:30:00
-,"Duff, Brian",教職員,学部,1j9s,2024/11/21 00:00:00
+email,name,affiliation,affiliation_detail,organization_member_id,member_id,created_at,mypage_notification_sent_at
+example@example.com,山田太郎,開発部,第一グループ,12345,5a1b,2025/01/15 10:30:00,
+,"Duff, Brian",教職員,学部,,1j9s,2024/11/21 00:00:00,
 ```
 
 **CSV 仕様:**
 
 - RFC 4180 準拠（カンマや改行を含むフィールドはダブルクォートで囲む）
 - エスケープ: ダブルクォート内の`"`は`""`に変換
-- カラム: `email,name,affiliation,affiliation_detail,qr_code,created_at`
+- カラム: `email,name,affiliation,affiliation_detail,organization_member_id,member_id,created_at,mypage_notification_sent_at`
 
 **created_at 形式:**
 

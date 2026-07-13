@@ -33,6 +33,7 @@ interface Member {
   name: string;
   affiliation: string;
   affiliation_detail: string;
+  organization_member_id: string | null;
   email: string;
   created_at: string;
   mypage_notification_sent_at: string | null;
@@ -55,6 +56,7 @@ export default function AdminMembersPage() {
     name: "",
     affiliation: "",
     affiliation_detail: "",
+    organization_member_id: "",
     email: "",
     password: "",
   });
@@ -77,6 +79,7 @@ export default function AdminMembersPage() {
         name: string;
         affiliation: string;
         affiliation_detail: string;
+        organization_member_id?: string;
         member_id: string;
         created_at: string;
         mypage_notification_sent_at?: string;
@@ -228,6 +231,7 @@ export default function AdminMembersPage() {
       name: member.name,
       affiliation: member.affiliation,
       affiliation_detail: member.affiliation_detail || "",
+      organization_member_id: member.organization_member_id || "",
       email: member.email || "",
       password: "",
     });
@@ -240,6 +244,7 @@ export default function AdminMembersPage() {
       name: "",
       affiliation: "",
       affiliation_detail: "",
+      organization_member_id: "",
       email: "",
       password: "",
     });
@@ -729,7 +734,7 @@ export default function AdminMembersPage() {
 
     // CSVヘッダー
     let csv =
-      "email,name,affiliation,affiliation_detail,member_id,created_at,mypage_notification_sent_at\n";
+      "email,name,affiliation,affiliation_detail,organization_member_id,member_id,created_at,mypage_notification_sent_at\n";
 
     // 失敗したデータ行を追加
     for (const row of failedRows) {
@@ -738,6 +743,7 @@ export default function AdminMembersPage() {
         row.data.name,
         row.data.affiliation,
         row.data.affiliation_detail || "",
+        row.data.organization_member_id || "",
         row.data.member_id,
         row.data.created_at,
         (row.data as any).mypage_notification_sent_at || "",
@@ -1055,6 +1061,22 @@ export default function AdminMembersPage() {
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700">
+                            組織内ID
+                          </label>
+                          <input
+                            type="text"
+                            value={editForm.organization_member_id}
+                            onChange={(e) =>
+                              setEditForm({
+                                ...editForm,
+                                organization_member_id: e.target.value,
+                              })
+                            }
+                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">
                             メールアドレス *
                           </label>
                           <input
@@ -1212,7 +1234,9 @@ export default function AdminMembersPage() {
                                 {member.email}
                               </p>
                               <p className="text-xs text-gray-500 mt-1">
-                                メンバーID: {member.member_id} | 登録日:{" "}
+                                メンバーID: {member.member_id}
+                                {member.organization_member_id && ` | 組織内ID: ${member.organization_member_id}`}
+                                {` | 登録日: `}
                                 {new Date(member.created_at).toLocaleDateString(
                                   "ja-JP",
                                   { timeZone: "Asia/Tokyo" }
@@ -1360,7 +1384,7 @@ export default function AdminMembersPage() {
                   以下の形式のCSVファイルをアップロードしてください：
                 </p>
                 <code className="block text-xs bg-white p-2 rounded border border-blue-200 text-gray-800">
-                  email,name,affiliation,affiliation_detail,member_id,created_at,mypage_notification_sent_at
+                  email,name,affiliation,affiliation_detail,organization_member_id,member_id,created_at,mypage_notification_sent_at
                 </code>
                 <ul className="mt-3 text-sm text-blue-800 space-y-1">
                   <li>
@@ -1376,6 +1400,9 @@ export default function AdminMembersPage() {
                   </li>
                   <li>
                     • <strong>affiliation_detail</strong>: 所属詳細（任意）
+                  </li>
+                  <li>
+                    • <strong>organization_member_id</strong>: 組織内ID（任意）
                   </li>
                   <li>
                     • <strong>member_id</strong>: 4桁のメンバーID（必須）
@@ -1617,6 +1644,9 @@ export default function AdminMembersPage() {
                         所属
                       </th>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                        組織内ID
+                      </th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
                         QRコード
                       </th>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
@@ -1635,6 +1665,9 @@ export default function AdminMembersPage() {
                         </td>
                         <td className="px-3 py-2 text-sm text-gray-900">
                           {row.data.affiliation}
+                        </td>
+                        <td className="px-3 py-2 text-sm text-gray-900">
+                          {row.data.organization_member_id || ""}
                         </td>
                         <td className="px-3 py-2 text-sm text-gray-900">
                           {row.data.member_id}
