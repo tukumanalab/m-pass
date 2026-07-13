@@ -50,6 +50,28 @@ export default function HistoryPage() {
   const [memberHistory, setMemberHistory] = useState<CheckIn[]>([]);
   const [memberLoading, setMemberLoading] = useState(false);
 
+  // 所属絞り込みのステート
+  const [selectedAffiliation, setSelectedAffiliation] = useState<string>("");
+  const [affiliations, setAffiliations] = useState<string[]>([]);
+
+  // 日付範囲絞り込みのステート (デフォルトは直近1ヶ月)
+  const [filterStartDate, setFilterStartDate] = useState(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 1);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const date = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${date}`;
+  });
+
+  const [filterEndDate, setFilterEndDate] = useState(() => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const date = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${date}`;
+  });
+
   const router = useRouter();
 
   // 認証チェック
@@ -65,7 +87,7 @@ export default function HistoryPage() {
         }
 
         setAuthChecked(true);
-        fetchHistory();
+        fetchAffiliations();
       } catch (error) {
         console.error("Auth check error:", error);
         router.push("/admin/login");
@@ -75,9 +97,40 @@ export default function HistoryPage() {
     checkAuth();
   }, [router]);
 
+  // 所属リストの取得
+  const fetchAffiliations = async () => {
+    try {
+      const response = await fetch(apiUrl("/api/checkins/affiliations"));
+      if (response.ok) {
+        const data = await response.json();
+        setAffiliations(data);
+      }
+    } catch (error) {
+      console.error("Error fetching affiliations:", error);
+    }
+  };
+
+  // 認証完了後、またはフィルター変更時に履歴を取得
+  useEffect(() => {
+    if (authChecked) {
+      fetchHistory();
+    }
+  }, [authChecked, selectedAffiliation, filterStartDate, filterEndDate]);
+
   const fetchHistory = async () => {
     try {
-      const response = await fetch(apiUrl("/api/checkins/history?limit=100"));
+      const params = new URLSearchParams();
+      params.append("limit", "100");
+      if (selectedAffiliation) {
+        params.append("affiliation", selectedAffiliation);
+      }
+      if (filterStartDate) {
+        params.append("startDate", filterStartDate);
+      }
+      if (filterEndDate) {
+        params.append("endDate", filterEndDate);
+      }
+      const response = await fetch(apiUrl(`/api/checkins/history?${params.toString()}`));
       if (!response.ok) {
         throw new Error("履歴の取得に失敗しました");
       }
@@ -569,6 +622,45 @@ export default function HistoryPage() {
             <p className="text-red-600">{error}</p>
           </div>
         )}
+
+        {/* 絞り込みフィルター */}
+        <div className="mb-6 p-4 bg-gray-50/50 rounded-xl border border-primary-100 flex flex-wrap items-center gap-6">
+          <div className="flex items-center gap-2">
+            <label htmlFor="affiliation-filter" className="text-sm font-semibold text-gray-700">
+              所属で絞り込み:
+            </label>
+            <select
+              id="affiliation-filter"
+              value={selectedAffiliation}
+              onChange={(e) => setSelectedAffiliation(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm bg-white text-gray-900"
+            >
+              <option value="">すべての所属</option>
+              {affiliations.map((aff) => (
+                <option key={aff} value={aff}>
+                  {aff}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-gray-700">期間:</span>
+            <input
+              type="date"
+              value={filterStartDate}
+              onChange={(e) => setFilterStartDate(e.target.value)}
+              className="px-3 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm bg-white text-gray-900"
+            />
+            <span className="text-gray-500 text-sm">〜</span>
+            <input
+              type="date"
+              value={filterEndDate}
+              onChange={(e) => setFilterEndDate(e.target.value)}
+              className="px-3 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm bg-white text-gray-900"
+            />
+          </div>
+        </div>
 
         {showCsvUpload && (
           <div className="mb-6 p-6 bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl">

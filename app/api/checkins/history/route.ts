@@ -7,8 +7,11 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '50');
     const offset = parseInt(searchParams.get('offset') || '0');
+    const affiliation = searchParams.get('affiliation') || undefined;
+    const startDate = searchParams.get('startDate') || undefined;
+    const endDate = searchParams.get('endDate') || undefined;
 
-    const history = getCheckInHistory(limit, offset);
+    const history = getCheckInHistory(limit, offset, affiliation, startDate, endDate);
     return NextResponse.json(history);
   } catch (error) {
     console.error('Error fetching check-in history:', error);

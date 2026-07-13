@@ -506,9 +506,9 @@ export function getTodayCheckIns() {
   return stmt.all();
 }
 
-// 利用履歴を取得（ページネーション付き、所属情報はチェックイン時に保存された値を使用）
-export function getCheckInHistory(limit = 50, offset = 0) {
-  const stmt = db.prepare(`
+// 利用履歴を取得（ページネーション付き、所属情報はチェックイン時に保存された値を使用、所属および日付範囲による絞り込みが可能）
+export function getCheckInHistory(limit = 50, offset = 0, affiliation?: string, startDate?: string, endDate?: string) {
+  let query = `
     SELECT
       c.id,
       c.member_id,
@@ -519,10 +519,45 @@ export function getCheckInHistory(limit = 50, offset = 0) {
       m.name
     FROM checkins c
     LEFT JOIN members m ON c.member_id_str = m.member_id
-    ORDER BY c.check_in_time DESC
-    LIMIT ? OFFSET ?
+  `;
+  const conditions: string[] = [];
+  const params: any[] = [];
+
+  if (affiliation) {
+    conditions.push(`c.affiliation = ?`);
+    params.push(affiliation);
+  }
+
+  if (startDate) {
+    conditions.push(`DATE(datetime(c.check_in_time, '+9 hours')) >= DATE(?)`);
+    params.push(startDate);
+  }
+
+  if (endDate) {
+    conditions.push(`DATE(datetime(c.check_in_time, '+9 hours')) <= DATE(?)`);
+    params.push(endDate);
+  }
+
+  if (conditions.length > 0) {
+    query += ` WHERE ` + conditions.join(' AND ');
+  }
+
+  query += ` ORDER BY c.check_in_time DESC LIMIT ? OFFSET ?`;
+  params.push(limit, offset);
+
+  const stmt = db.prepare(query);
+  return stmt.all(...params);
+}
+
+// 登録されている全ての所属を取得（重複なし）
+export function getAllAffiliations() {
+  const stmt = db.prepare(`
+    SELECT DISTINCT affiliation FROM members WHERE affiliation IS NOT NULL AND affiliation != ''
+    UNION
+    SELECT DISTINCT affiliation FROM checkins WHERE affiliation IS NOT NULL AND affiliation != ''
+    ORDER BY affiliation ASC
   `);
-  return stmt.all(limit, offset);
+  return stmt.all().map((row: any) => row.affiliation);
 }
 
 // 特定メンバーのチェックイン履歴を取得
