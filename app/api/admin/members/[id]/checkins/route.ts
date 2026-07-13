@@ -52,7 +52,8 @@ export async function GET(
         member_id,
         member_id_str,
         affiliation,
-        check_in_time
+        check_in_time,
+        check_out_time
       FROM checkins
       WHERE member_id_str = ?
       ORDER BY check_in_time DESC

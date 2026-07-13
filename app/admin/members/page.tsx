@@ -44,6 +44,7 @@ interface Member {
 interface CheckIn {
   id: number;
   check_in_time: string;
+  check_out_time?: string | null;
   affiliation: string;
 }
 
@@ -609,6 +610,17 @@ export default function AdminMembersPage() {
     }
   };
 
+  const calculateStayDuration = (checkInStr: string, checkOutStr: string | null | undefined): string => {
+    if (!checkOutStr) return "-";
+    const start = new Date(checkInStr ? checkInStr.replace(" ", "T") + "Z" : "").getTime();
+    const end = new Date(checkOutStr ? checkOutStr.replace(" ", "T") + "Z" : "").getTime();
+    const mins = Math.round((end - start) / (60 * 1000));
+    if (mins < 60) return `${mins}分`;
+    const hrs = Math.floor(mins / 60);
+    const rMins = mins % 60;
+    return rMins > 0 ? `${hrs}時間${rMins}分` : `${hrs}時間`;
+  };
+
   const calculateDaysSincePrevious = (currentIndex: number) => {
     // 履歴は降順（新しい順）で表示されていると仮定
     // 次のインデックスが「前回のチェックイン」になる
@@ -622,16 +634,23 @@ export default function AdminMembersPage() {
     const prevStr = checkInHistory[prevIndex].check_in_time;
 
     // Convert UTC strings to Date objects
-    const current = new Date(currentStr);
-    const prev = new Date(prevStr);
+    const current = new Date(currentStr ? currentStr.replace(" ", "T") + "Z" : "");
+    const prev = new Date(prevStr ? prevStr.replace(" ", "T") + "Z" : "");
 
     // Calculate difference in milliseconds
     const diffTime = current.getTime() - prev.getTime();
     
-    // Convert to days (rounding up to ensure full days)
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    return `${diffDays}日`;
+    const oneDayMs = 24 * 60 * 60 * 1000;
+    if (diffTime >= oneDayMs) {
+      // Convert to days (rounding up to ensure full days)
+      const diffDays = Math.ceil(diffTime / oneDayMs);
+      return `${diffDays}日`;
+    } else {
+      const diffMins = Math.floor(diffTime / (1000 * 60));
+      const hrs = Math.floor(diffMins / 60);
+      const mins = diffMins % 60;
+      return `${String(hrs).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
+    }
   };
 
   const handleCloseHistory = () => {
@@ -1533,6 +1552,9 @@ export default function AdminMembersPage() {
                             日時
                           </th>
                           <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                            滞在時間
+                          </th>
+                          <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
                             所属
                           </th>
                           <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
@@ -1544,15 +1566,26 @@ export default function AdminMembersPage() {
                         {checkInHistory.map((checkin) => (
                           <tr key={checkin.id}>
                             <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm text-gray-900">
-                              {new Date(checkin.check_in_time).toLocaleString(
-                                "ja-JP",
-                                {
-                                  year: "numeric",
-                                  month: "2-digit",
-                                  day: "2-digit",
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                }
+                              {checkin.check_in_time ? (
+                                new Date(checkin.check_in_time.replace(" ", "T") + "Z").toLocaleString(
+                                  "ja-JP",
+                                  {
+                                    year: "numeric",
+                                    month: "2-digit",
+                                    day: "2-digit",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  }
+                                )
+                              ) : (
+                                "-"
+                              )}
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                              {checkin.check_out_time ? (
+                                calculateStayDuration(checkin.check_in_time, checkin.check_out_time)
+                              ) : (
+                                "-"
                               )}
                             </td>
                             <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
