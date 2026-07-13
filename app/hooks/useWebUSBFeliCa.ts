@@ -359,13 +359,13 @@ export function useWebUSBFeliCa(): UseWebUSBFeliCaReturn {
   const disconnect = useCallback(async () => {
     const ctx = ctxRef.current;
     if (ctx) {
+      ctxRef.current = null;
       try {
         await ctx.device.releaseInterface(ctx.interfaceNumber);
         await ctx.device.close();
       } catch {
         // 切断エラーは無視
       }
-      ctxRef.current = null;
     }
     setStatus('idle', { idm: null, errorMessage: null });
   }, [setStatus]);
@@ -391,6 +391,11 @@ export function useWebUSBFeliCa(): UseWebUSBFeliCaReturn {
       setIsPolling(false);
       return null;
     } catch (err) {
+      // 手動で切断された場合はエラーをセットせず静かに終了する
+      if (ctxRef.current !== ctx) {
+        setIsPolling(false);
+        return null;
+      }
       const msg = err instanceof Error ? err.message : String(err);
       // disconnect() は呼ばず、ステータスは 'connected' のまま維持（ctx は維持）
       setIsPolling(false);

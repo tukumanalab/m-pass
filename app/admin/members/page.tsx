@@ -52,6 +52,7 @@ export default function AdminMembersPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
+  const editingMember = members.find((m) => m.id === editingId);
   const [editForm, setEditForm] = useState({
     name: "",
     affiliation: "",
@@ -94,7 +95,7 @@ export default function AdminMembersPage() {
   const router = useRouter();
 
   // WebUSB FeliCa フック
-  const { status: nfcStatus, connect: connectNfc, readIdm: readNfcIdm, disconnect: disconnectNfc, errorMessage: nfcError } = useWebUSBFeliCa();
+  const { status: nfcStatus, connect: connectNfc, readIdm: readNfcIdm, disconnect: disconnectNfc, errorMessage: nfcError, isPolling: nfcIsPolling } = useWebUSBFeliCa();
   const [nfcInput, setNfcInput] = useState("");
   const [nfcCardNameInput, setNfcCardNameInput] = useState("NFCカード");
 
@@ -999,334 +1000,115 @@ export default function AdminMembersPage() {
               <ul className="divide-y divide-gray-200">
                 {members.map((member) => (
                   <li key={member.id} className="p-4">
-                    {editingId === member.id ? (
-                      // 編集フォーム
-                      <div className="space-y-3">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700">
-                            名前 *
-                          </label>
-                          <input
-                            type="text"
-                            value={editForm.name}
-                            onChange={(e) =>
-                              setEditForm({ ...editForm, name: e.target.value })
-                            }
-                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700">
-                            所属 *
-                          </label>
-                          <select
-                            value={editForm.affiliation}
-                            onChange={(e) =>
-                              setEditForm({
-                                ...editForm,
-                                affiliation: e.target.value,
-                              })
-                            }
-                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                          >
-                            <option value="">選択してください</option>
-                            {affiliationOptions.map((option) => (
-                              <option key={option} value={option}>
-                                {option}
-                              </option>
-                            ))}
-                            {editForm.affiliation &&
-                              !affiliationOptions.includes(editForm.affiliation) && (
-                                <option value={editForm.affiliation}>
-                                  {editForm.affiliation} (カスタム)
-                                </option>
+                    {/* 表示モード */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-4">
+                          <div>
+                            <p className="text-lg font-medium text-gray-900">
+                              {member.name}
+                            </p>
+                            <p className="text-sm text-gray-600">
+                              {member.affiliation}
+                              {member.affiliation_detail &&
+                                ` - ${member.affiliation_detail}`}
+                            </p>
+                            <p className="text-sm text-blue-600 mt-1">
+                              {member.email}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              メンバーID: {member.member_id}
+                              {member.organization_member_id && ` | 組織内ID: ${member.organization_member_id}`}
+                              {` | 登録日: `}
+                              {new Date(member.created_at).toLocaleDateString(
+                                "ja-JP",
+                                { timeZone: "Asia/Tokyo" }
                               )}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700">
-                            所属詳細
-                          </label>
-                          <input
-                            type="text"
-                            value={editForm.affiliation_detail}
-                            onChange={(e) =>
-                              setEditForm({
-                                ...editForm,
-                                affiliation_detail: e.target.value,
-                              })
-                            }
-                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700">
-                            組織内ID
-                          </label>
-                          <input
-                            type="text"
-                            value={editForm.organization_member_id}
-                            onChange={(e) =>
-                              setEditForm({
-                                ...editForm,
-                                organization_member_id: e.target.value,
-                              })
-                            }
-                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700">
-                            メールアドレス *
-                          </label>
-                          <input
-                            type="email"
-                            value={editForm.email}
-                            onChange={(e) =>
-                              setEditForm({
-                                ...editForm,
-                                email: e.target.value,
-                              })
-                            }
-                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                            placeholder="example@example.com"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700">
-                            パスワード（変更する場合のみ入力）
-                          </label>
-                          <input
-                            type="password"
-                            value={editForm.password}
-                            onChange={(e) =>
-                              setEditForm({
-                                ...editForm,
-                                password: e.target.value,
-                              })
-                            }
-                            placeholder="英数字または記号を含む8文字以上"
-                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                          />
-                        </div>
-                        {/* NFCカード管理セクション */}
-                        <div className="border-t pt-3 mt-3 bg-gray-50/50 p-3 rounded-lg border">
-                          <label className="block text-sm font-semibold text-gray-700 mb-2">
-                            NFCカード管理（最大5枚）
-                          </label>
-                          
-                          {/* 登録済みカードリスト */}
-                          {member.nfc_cards && member.nfc_cards.length > 0 ? (
-                            <ul className="space-y-2 mb-3">
-                              {member.nfc_cards.map((card) => (
-                                <li key={card.id} className="flex justify-between items-center bg-white p-2 rounded-md border text-sm shadow-sm">
-                                  <div>
-                                    <span className="font-medium text-gray-800">{card.card_name}</span>
-                                    <span className="text-gray-500 ml-2 font-mono text-xs">({card.nfc_id})</span>
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRemoveNfcCard(member.id, card.id)}
-                                    className="text-red-600 hover:text-red-800 text-xs px-2 py-1 bg-red-50 hover:bg-red-100 rounded transition-colors"
-                                  >
-                                    削除
-                                  </button>
-                                </li>
-                              ))}
-                            </ul>
-                          ) : (
-                            <p className="text-sm text-gray-500 mb-3">登録されたNFCカードはありません</p>
-                          )}
-
-                          {/* 新規追加フォーム */}
-                          <div className="bg-blue-50/30 p-3 rounded-lg border border-blue-100 space-y-2">
-                            <span className="block text-xs font-semibold text-blue-800">新規NFCカード追加</span>
-                            <div className="flex gap-2">
-                              <input
-                                type="text"
-                                placeholder="NFC ID (IDm/UID)"
-                                value={nfcInput}
-                                onChange={(e) => setNfcInput(e.target.value)}
-                                className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-mono"
-                              />
-                              <input
-                                type="text"
-                                placeholder="カード名"
-                                value={nfcCardNameInput}
-                                onChange={(e) => setNfcCardNameInput(e.target.value)}
-                                className="w-28 px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => handleAddNfcCard(member.id)}
-                                className="px-4 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 font-medium"
-                              >
-                                追加
-                              </button>
-                            </div>
-
-                            {/* PaSoriスキャンボタン */}
-                            <div className="flex items-center gap-2 pt-1">
-                              <button
-                                type="button"
-                                onClick={async () => {
-                                  try {
-                                    let connected = nfcStatus === 'connected' || nfcStatus === 'reading' || nfcStatus === 'success';
-                                    if (!connected) {
-                                      connected = await connectNfc();
-                                    }
-                                    if (connected) {
-                                      const id = await readNfcIdm();
-                                      if (id) {
-                                        setNfcInput(id);
-                                      }
-                                    }
-                                  } catch (e) {
-                                    console.error(e);
-                                  }
-                                }}
-                                className="px-3 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700 flex items-center gap-1 font-medium transition-colors"
-                              >
-                                {nfcStatus === 'connecting' ? 'PaSori接続中...' :
-                                 nfcStatus === 'reading' ? 'カードをかざしてください...' :
-                                 'PaSoriでスキャン'}
-                              </button>
-                              <span className="text-xs text-gray-500">
-                                {nfcStatus === 'error' && `接続エラーが発生しました。${nfcError ? `(${nfcError})` : ''}`}
-                                {nfcStatus === 'connected' && 'PaSori接続完了。カードをかざして再度ボタンを押してください。'}
-                                {nfcStatus === 'success' && '読み取り成功。'}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex gap-2 pt-2">
-                          <button
-                            type="button"
-                            onClick={() => handleUpdate(member.id)}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                          >
-                            保存
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleCancelEdit}
-                            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
-                          >
-                            キャンセル
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      // 表示モード
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-4">
-                            <div>
-                              <p className="text-lg font-medium text-gray-900">
-                                {member.name}
-                              </p>
-                              <p className="text-sm text-gray-600">
-                                {member.affiliation}
-                                {member.affiliation_detail &&
-                                  ` - ${member.affiliation_detail}`}
-                              </p>
-                              <p className="text-sm text-blue-600 mt-1">
-                                {member.email}
-                              </p>
-                              <p className="text-xs text-gray-500 mt-1">
-                                メンバーID: {member.member_id}
-                                {member.organization_member_id && ` | 組織内ID: ${member.organization_member_id}`}
-                                {` | 登録日: `}
-                                {new Date(member.created_at).toLocaleDateString(
+                            </p>
+                            {/* NFCカード一覧表示 */}
+                            {member.nfc_cards && member.nfc_cards.length > 0 && (
+                              <div className="text-xs text-gray-600 mt-1 flex flex-wrap gap-1.5 items-center">
+                                <span className="font-semibold text-gray-700">💳 NFCカード:</span>
+                                {member.nfc_cards.map(card => (
+                                  <span key={card.id} className="bg-blue-50 border border-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-mono text-[10px]" title={card.nfc_id}>
+                                    {card.card_name} ({card.nfc_id})
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                            {member.mypage_notification_sent_at && (
+                              <p className="text-xs text-green-600 mt-1">
+                                📧 マイページ案内メール送信済み:{" "}
+                                {new Date(member.mypage_notification_sent_at).toLocaleString(
                                   "ja-JP",
-                                  { timeZone: "Asia/Tokyo" }
+                                  { 
+                                    timeZone: "Asia/Tokyo",
+                                    year: "numeric",
+                                    month: "numeric",
+                                    day: "numeric",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                    second: "2-digit"
+                                  }
                                 )}
                               </p>
-                              {/* NFCカード一覧表示 */}
-                              {member.nfc_cards && member.nfc_cards.length > 0 && (
-                                <div className="text-xs text-gray-600 mt-1 flex flex-wrap gap-1.5 items-center">
-                                  <span className="font-semibold text-gray-700">💳 NFCカード:</span>
-                                  {member.nfc_cards.map(card => (
-                                    <span key={card.id} className="bg-blue-50 border border-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-mono text-[10px]" title={card.nfc_id}>
-                                      {card.card_name} ({card.nfc_id})
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
-                              {member.mypage_notification_sent_at && (
-                                <p className="text-xs text-green-600 mt-1">
-                                  📧 マイページ案内メール送信済み:{" "}
-                                  {new Date(member.mypage_notification_sent_at).toLocaleString(
-                                    "ja-JP",
-                                    { 
-                                      timeZone: "Asia/Tokyo",
-                                      year: "numeric",
-                                      month: "numeric",
-                                      day: "numeric",
-                                      hour: "2-digit",
-                                      minute: "2-digit",
-                                      second: "2-digit"
-                                    }
-                                  )}
-                                </p>
-                              )}
-                              {member.card_printed_at && (
-                                <p className="text-xs text-purple-600 mt-1">
-                                  🖨️ カード印刷済み:{" "}
-                                  {new Date(member.card_printed_at).toLocaleString(
-                                    "ja-JP",
-                                    { 
-                                      timeZone: "Asia/Tokyo",
-                                      year: "numeric",
-                                      month: "numeric",
-                                      day: "numeric",
-                                      hour: "2-digit",
-                                      minute: "2-digit",
-                                      second: "2-digit"
-                                    }
-                                  )}
-                                </p>
-                              )}
-                            </div>
+                            )}
+                            {member.card_printed_at && (
+                              <p className="text-xs text-purple-600 mt-1">
+                                🖨️ カード印刷済み:{" "}
+                                {new Date(member.card_printed_at).toLocaleString(
+                                  "ja-JP",
+                                  { 
+                                    timeZone: "Asia/Tokyo",
+                                    year: "numeric",
+                                    month: "numeric",
+                                    day: "numeric",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                    second: "2-digit"
+                                  }
+                                )}
+                              </p>
+                            )}
                           </div>
                         </div>
-                        <div className="flex gap-2 ml-4 flex-wrap">
-                          <button
-                            onClick={() => handleShowCard(member)}
-                            className="px-3 py-1 text-sm bg-green-100 text-green-700 rounded hover:bg-green-200"
-                          >
-                            {member.card_printed_at ? "カード表示 ✓" : "カード表示"}
-                          </button>
-                          <button
-                            onClick={() => handleEdit(member)}
-                            className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
-                          >
-                            編集
-                          </button>
-                          <button
-                            onClick={() => handleShowHistory(member)}
-                            className="px-3 py-1 text-sm bg-purple-100 text-purple-700 rounded hover:bg-purple-200"
-                          >
-                            履歴
-                          </button>
-                          {member.mypage_notification_sent_at && (
-                            <button
-                              onClick={() => handleResetNotification(member.id, member.name)}
-                              className="px-3 py-1 text-sm bg-yellow-100 text-yellow-700 rounded hover:bg-yellow-200"
-                              title="マイページ通知フラグをリセット"
-                            >
-                              通知リセット
-                            </button>
-                          )}
-                          <button
-                            onClick={() => handleDelete(member.id, member.name)}
-                            className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200"
-                          >
-                            削除
-                          </button>
-                        </div>
                       </div>
-                    )}
+                      <div className="flex gap-2 ml-4 flex-wrap">
+                        <button
+                          onClick={() => handleShowCard(member)}
+                          className="px-3 py-1 text-sm bg-green-100 text-green-700 rounded hover:bg-green-200"
+                        >
+                          {member.card_printed_at ? "カード表示 ✓" : "カード表示"}
+                        </button>
+                        <button
+                          onClick={() => handleEdit(member)}
+                          className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                        >
+                          編集
+                        </button>
+                        <button
+                          onClick={() => handleShowHistory(member)}
+                          className="px-3 py-1 text-sm bg-purple-100 text-purple-700 rounded hover:bg-purple-200"
+                        >
+                          履歴
+                        </button>
+                        {member.mypage_notification_sent_at && (
+                          <button
+                            onClick={() => handleResetNotification(member.id, member.name)}
+                            className="px-3 py-1 text-sm bg-yellow-100 text-yellow-700 rounded hover:bg-yellow-200"
+                            title="マイページ通知フラグをリセット"
+                          >
+                            通知リセット
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDelete(member.id, member.name)}
+                          className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200"
+                        >
+                          削除
+                        </button>
+                      </div>
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -1798,6 +1580,279 @@ export default function AdminMembersPage() {
                   className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
                 >
                   閉じる
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* メンバー編集モーダル */}
+      {editingId !== null && editingMember && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              {/* ヘッダー */}
+              <div className="flex items-center justify-between mb-4 pb-3 border-b">
+                <h2 className="text-2xl font-bold text-gray-900">
+                  メンバー編集
+                </h2>
+                <button
+                  onClick={handleCancelEdit}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg
+                    className="w-6 h-6"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+
+              {/* フォーム */}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    名前 *
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.name}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, name: e.target.value })
+                    }
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    所属 *
+                  </label>
+                  <select
+                    value={editForm.affiliation}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        affiliation: e.target.value,
+                      })
+                    }
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">選択してください</option>
+                    {affiliationOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                    {editForm.affiliation &&
+                      !affiliationOptions.includes(editForm.affiliation) && (
+                        <option value={editForm.affiliation}>
+                          {editForm.affiliation} (カスタム)
+                        </option>
+                      )}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    所属詳細
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.affiliation_detail}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        affiliation_detail: e.target.value,
+                      })
+                    }
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    組織内ID
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.organization_member_id}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        organization_member_id: e.target.value,
+                      })
+                    }
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    メールアドレス *
+                  </label>
+                  <input
+                    type="email"
+                    value={editForm.email}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        email: e.target.value,
+                      })
+                    }
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="example@example.com"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    パスワード（変更する場合のみ入力）
+                  </label>
+                  <input
+                    type="password"
+                    value={editForm.password}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        password: e.target.value,
+                      })
+                    }
+                    placeholder="英数字または記号を含む8文字以上"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+
+                {/* NFCカード管理セクション */}
+                <div className="border-t pt-3 mt-3 bg-gray-50/50 p-3 rounded-lg border">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    NFCカード管理（最大5枚）
+                  </label>
+                  
+                  {/* 登録済みカードリスト */}
+                  {editingMember.nfc_cards && editingMember.nfc_cards.length > 0 ? (
+                    <ul className="space-y-2 mb-3">
+                      {editingMember.nfc_cards.map((card) => (
+                        <li key={card.id} className="flex justify-between items-center bg-white p-2 rounded-md border text-sm shadow-sm">
+                          <div>
+                            <span className="font-medium text-gray-800">{card.card_name}</span>
+                            <span className="text-gray-500 ml-2 font-mono text-xs">({card.nfc_id})</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveNfcCard(editingMember.id, card.id)}
+                            className="text-red-600 hover:text-red-800 text-xs px-2 py-1 bg-red-50 hover:bg-red-100 rounded transition-colors"
+                          >
+                            削除
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-gray-500 mb-3">登録されたNFCカードはありません</p>
+                  )}
+
+                  {/* 新規追加フォーム */}
+                  <div className="bg-blue-50/30 p-3 rounded-lg border border-blue-100 space-y-2">
+                    <span className="block text-xs font-semibold text-blue-800">新規NFCカード追加</span>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="NFC ID (IDm/UID)"
+                        value={nfcInput}
+                        onChange={(e) => setNfcInput(e.target.value)}
+                        className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-mono"
+                      />
+                      <input
+                        type="text"
+                        placeholder="カード名"
+                        value={nfcCardNameInput}
+                        onChange={(e) => setNfcCardNameInput(e.target.value)}
+                        className="w-28 px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleAddNfcCard(editingMember.id)}
+                        className="px-4 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 font-medium"
+                      >
+                        追加
+                      </button>
+                    </div>
+
+                    {/* PaSoriスキャンボタン（1つのボタンに統合） */}
+                    <div className="flex items-center gap-2 pt-1">
+                      {nfcIsPolling ? (
+                        /* スキャン中（ポーリング中）は「スキャナー解除」ボタンを表示 */
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await disconnectNfc();
+                          }}
+                          className="px-3 py-1.5 bg-red-600 text-white rounded text-xs hover:bg-red-700 font-medium transition-colors"
+                        >
+                          スキャナー解除
+                        </button>
+                      ) : (
+                        /* スキャン前、または切断状態は「スキャン開始」ボタンを表示 */
+                        <button
+                          type="button"
+                          disabled={nfcStatus === 'connecting'}
+                          onClick={async () => {
+                            try {
+                              let connected = nfcStatus === 'connected' || nfcStatus === 'reading' || nfcStatus === 'success';
+                              if (!connected) {
+                                connected = await connectNfc();
+                              }
+                              if (connected) {
+                                const id = await readNfcIdm();
+                                if (id) {
+                                  setNfcInput(id);
+                                }
+                              }
+                            } catch (e) {
+                              console.error(e);
+                            }
+                          }}
+                          className={`px-3 py-1.5 text-white rounded text-xs font-medium transition-colors ${
+                            nfcStatus === 'connecting'
+                              ? 'bg-gray-400 cursor-not-allowed'
+                              : 'bg-green-600 hover:bg-green-700'
+                          }`}
+                        >
+                          {nfcStatus === 'connecting' ? 'スキャナー接続中' : 'スキャン開始'}
+                        </button>
+                      )}
+
+                      <span className="text-xs text-gray-500">
+                        {nfcStatus === 'error' && `接続エラーが発生しました。${nfcError ? `(${nfcError})` : ''}`}
+                        {nfcStatus === 'connected' && !nfcIsPolling && 'PaSori接続完了。「スキャン開始」を押してカードをかざしてください。'}
+                        {nfcStatus === 'connected' && nfcIsPolling && 'カードをかざしてください...'}
+                        {nfcStatus === 'success' && '読み取り成功。'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* フッター */}
+              <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  キャンセル
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleUpdate(editingMember.id)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                >
+                  保存
                 </button>
               </div>
             </div>

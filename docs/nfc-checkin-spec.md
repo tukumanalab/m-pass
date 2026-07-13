@@ -62,7 +62,7 @@ NFCカードの登録は以下の2つのルートから行えます。
 #### ルート A: 管理者がメンバー個別設定から追加
 
 1. 管理者メンバー管理画面（`/admin/members`）でメンバーの編集を開く
-2. 「NFCカード」セクションで「PaSoRi でスキャン」ボタンを押す
+2. 「NFCカード」セクションで「スキャン開始」ボタンを押す（スキャン中は「スキャナー解除」に変化）
 3. カードをリーダーにタッチ → IDm を読み取り → 登録
 
 #### ルート B: 未登録カードをタッチして登録
@@ -75,7 +75,7 @@ NFCカードの登録は以下の2つのルートから行えます。
 #### ルート C: メンバー本人がマイページから追加
 
 1. メンバー情報編集画面（`/member/edit`）の「NFCカード」セクション
-2. 「PaSoRi でスキャン」または手動入力で追加
+2. 「スキャン開始」または手動入力で追加
 
 ### 4.2 バリデーション
 
@@ -168,7 +168,7 @@ sequenceDiagram
 
 ```typescript
 interface UseWebUSBFeliCaReturn {
-  status: 'idle' | 'connecting' | 'connected' | 'error';
+  status: 'idle' | 'connecting' | 'connected' | 'reading' | 'success' | 'error';
   idm: string | null;
   errorMessage: string | null;
   isPolling: boolean;           // ポーリング中かどうか
@@ -299,7 +299,7 @@ nfcStatus === 'connected' 時に起動
 | 「接続エラー: Unable to claim interface」 | macOS の `pcscd` がデバイスを占有 | `sudo killall pcscd` を実行 |
 | 「PaSoRi が接続されていません」 | USB ケーブルの接触不良 / デバイス未認識 | ケーブル差し直し、ブラウザ再起動 |
 | ペアリングダイアログが毎回出る | ブラウザのペアリング許可がリセットされた | 一度ダイアログで許可すれば次回以降は自動接続 |
-| カードをかざしても反応なし | ポーリングエラーで ctx が失われた | PaSoRi 接続ボタンで再接続 |
+| カードをかざしても反応なし | ポーリングエラーで ctx が失われた | 「カードリーダーを接続」ボタン（または「スキャン開始」）で再接続 |
 | チェックイン成功だが表示されない | オーバーレイが transform 親内にある | オーバーレイは transform 外に配置すること |
 
 ---

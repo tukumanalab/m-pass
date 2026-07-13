@@ -1048,12 +1048,15 @@ export default function ScanPage() {
                   onClick={connectNfc}
                   className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-all whitespace-nowrap"
                 >
-                  PaSoriを接続
+                  カードリーダーを接続
                 </button>
               ) : (
                 <button
-                  onClick={disconnectNfc}
-                  className="px-3.5 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg text-xs font-semibold transition-all whitespace-nowrap"
+                  onClick={() => {
+                    nfcLoopActiveRef.current = false;
+                    disconnectNfc();
+                  }}
+                  className="px-3.5 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg text-xs font-semibold shadow-sm transition-all whitespace-nowrap"
                 >
                   接続解除
                 </button>
