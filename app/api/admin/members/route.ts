@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createMember, findMemberByEmailAndName, generateUniqueMemberId } from '@/lib/database';
+import db, { createMember, findMemberByEmailAndName, generateUniqueMemberId, addMemberNfcCard, isNfcIdExists } from '@/lib/database';
 import { isAdminAuthenticated } from '@/lib/auth';
 import bcrypt from 'bcrypt';
 
@@ -8,7 +8,7 @@ function validatePassword(password: string): boolean {
   return /^[A-Za-z\d@$!%*?&_.\-+=^#~,;:/<>{}[\]|()`'"\\]{8,}$/.test(password);
 }
 
-// メンバーを新規登録
+// メンバーを新規登録（NFCカード同時登録対応）
 export async function POST(request: NextRequest) {
   try {
     // 1. 管理者認証チェック
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
 
     // 2. パラメータの取得
     const body = await request.json();
-    const { name, affiliation, affiliation_detail, organization_member_id, email, password } = body;
+    const { name, affiliation, affiliation_detail, organization_member_id, email, password, nfc_cards } = body;
 
     // 3. バリデーション
     if (!name || name.trim() === '') {
@@ -80,16 +80,54 @@ export async function POST(request: NextRequest) {
     // 6. ユニークなメンバーIDを自動生成 (4桁)
     const memberId = generateUniqueMemberId();
 
-    // 7. メンバーをデータベースに登録
-    const memberDbId = createMember(
-      name.trim(),
-      affiliation.trim(),
-      affiliation_detail ? affiliation_detail.trim() : null,
-      email.trim(),
-      passwordHash,
-      memberId,
-      organization_member_id ? organization_member_id.trim() : null
-    );
+    // 7. トランザクションによる登録処理 (メンバー + NFCカード)
+    let memberDbId: number;
+    try {
+      const insertTx = db.transaction((memberData, nfcCardsList) => {
+        // メンバー登録
+        const newId = createMember(
+          memberData.name,
+          memberData.affiliation,
+          memberData.affiliationDetail,
+          memberData.email,
+          memberData.passwordHash,
+          memberData.memberId,
+          memberData.organizationMemberId
+        ) as number;
+
+        // NFCカード登録
+        if (nfcCardsList && nfcCardsList.length > 0) {
+          for (const card of nfcCardsList) {
+            const cleanNfcId = card.nfc_id.trim().toUpperCase();
+            // NFC ID重複チェック
+            if (isNfcIdExists(cleanNfcId)) {
+              throw new Error(`NFC ID '${cleanNfcId}' は既に他のユーザーに登録されています`);
+            }
+            addMemberNfcCard(newId, cleanNfcId, card.card_name.trim());
+          }
+        }
+        return newId;
+      });
+
+      memberDbId = insertTx(
+        {
+          name: name.trim(),
+          affiliation: affiliation.trim(),
+          affiliationDetail: affiliation_detail ? affiliation_detail.trim() : null,
+          email: email.trim(),
+          passwordHash,
+          memberId,
+          organizationMemberId: organization_member_id ? organization_member_id.trim() : null
+        },
+        nfc_cards
+      );
+    } catch (txError: any) {
+      console.error('Transaction failed:', txError);
+      return NextResponse.json(
+        { success: false, message: txError.message || 'データベース登録中にエラーが発生しました' },
+        { status: txError.message?.includes('既に他のユーザーに登録されています') ? 409 : 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,

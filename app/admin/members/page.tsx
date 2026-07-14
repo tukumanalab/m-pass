@@ -71,6 +71,7 @@ export default function AdminMembersPage() {
     email: "",
     password: "",
   });
+  const [addNfcCards, setAddNfcCards] = useState<Array<{ nfc_id: string; card_name: string }>>([]);
   const [showCsvUpload, setShowCsvUpload] = useState(false);
   const [showCard, setShowCard] = useState(false);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
@@ -109,14 +110,14 @@ export default function AdminMembersPage() {
   const [nfcInput, setNfcInput] = useState("");
   const [nfcCardNameInput, setNfcCardNameInput] = useState("NFCカード");
 
-  // 編集状態が終了した（editingId が null になった）ら自動で PaSori を切断して解放する
+  // 編集状態または新規追加状態が終了したら自動で PaSori を切断して解放する
   useEffect(() => {
-    if (editingId === null) {
+    if (editingId === null && !showAddModal) {
       disconnectNfc();
       setNfcInput("");
       setNfcCardNameInput("NFCカード");
     }
-  }, [editingId, disconnectNfc]);
+  }, [editingId, showAddModal, disconnectNfc]);
 
   // アンマウント時に確実にカードリーダーを解放する
   useEffect(() => {
@@ -330,6 +331,36 @@ export default function AdminMembersPage() {
       email: "",
       password: "",
     });
+    setAddNfcCards([]);
+  };
+
+  // 新規追加用の一時NFCカード追加
+  const handleAddNfcCardTemp = () => {
+    if (!nfcInput || !nfcInput.trim()) {
+      toast.error("NFC IDを入力してください");
+      return;
+    }
+    if (!nfcCardNameInput || !nfcCardNameInput.trim()) {
+      toast.error("カード名を入力してください");
+      return;
+    }
+    if (addNfcCards.length >= 5) {
+      toast.error("NFCカードは最大5枚まで登録できます");
+      return;
+    }
+    if (addNfcCards.some(card => card.nfc_id.toUpperCase() === nfcInput.trim().toUpperCase())) {
+      toast.error("このNFC IDは既に追加リストに含まれています");
+      return;
+    }
+
+    setAddNfcCards([...addNfcCards, { nfc_id: nfcInput.trim(), card_name: nfcCardNameInput.trim() }]);
+    setNfcInput("");
+    setNfcCardNameInput("NFCカード");
+  };
+
+  // 新規追加用の一時NFCカード削除
+  const handleRemoveNfcCardTemp = (nfcId: string) => {
+    setAddNfcCards(addNfcCards.filter(card => card.nfc_id !== nfcId));
   };
 
   // 新規追加実行
@@ -343,7 +374,7 @@ export default function AdminMembersPage() {
       const response = await fetch(apiUrl("/api/admin/members"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(addForm),
+        body: JSON.stringify({ ...addForm, nfc_cards: addNfcCards }),
       });
 
       const data = await response.json();
@@ -359,6 +390,7 @@ export default function AdminMembersPage() {
           email: "",
           password: "",
         });
+        setAddNfcCards([]);
         fetchMembers(searchQuery);
       } else {
         toast.error(data.message || "登録に失敗しました");
@@ -1820,6 +1852,114 @@ export default function AdminMembersPage() {
                     placeholder="英数字または記号を含む8文字以上"
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                   />
+                </div>
+
+                {/* NFCカード管理セクション */}
+                <div className="border-t pt-3 mt-3 bg-gray-50/50 p-3 rounded-lg border">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    NFCカード管理（最大5枚）
+                  </label>
+                  
+                  {/* 一時登録済みカードリスト */}
+                  {addNfcCards.length > 0 ? (
+                    <ul className="space-y-2 mb-3">
+                      {addNfcCards.map((card, idx) => (
+                        <li key={idx} className="flex justify-between items-center bg-white p-2 rounded-md border text-sm shadow-sm">
+                          <div>
+                            <span className="font-medium text-gray-800">{card.card_name}</span>
+                            <span className="text-gray-500 ml-2 font-mono text-xs">({card.nfc_id})</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveNfcCardTemp(card.nfc_id)}
+                            className="text-red-600 hover:text-red-800 text-xs px-2 py-1 bg-red-50 hover:bg-red-100 rounded transition-colors"
+                          >
+                            削除
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-gray-500 mb-3">登録されたNFCカードはありません</p>
+                  )}
+
+                  {/* 新規追加フォーム */}
+                  <div className="bg-blue-50/30 p-3 rounded-lg border border-blue-100 space-y-2">
+                    <span className="block text-xs font-semibold text-blue-800">新規NFCカード追加</span>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="NFC ID (IDm/UID)"
+                        value={nfcInput}
+                        onChange={(e) => setNfcInput(e.target.value)}
+                        className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-mono"
+                      />
+                      <input
+                        type="text"
+                        placeholder="カード名"
+                        value={nfcCardNameInput}
+                        onChange={(e) => setNfcCardNameInput(e.target.value)}
+                        className="w-28 px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddNfcCardTemp}
+                        className="px-4 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 font-medium"
+                      >
+                        追加
+                      </button>
+                    </div>
+
+                    {/* PaSoriスキャンボタン */}
+                    <div className="flex items-center gap-2 pt-1">
+                      {nfcIsPolling ? (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await disconnectNfc();
+                          }}
+                          className="px-3 py-1.5 bg-red-600 text-white rounded text-xs hover:bg-red-700 font-medium transition-colors"
+                        >
+                          スキャナー解除
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={nfcStatus === 'connecting'}
+                          onClick={async () => {
+                            try {
+                              let connected = nfcStatus === 'connected' || nfcStatus === 'reading' || nfcStatus === 'success';
+                              if (!connected) {
+                                connected = await connectNfc();
+                              }
+                              if (connected) {
+                                const id = await readNfcIdm();
+                                if (id) {
+                                  setNfcInput(id);
+                                }
+                              }
+                            } catch (e) {
+                              console.error(e);
+                            }
+                          }}
+                          className={`px-3 py-1.5 text-white rounded text-xs font-medium transition-colors ${
+                            nfcStatus === 'connecting'
+                              ? 'bg-gray-400 cursor-not-allowed'
+                              : 'bg-green-600 hover:bg-green-700'
+                          }`}
+                        >
+                          {nfcStatus === 'connecting' ? 'スキャナー接続中' : 'スキャン開始'}
+                        </button>
+                      )}
+
+                      <span className="text-xs text-gray-500">
+                        {nfcStatus === 'error' && `接続エラーが発生しました。${nfcError ? `(${nfcError})` : ''}`}
+                        {nfcStatus === 'connected' && !nfcIsPolling && 'PaSori接続完了。「スキャン開始」を押してカードをかざしてください。'}
+                        {nfcStatus === 'connected' && nfcIsPolling && 'カードをかざしてください...'}
+                        {nfcStatus === 'success' && '読み取り成功。'}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
