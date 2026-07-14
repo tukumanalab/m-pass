@@ -62,6 +62,15 @@ export default function AdminMembersPage() {
     email: "",
     password: "",
   });
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addForm, setAddForm] = useState({
+    name: "",
+    affiliation: "",
+    affiliation_detail: "",
+    organization_member_id: "",
+    email: "",
+    password: "",
+  });
   const [showCsvUpload, setShowCsvUpload] = useState(false);
   const [showCard, setShowCard] = useState(false);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
@@ -307,6 +316,56 @@ export default function AdminMembersPage() {
     } catch (error) {
       console.error("Delete error:", error);
       toast.error("削除エラーが発生しました");
+    }
+  };
+
+  // 新規追加キャンセル
+  const handleCancelAdd = () => {
+    setShowAddModal(false);
+    setAddForm({
+      name: "",
+      affiliation: "",
+      affiliation_detail: "",
+      organization_member_id: "",
+      email: "",
+      password: "",
+    });
+  };
+
+  // 新規追加実行
+  const handleAddMember = async () => {
+    if (!addForm.name || !addForm.affiliation || !addForm.email || !addForm.password) {
+      toast.error("名前、所属、メールアドレス、パスワードは必須です");
+      return;
+    }
+
+    try {
+      const response = await fetch(apiUrl("/api/admin/members"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(addForm),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success("メンバーを登録しました");
+        setShowAddModal(false);
+        setAddForm({
+          name: "",
+          affiliation: "",
+          affiliation_detail: "",
+          organization_member_id: "",
+          email: "",
+          password: "",
+        });
+        fetchMembers(searchQuery);
+      } else {
+        toast.error(data.message || "登録に失敗しました");
+      }
+    } catch (error) {
+      console.error("Add member error:", error);
+      toast.error("登録エラーが発生しました");
     }
   };
 
@@ -945,6 +1004,12 @@ export default function AdminMembersPage() {
                 </p>
               </div>
               <div className="flex gap-2 flex-wrap">
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  メンバー追加
+                </button>
                 <button
                   onClick={handleCsvDownload}
                   className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -1613,6 +1678,166 @@ export default function AdminMembersPage() {
                   className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
                 >
                   閉じる
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* メンバー追加モーダル */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              {/* ヘッダー */}
+              <div className="flex items-center justify-between mb-4 pb-3 border-b">
+                <h2 className="text-2xl font-bold text-gray-900">
+                  メンバー追加
+                </h2>
+                <button
+                  onClick={handleCancelAdd}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg
+                    className="w-6 h-6"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+
+              {/* フォーム */}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    名前 *
+                  </label>
+                  <input
+                    type="text"
+                    value={addForm.name}
+                    onChange={(e) =>
+                      setAddForm({ ...addForm, name: e.target.value })
+                    }
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="山田 太郎"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    所属 *
+                  </label>
+                  <select
+                    value={addForm.affiliation}
+                    onChange={(e) =>
+                      setAddForm({
+                        ...addForm,
+                        affiliation: e.target.value,
+                      })
+                    }
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">選択してください</option>
+                    {affiliationOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    所属詳細
+                  </label>
+                  <input
+                    type="text"
+                    value={addForm.affiliation_detail}
+                    onChange={(e) =>
+                      setAddForm({
+                        ...addForm,
+                        affiliation_detail: e.target.value,
+                      })
+                    }
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="〇〇学部 〇〇学科"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    組織内ID
+                  </label>
+                  <input
+                    type="text"
+                    value={addForm.organization_member_id}
+                    onChange={(e) =>
+                      setAddForm({
+                        ...addForm,
+                        organization_member_id: e.target.value,
+                      })
+                    }
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="12345678"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    メールアドレス *
+                  </label>
+                  <input
+                    type="email"
+                    value={addForm.email}
+                    onChange={(e) =>
+                      setAddForm({
+                        ...addForm,
+                        email: e.target.value,
+                      })
+                    }
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="example@example.com"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    パスワード *
+                  </label>
+                  <input
+                    type="password"
+                    value={addForm.password}
+                    onChange={(e) =>
+                      setAddForm({
+                        ...addForm,
+                        password: e.target.value,
+                      })
+                    }
+                    placeholder="英数字または記号を含む8文字以上"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+
+              {/* フッター */}
+              <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
+                <button
+                  type="button"
+                  onClick={handleCancelAdd}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  キャンセル
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAddMember}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                >
+                  登録
                 </button>
               </div>
             </div>

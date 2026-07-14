@@ -1,42 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createMember, getAllMembers, isMemberIdExists, findMemberByEmailAndName, countMembersByEmail } from '@/lib/database';
+import { createMember, getAllMembers, isMemberIdExists, findMemberByEmailAndName, countMembersByEmail, generateUniqueMemberId } from '@/lib/database';
 import QRCode from 'qrcode';
 import bcrypt from 'bcrypt';
 
 // 同じメールアドレスで登録可能な最大人数
 const MAX_MEMBERS_PER_EMAIL = 3;
-
-// メンバーIDを生成（4桁: 年+英字+数字+英字）
-// 発行年の西暦の1桁目（一の位） + ランダムな英文字（小文字） + ランダムな数値 + ランダムな英文字（小文字）
-function generateMemberId(): string {
-  const currentYear = new Date().getFullYear();
-  const yearDigit = currentYear % 10; // 西暦の一の位
-
-  const letters = 'abcdefghijklmnopqrstuvwxyz';
-  const randomLetter1 = letters[Math.floor(Math.random() * letters.length)];
-  const randomNumber = Math.floor(Math.random() * 10);
-  const randomLetter2 = letters[Math.floor(Math.random() * letters.length)];
-
-  return `${yearDigit}${randomLetter1}${randomNumber}${randomLetter2}`;
-}
-
-// 重複しないユニークなIDを生成
-function generateUniqueMemberId(): string {
-  let memberId: string;
-  let attempts = 0;
-  const maxAttempts = 100; // 無限ループ防止
-
-  do {
-    memberId = generateMemberId();
-    attempts++;
-
-    if (attempts >= maxAttempts) {
-      throw new Error('Failed to generate unique member ID after maximum attempts');
-    }
-  } while (isMemberIdExists(memberId));
-
-  return memberId;
-}
 
 // メンバー一覧を取得
 export async function GET() {
