@@ -56,8 +56,8 @@ export async function POST(request: NextRequest) {
       // チェックアウトされていない場合 -> チェックアウトを実行
       if (!latestCheckIn.check_out_time) {
         // 同じ日のチェックインかどうかを判定（JST基準）
-        const lastCheckInJstDate = new Date(lastCheckInTime + 9 * 60 * 60 * 1000).toDateString();
-        const currentJstDate = new Date(currentTime + 9 * 60 * 60 * 1000).toDateString();
+        const lastCheckInJstDate = new Date(lastCheckInTime).toLocaleDateString('en-US', { timeZone: 'Asia/Tokyo' });
+        const currentJstDate = new Date(currentTime).toLocaleDateString('en-US', { timeZone: 'Asia/Tokyo' });
 
         if (lastCheckInJstDate === currentJstDate) {
           // 同日の未チェックアウトなのでチェックアウトする
