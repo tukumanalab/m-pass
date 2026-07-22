@@ -12,6 +12,7 @@ interface MemberInfo {
   affiliationDetail: string | null;
   memberId: string;
   createdAt: string;
+  emailVerified?: boolean;
 }
 
 interface QRCodeData {
@@ -32,6 +33,9 @@ export default function MemberDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showQRCode, setShowQRCode] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resendMessage, setResendMessage] = useState<string | null>(null);
+  const [resendError, setResendError] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -103,6 +107,29 @@ export default function MemberDashboardPage() {
       setError(
         err instanceof Error ? err.message : "QRコードの取得に失敗しました"
       );
+    }
+  };
+
+  const handleResendVerification = async () => {
+    try {
+      setResending(true);
+      setResendMessage(null);
+      setResendError(null);
+
+      const response = await fetch(apiUrl("/api/members/resend-verification"), {
+        method: "POST",
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "確認メールの再送に失敗しました");
+      }
+
+      setResendMessage(data.message || "確認メールを再送しました");
+    } catch (err) {
+      setResendError(err instanceof Error ? err.message : "再送に失敗しました");
+    } finally {
+      setResending(false);
     }
   };
 
@@ -208,6 +235,49 @@ export default function MemberDashboardPage() {
             </div>
           </div>
         </div>
+
+        {/* メール未確認警告バナー */}
+        {memberInfo && memberInfo.emailVerified === false && (
+          <div className="bg-amber-50 border-2 border-amber-300/80 rounded-2xl shadow-md p-5 mb-6 text-amber-900 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center flex-shrink-0 text-white shadow-sm mt-0.5">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="font-bold text-amber-900 text-lg">メールアドレスの確認が完了していません</h3>
+                <p className="text-sm text-amber-800 mt-0.5">
+                  メールアドレス（<span className="font-semibold">{memberInfo.email}</span>）宛てに確認メールを送信しています。
+                </p>
+                {resendMessage && (
+                  <p className="text-sm font-medium text-emerald-700 mt-2 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg inline-block">
+                    ✓ {resendMessage}
+                  </p>
+                )}
+                {resendError && (
+                  <p className="text-sm font-medium text-red-600 mt-2 bg-red-50 border border-red-200 px-3 py-1.5 rounded-lg inline-block">
+                    ✕ {resendError}
+                  </p>
+                )}
+              </div>
+            </div>
+            <button
+              onClick={handleResendVerification}
+              disabled={resending}
+              className="w-full md:w-auto px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-xl shadow-md transition-all flex items-center justify-center gap-2 whitespace-nowrap disabled:opacity-50"
+            >
+              {resending ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  送信中...
+                </>
+              ) : (
+                "確認メールを再送"
+              )}
+            </button>
+          </div>
+        )}
 
         {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl">

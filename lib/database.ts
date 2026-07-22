@@ -55,6 +55,27 @@ export function initDatabase() {
     // カラムが既に存在する場合はエラーを無視
   }
 
+  // メールアドレス検証フラグカラムを追加
+  try {
+    db.exec(`ALTER TABLE members ADD COLUMN email_verified INTEGER DEFAULT 0`);
+  } catch (e) {
+    // カラムが既に存在する場合はエラーを無視
+  }
+
+  // 検証用トークンカラムを追加
+  try {
+    db.exec(`ALTER TABLE members ADD COLUMN verification_token TEXT`);
+  } catch (e) {
+    // カラムが既に存在する場合はエラーを無視
+  }
+
+  // 検証用トークン期限カラムを追加
+  try {
+    db.exec(`ALTER TABLE members ADD COLUMN verification_expires_at DATETIME`);
+  } catch (e) {
+    // カラムが既に存在する場合はエラーを無視
+  }
+
   // 仮登録メンバーテーブル
   db.exec(`
     CREATE TABLE IF NOT EXISTS pending_members (
@@ -286,14 +307,45 @@ export function createMember(
   email: string,
   passwordHash: string,
   memberId: string,
-  organizationMemberId: string | null = null
+  organizationMemberId: string | null = null,
+  emailVerified: number = 0,
+  verificationToken: string | null = null,
+  verificationExpiresAt: string | null = null
 ) {
   const stmt = db.prepare(`
-    INSERT INTO members (name, affiliation, affiliation_detail, email, password_hash, member_id, organization_member_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO members (name, affiliation, affiliation_detail, email, password_hash, member_id, organization_member_id, email_verified, verification_token, verification_expires_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
-  const result = stmt.run(name, affiliation, affiliationDetail, email, passwordHash, memberId, organizationMemberId);
+  const result = stmt.run(name, affiliation, affiliationDetail, email, passwordHash, memberId, organizationMemberId, emailVerified, verificationToken, verificationExpiresAt);
   return result.lastInsertRowid;
+}
+
+// トークンからメンバーを検索
+export function findMemberByVerificationToken(token: string) {
+  const stmt = db.prepare(`
+    SELECT * FROM members WHERE verification_token = ?
+  `);
+  return stmt.get(token);
+}
+
+// メールアドレスを認証済みに更新
+export function markEmailAsVerified(memberId: number) {
+  const stmt = db.prepare(`
+    UPDATE members
+    SET email_verified = 1, verification_token = NULL, verification_expires_at = NULL
+    WHERE id = ?
+  `);
+  return stmt.run(memberId).changes;
+}
+
+// 確認用トークンを更新（再送用）
+export function updateVerificationToken(memberId: number, token: string, expiresAt: string) {
+  const stmt = db.prepare(`
+    UPDATE members
+    SET verification_token = ?, verification_expires_at = ?
+    WHERE id = ?
+  `);
+  return stmt.run(token, expiresAt, memberId).changes;
 }
 
 // member_idからメンバーを検索

@@ -57,7 +57,7 @@ pm2 restart m-pass   # 再起動
 
 ### データフロー
 
-1. **メンバー登録**: フォーム入力（アンケート含む） → API → DB 登録 → QR コード生成（Base64 データ URL） → カード生成・表示
+1. **メンバー登録**: フォーム入力（アンケート含む） → API → 即時本登録・セッション発行 → マイページ遷移 ＆ 非同期で確認メール送信 → メール確認完了（後から検証）
 2. **チェックイン**: カメラで QR スキャン → API → QR コード検証 → DB 記録 → 完了画面表示
 
 ### データベース構造
@@ -68,6 +68,7 @@ pm2 restart m-pass   # 再起動
 - 所属情報（affiliation/affiliation_detail）を保存
 - 組織内ID（organization_member_id。学生番号や職員番号など）を保存
 - パスワードハッシュ（bcrypt、saltRounds=10）を保存
+- メール検証状態（`email_verified` 0/1, `verification_token`, `verification_expires_at`）を保存
 - 登録時に 4 桁の ID 生成（年+英字+数字+英字）
 
 **checkins テーブル**: チェックイン・チェックアウト記録
@@ -89,7 +90,9 @@ pm2 restart m-pass   # 再起動
 **メンバー管理 API:**
 
 - `GET /api/members` - 全メンバー一覧取得
-- `POST /api/members` - メンバー登録 & QR コード生成（4 桁 ID: 年+英字+数字+英字、組織内IDもあわせて仮登録保存、bcrypt でパスワードハッシュ化）
+- `POST /api/members/register` - メンバー即時本登録 ＆ ログインセッション発行（非同期確認メール送信）
+- `POST /api/members/verify` - メール確認リンクの検証・メールアドレス検証完了処理
+- `POST /api/members/resend-verification` - ログイン中ユーザーへの確認メール再送信
 - `GET /api/admin/members/search` - メンバー検索（名前、所属、メール、QR コード）
 - `PUT /api/admin/members/[id]` - メンバー情報更新
 - `DELETE /api/admin/members/[id]` - メンバー削除（チェックイン履歴も削除）

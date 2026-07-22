@@ -58,9 +58,12 @@ export default function RegisterPage() {
         throw new Error(data.error || "登録に失敗しました");
       }
 
-      // メール送信完了
-      setEmailSent(true);
-      setRegisteredEmail(formData.email);
+      // 即時ログイン状態のため、マイページへダイレクトに遷移
+      if (data.redirectUrl) {
+        router.push(data.redirectUrl);
+      } else {
+        router.push("/member/dashboard");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "登録に失敗しました");
     } finally {

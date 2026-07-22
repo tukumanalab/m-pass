@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
+    findMemberByVerificationToken,
+    markEmailAsVerified,
     findPendingMemberByToken,
     deletePendingMember,
     createMember,
@@ -41,7 +43,7 @@ function generateUniqueMemberId(): string {
     return memberId;
 }
 
-// トークン検証と本登録
+// トークン検証とメール確認完了
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
@@ -51,7 +53,46 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'トークンが必要です' }, { status: 400 });
         }
 
-        // トークンから仮登録メンバーを取得
+        // 1. まず members テーブルからトークンを検索（新方式: 即時利用＋後確認）
+        const member = findMemberByVerificationToken(token) as any;
+
+        if (member) {
+            // 有効期限をチェック
+            if (member.verification_expires_at) {
+                const expiresAt = new Date(member.verification_expires_at + (member.verification_expires_at.endsWith('Z') ? '' : 'Z'));
+                if (expiresAt < new Date()) {
+                    return NextResponse.json({
+                        error: '確認リンクの有効期限が切れています。マイページから確認メールを再送してください。'
+                    }, { status: 410 });
+                }
+            }
+
+            // メールアドレスを検証済みに更新
+            markEmailAsVerified(member.id);
+
+            // QRコード画像をBase64データURLとして生成
+            const qrCodeDataUrl = await QRCode.toDataURL(member.member_id, {
+                width: 300,
+                margin: 2,
+            });
+
+            return NextResponse.json({
+                success: true,
+                message: 'メールアドレスの確認が完了しました！',
+                member: {
+                    id: member.id,
+                    name: member.name,
+                    affiliation: member.affiliation,
+                    affiliationDetail: member.affiliation_detail,
+                    organizationMemberId: member.organization_member_id,
+                    email: member.email,
+                    memberId: member.member_id,
+                    qrCodeUrl: qrCodeDataUrl,
+                },
+            });
+        }
+
+        // 2. もし members に無ければ、旧方式の pending_members を検索（互換性担保）
         const pendingMember = findPendingMemberByToken(token) as any;
 
         if (!pendingMember) {
@@ -61,20 +102,16 @@ export async function POST(request: NextRequest) {
         }
 
         // 有効期限をチェック（UTC時刻で比較）
-        // SQLiteのCURRENT_TIMESTAMPはUTCを返すため、Zを追加してUTCとして明示
-        const expiresAt = new Date(pendingMember.expires_at + 'Z');
+        const expiresAt = new Date(pendingMember.expires_at + (pendingMember.expires_at.endsWith('Z') ? '' : 'Z'));
         if (expiresAt < new Date()) {
-            // 期限切れの仮登録を削除
             deletePendingMember(pendingMember.id);
             return NextResponse.json({
                 error: 'リンクの有効期限が切れています。再度登録をやり直してください。'
             }, { status: 410 });
         }
 
-        // ユニークなmember_idを生成
+        // ユニークなmember_idを生成して本登録
         const memberId = generateUniqueMemberId();
-
-        // メンバーをデータベースに登録
         const memberDbId = createMember(
             pendingMember.name,
             pendingMember.affiliation,
@@ -82,30 +119,29 @@ export async function POST(request: NextRequest) {
             pendingMember.email,
             pendingMember.password_hash,
             memberId,
-            pendingMember.organization_member_id
+            pendingMember.organization_member_id,
+            1 // メール検証済みとして登録
         );
 
-        // 仮登録データを削除
         deletePendingMember(pendingMember.id);
 
-        // メンバーの登録時刻を取得してアンケート回答を保存（回答がある場合のみ）
         if (pendingMember.how_did_you_know) {
-            const member = findMemberByMemberId(memberId) as any;
-            createSurveyResponse(
-                memberId,
-                pendingMember.affiliation,
-                pendingMember.how_did_you_know,
-                member.created_at
-            );
+            const newMember = findMemberByMemberId(memberId) as any;
+            if (newMember) {
+                createSurveyResponse(
+                    memberId,
+                    pendingMember.affiliation,
+                    pendingMember.how_did_you_know,
+                    newMember.created_at
+                );
+            }
         }
 
-        // QRコード画像をBase64データURLとして生成
         const qrCodeDataUrl = await QRCode.toDataURL(memberId, {
             width: 300,
             margin: 2,
         });
 
-        // 登録完了メールを送信（非同期、エラーは無視）
         sendRegistrationCompleteEmail(
             pendingMember.email,
             pendingMember.name,
@@ -117,6 +153,7 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({
             success: true,
+            message: 'メールアドレスの確認が完了しました！',
             member: {
                 id: memberDbId,
                 name: pendingMember.name,
@@ -131,7 +168,7 @@ export async function POST(request: NextRequest) {
     } catch (error) {
         console.error('Error in member verification:', error);
         return NextResponse.json({
-            error: '登録処理中にエラーが発生しました'
+            error: '登録確認処理中にエラーが発生しました'
         }, { status: 500 });
     }
 }

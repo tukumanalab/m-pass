@@ -43,6 +43,7 @@ export async function GET() {
             memberId: member.member_id,
             createdAt: member.created_at,
             cards: cards,
+            emailVerified: member.email_verified === 1,
         });
     } catch (error) {
         console.error('Get member info error:', error);
