@@ -41,19 +41,10 @@ function VerifyContent() {
         throw new Error(data.error || "登録に失敗しました");
       }
 
-      setQrCodeUrl(data.member.qrCodeUrl);
-      setQrCode(data.member.memberId);
-      setMemberName(data.member.name);
-
-      // カードを生成
-      await generateCard(
-        data.member.name,
-        data.member.memberId,
-        data.member.qrCodeUrl
-      );
+      // マイページへリダイレクト
+      router.push("/member/dashboard?verified=true");
     } catch (err) {
       setError(err instanceof Error ? err.message : "登録に失敗しました");
-    } finally {
       setLoading(false);
     }
   };

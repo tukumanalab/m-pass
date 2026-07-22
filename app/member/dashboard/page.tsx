@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { apiUrl } from "@/lib/api";
 
 interface MemberInfo {
@@ -26,7 +26,7 @@ interface CheckInRecord {
   check_in_time: string;
 }
 
-export default function MemberDashboardPage() {
+function DashboardContent() {
   const [memberInfo, setMemberInfo] = useState<MemberInfo | null>(null);
   const [qrCodeData, setQrCodeData] = useState<QRCodeData | null>(null);
   const [checkInHistory, setCheckInHistory] = useState<CheckInRecord[]>([]);
@@ -36,11 +36,16 @@ export default function MemberDashboardPage() {
   const [resending, setResending] = useState(false);
   const [resendMessage, setResendMessage] = useState<string | null>(null);
   const [resendError, setResendError] = useState<string | null>(null);
+  const [showVerifiedBanner, setShowVerifiedBanner] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
+    if (searchParams.get("verified") === "true") {
+      setShowVerifiedBanner(true);
+    }
     fetchMemberData();
-  }, []);
+  }, [searchParams]);
 
   const fetchMemberData = async () => {
     try {
@@ -235,6 +240,34 @@ export default function MemberDashboardPage() {
             </div>
           </div>
         </div>
+
+        {/* メール確認完了成功バナー */}
+        {showVerifiedBanner && (
+          <div className="bg-emerald-50 border-2 border-emerald-300/80 rounded-2xl shadow-md p-5 mb-6 text-emerald-900 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center flex-shrink-0 text-white shadow-sm">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="font-bold text-emerald-900 text-lg">メールアドレスの確認が完了しました</h3>
+                <p className="text-sm text-emerald-800 mt-0.5">
+                  ご登録いただきありがとうございます。全ての機能をご利用いただけます。
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowVerifiedBanner(false)}
+              className="p-1.5 text-emerald-700 hover:text-emerald-900 hover:bg-emerald-100 rounded-lg transition-colors"
+              title="閉じる"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        )}
 
         {/* メール未確認警告バナー */}
         {memberInfo && memberInfo.emailVerified === false && (
@@ -455,5 +488,22 @@ export default function MemberDashboardPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function MemberDashboardPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">読み込み中...</p>
+          </div>
+        </div>
+      }
+    >
+      <DashboardContent />
+    </Suspense>
   );
 }

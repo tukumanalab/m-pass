@@ -10,6 +10,7 @@ import {
     findMemberByMemberId,
 } from '@/lib/database';
 import { sendRegistrationCompleteEmail } from '@/lib/mailer';
+import { createMemberSession } from '@/lib/member-auth';
 import QRCode from 'qrcode';
 
 // メンバーIDを生成（4桁: 年+英字+数字+英字）
@@ -70,6 +71,13 @@ export async function POST(request: NextRequest) {
             // メールアドレスを検証済みに更新
             markEmailAsVerified(member.id);
 
+            // ログインセッションを発行
+            await createMemberSession({
+                memberId: member.id,
+                email: member.email,
+                name: member.name,
+            });
+
             // QRコード画像をBase64データURLとして生成
             const qrCodeDataUrl = await QRCode.toDataURL(member.member_id, {
                 width: 300,
@@ -124,6 +132,13 @@ export async function POST(request: NextRequest) {
         );
 
         deletePendingMember(pendingMember.id);
+
+        // ログインセッションを発行
+        await createMemberSession({
+            memberId: memberDbId as number,
+            email: pendingMember.email,
+            name: pendingMember.name,
+        });
 
         if (pendingMember.how_did_you_know) {
             const newMember = findMemberByMemberId(memberId) as any;
