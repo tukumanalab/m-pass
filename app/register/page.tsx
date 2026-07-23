@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { apiUrl } from "@/lib/api";
 import { SURVEY_QUESTION, SURVEY_OPTIONS, SURVEY_OTHER_OPTION } from "@/lib/survey-config";
 
@@ -642,13 +643,13 @@ export default function RegisterPage() {
           <div className="mb-4 p-4 bg-gray-50 rounded-xl text-sm text-gray-600">
             <p className="mb-2">
               登録をすることで、当サイトの
-              <a href="/terms-of-service" target="_blank" className="text-primary-600 hover:text-primary-700 underline mx-1">
+              <Link href="/terms-of-service" target="_blank" className="text-primary-600 hover:text-primary-700 underline mx-1">
                 利用規約
-              </a>
+              </Link>
               および
-              <a href="/privacy-policy" target="_blank" className="text-primary-600 hover:text-primary-700 underline mx-1">
+              <Link href="/privacy-policy" target="_blank" className="text-primary-600 hover:text-primary-700 underline mx-1">
                 プライバシーポリシー
-              </a>
+              </Link>
               に同意したものとみなします。
             </p>
           </div>

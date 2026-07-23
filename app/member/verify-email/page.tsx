@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { apiUrl } from "@/lib/api";
 
 export default function VerifyEmailPage() {
@@ -133,19 +134,19 @@ export default function VerifyEmailPage() {
 
         {/* フッター */}
         <div className="mt-8 text-center text-sm text-gray-500 space-x-4">
-          <a
+          <Link
             href="/privacy-policy"
             className="hover:text-gray-700 underline"
           >
             プライバシーポリシー
-          </a>
+          </Link>
           <span>|</span>
-          <a
+          <Link
             href="/terms-of-service"
             className="hover:text-gray-700 underline"
           >
             利用規約
-          </a>
+          </Link>
         </div>
       </div>
     </div>

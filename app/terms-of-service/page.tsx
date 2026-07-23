@@ -1,5 +1,6 @@
 import React from 'react';
 import { Metadata } from 'next';
+import Link from 'next/link';
 
 export const metadata: Metadata = {
   title: `利用規約 | ${process.env.APP_NAME || 'つくまなラボメンバーズサイト'}`,
@@ -174,7 +175,7 @@ export default function TermsOfServicePage() {
           <h2 className="text-2xl font-semibold mb-4 text-gray-800">第13条（個人情報の取扱い）</h2>
           <p className="mb-4 text-gray-700 leading-relaxed">
             当団体は、本サービスの利用によって取得する個人情報については、当団体の
-            <a href="/privacy-policy" className="text-blue-600 hover:text-blue-800 underline">プライバシーポリシー</a>
+            <Link href="/privacy-policy" className="text-blue-600 hover:text-blue-800 underline">プライバシーポリシー</Link>
             に従い適切に取り扱うものとします。
           </p>
         </section>

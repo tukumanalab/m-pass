@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { apiUrl, getBasePath } from "@/lib/api";
 
 export default function AdminLoginPage() {
@@ -89,19 +90,19 @@ export default function AdminLoginPage() {
             </a>
             
             <div className="flex justify-center space-x-4 text-xs text-gray-500">
-              <a
+              <Link
                 href="/privacy-policy"
                 className="hover:text-gray-700 hover:underline"
               >
                 プライバシーポリシー
-              </a>
+              </Link>
               <span>|</span>
-              <a
+              <Link
                 href="/terms-of-service"
                 className="hover:text-gray-700 hover:underline"
               >
                 利用規約
-              </a>
+              </Link>
             </div>
           </div>
         </form>
