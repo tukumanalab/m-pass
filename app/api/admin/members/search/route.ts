@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import db, { getMemberNfcCards } from '@/lib/database';
+import db, { getMemberNfcCards, deleteUncheckedInExpiredMembers } from '@/lib/database';
 
 export async function GET(request: NextRequest) {
   try {
+    // 期限切れ未チェックインアカウントの自動削除
+    deleteUncheckedInExpiredMembers();
+
     const { searchParams } = new URL(request.url);
     const query = searchParams.get('q') || '';
 

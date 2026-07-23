@@ -426,6 +426,16 @@ export default function RegisterPage() {
           <h1 className="text-3xl font-bold text-gray-900">メンバー登録</h1>
         </div>
 
+        <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-sm">
+          <p className="font-semibold flex items-center gap-1.5 mb-1">
+            <svg className="w-4 h-4 text-amber-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            【ご注意】初回チェックインについて
+          </p>
+          <p>新規登録後、24時間以内に一度もチェックインが行われない場合、不要アカウント防止のため登録アカウントは自動削除されます。</p>
+        </div>
+
         {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl">
             <p className="text-red-600">{error}</p>

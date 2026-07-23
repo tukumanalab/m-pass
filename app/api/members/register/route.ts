@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createMember, findMemberByEmailAndName, countMembersByEmail, isMemberIdExists, createSurveyResponse, findMemberByMemberId } from '@/lib/database';
+import { createMember, findMemberByEmailAndName, countMembersByEmail, isMemberIdExists, createSurveyResponse, findMemberByMemberId, deleteUncheckedInExpiredMembers } from '@/lib/database';
 import { createMemberSession } from '@/lib/member-auth';
 import { sendVerificationEmail } from '@/lib/mailer';
 import { logger } from '@/lib/logger';
@@ -43,6 +43,9 @@ function generateUniqueMemberId(): string {
 // 即時本登録・即時ログイン（メール確認は非同期）
 export async function POST(request: NextRequest) {
     try {
+        // 期限切れ未チェックインアカウントの自動削除
+        deleteUncheckedInExpiredMembers();
+
         const body = await request.json();
         const { name, affiliation, affiliationDetail, email, password, howDidYouKnow, organizationMemberId } = body;
 

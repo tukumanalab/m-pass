@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { findMemberByMemberId, getMemberById, findMemberByNfcId, createCheckIn, getLatestCheckIn, updateCheckOutTime, markMyPageNotificationSent } from '@/lib/database';
+import { findMemberByMemberId, getMemberById, findMemberByNfcId, createCheckIn, getLatestCheckIn, updateCheckOutTime, markMyPageNotificationSent, deleteUncheckedInExpiredMembers } from '@/lib/database';
 import { sendMyPageAnnouncementEmail } from '@/lib/mailer';
 import { loadSettings } from '@/lib/settings';
 
@@ -9,6 +9,9 @@ const MYPAGE_ANNOUNCEMENT_CUTOFF_DATE = new Date('2025-11-06T23:59:59+09:00');
 // member_idまたはデータベースIDでチェックイン
 export async function POST(request: NextRequest) {
   try {
+    // 登録後24時間未チェックインの期限切れメンバーを自動削除
+    deleteUncheckedInExpiredMembers();
+
     const body = await request.json();
     const { qrCode, memberId, nfcId } = body;
 

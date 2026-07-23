@@ -728,6 +728,45 @@ export function deleteExpiredPendingMembers() {
   return result.changes;
 }
 
+// 登録から24時間以内にチェックインされなかったメンバーを削除
+export function deleteUncheckedInExpiredMembers() {
+  try {
+    const expiredMembers = db.prepare(`
+      SELECT id, member_id FROM members
+      WHERE datetime(replace(replace(created_at, '/', '-'), 'T', ' ')) <= datetime('now', '-24 hours')
+        AND NOT EXISTS (
+          SELECT 1 FROM checkins
+          WHERE checkins.member_id = members.id OR checkins.member_id_str = members.member_id
+        )
+    `).all() as Array<{ id: number; member_id: string }>;
+
+    if (expiredMembers.length === 0) {
+      return 0;
+    }
+
+    const deleteTx = db.transaction(() => {
+      let deletedCount = 0;
+      for (const member of expiredMembers) {
+        // アンケート回答を削除
+        db.prepare('DELETE FROM survey_responses WHERE member_id = ?').run(member.member_id);
+        // メンバーを削除（外部キーON DELETE CASCADEにより関連レコードも削除される）
+        const result = db.prepare('DELETE FROM members WHERE id = ?').run(member.id);
+        deletedCount += result.changes;
+      }
+      return deletedCount;
+    });
+
+    const deleted = deleteTx();
+    if (deleted > 0) {
+      console.log(`[CleanUp] Deleted ${deleted} unchecked-in members older than 24 hours.`);
+    }
+    return deleted;
+  } catch (error) {
+    console.error('Error deleting unchecked-in expired members:', error);
+    return 0;
+  }
+}
+
 // 仮登録メンバーを削除
 export function deletePendingMember(id: number) {
   const stmt = db.prepare(`

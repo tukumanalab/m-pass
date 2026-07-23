@@ -70,6 +70,7 @@ pm2 restart m-pass   # 再起動
 - パスワードハッシュ（bcrypt、saltRounds=10）を保存
 - メール検証状態（`email_verified` 0/1, `verification_token`, `verification_expires_at`）を保存
 - 登録時に 4 桁の ID 生成（年+英字+数字+英字）
+- **未チェックイン自動削除**: 新規登録から24時間以内にチェックイン履歴が1件もないメンバーは、クリーンアップ関数（`deleteUncheckedInExpiredMembers`）により自動削除される（アンケート回答含む）。
 
 **checkins テーブル**: チェックイン・チェックアウト記録
 

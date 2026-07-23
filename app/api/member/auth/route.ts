@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { findMemberByMemberId } from '@/lib/database';
+import { findMemberByMemberId, deleteUncheckedInExpiredMembers } from '@/lib/database';
 import { createMemberSession } from '@/lib/member-auth';
 import bcrypt from 'bcrypt';
 
 export async function POST(request: NextRequest) {
     try {
+        // 期限切れ未チェックインアカウントの自動削除
+        deleteUncheckedInExpiredMembers();
+
         const body = await request.json();
         const { memberId, password } = body;
 
