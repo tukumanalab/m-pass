@@ -8,8 +8,10 @@
 
 1. **PM2 設定** (`deploy/pm2.config.js`)
 
+   - `exec_mode: 'fork'` を明示（クラスタモードによる起動失敗・内部エラーを防止）
    - `BASE_PATH=/members` 環境変数を追加
    - デプロイパスを `/srv/m-pass` に設定
+
 
 2. **Nginx 設定** (`deploy/nginx.conf`)
 

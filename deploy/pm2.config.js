@@ -7,6 +7,7 @@ module.exports = {
       cwd: '/srv/m-pass',
       // .envファイルから環境変数を読み込む
       env_file: '/srv/m-pass/.env',
+      exec_mode: 'fork',
       instances: 1,
       autorestart: true,
       watch: false,
@@ -24,3 +25,4 @@ module.exports = {
     },
   ],
 };
+

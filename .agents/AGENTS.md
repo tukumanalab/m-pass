@@ -36,9 +36,10 @@ QR コードを使ったメンバーの入室管理 Web アプリケーション
 ```bash
 npm install          # 依存関係のインストール
 npm run dev          # 開発サーバー起動（Turbopack使用）
-npm run build        # 本番ビルド（Turbopack使用）
-npm start            # 本番サーバー起動（Turbopack使用）
+npm run build        # 本番ビルド（Webpack使用）
+npm start            # 本番サーバー起動
 npm run lint         # ESLint実行
+
 ```
 
 ### デプロイ（Ubuntu Server）
@@ -164,8 +165,9 @@ pm2 restart m-pass   # 再起動
 
 ### Turbopack 設定
 
-- package.json で`--turbopack`フラグを指定
-- dev、build、start の全てで Turbopack 使用
+- 開発サーバー (`npm run dev`) で `--turbopack` フラグを使用
+- 本番ビルド (`npm run build`) では `--turbopack` を使わない（`next start` が必要とする `BUILD_ID` などの生成物の互換性のため）
+
 
 ## 開発時の注意点
 
