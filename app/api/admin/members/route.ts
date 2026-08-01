@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
     let memberDbId: number;
     try {
       const insertTx = db.transaction((memberData, nfcCardsList) => {
-        // メンバー登録
+        // メンバー登録 (email_verified = 1)
         const newId = createMember(
           memberData.name,
           memberData.affiliation,
@@ -92,7 +92,8 @@ export async function POST(request: NextRequest) {
           memberData.email,
           memberData.passwordHash,
           memberData.memberId,
-          memberData.organizationMemberId
+          memberData.organizationMemberId,
+          1
         ) as number;
 
         // NFCカード登録

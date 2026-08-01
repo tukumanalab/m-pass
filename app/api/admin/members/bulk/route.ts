@@ -268,8 +268,8 @@ export async function POST(request: NextRequest) {
 
     // UPSERT用のSQL（member_idで既存データを更新、なければ挿入）
     const upsertMember = db.prepare(`
-      INSERT INTO members (member_id, name, affiliation, affiliation_detail, organization_member_id, email, password_hash, created_at, mypage_notification_sent_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO members (member_id, name, affiliation, affiliation_detail, organization_member_id, email, password_hash, created_at, mypage_notification_sent_at, email_verified)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
       ON CONFLICT(member_id) DO UPDATE SET
         name = excluded.name,
         affiliation = excluded.affiliation,
@@ -278,7 +278,8 @@ export async function POST(request: NextRequest) {
         email = excluded.email,
         password_hash = excluded.password_hash,
         created_at = excluded.created_at,
-        mypage_notification_sent_at = excluded.mypage_notification_sent_at
+        mypage_notification_sent_at = excluded.mypage_notification_sent_at,
+        email_verified = 1
     `);
 
     const results: {

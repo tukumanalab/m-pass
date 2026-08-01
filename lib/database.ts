@@ -489,7 +489,12 @@ export function checkDuplicateCheckIn(memberId: number, checkInTime: string): bo
   return result.count > 0;
 }
 
-export function createCheckInWithTime(memberId: number, checkInTime: string) {
+export function createCheckInWithTime(
+  memberId: number,
+  checkInTime: string,
+  checkOutTime?: string,
+  customAffiliation?: string
+) {
   // メンバー情報を取得
   const member = db.prepare(`
     SELECT member_id, affiliation FROM members WHERE id = ?
@@ -499,17 +504,34 @@ export function createCheckInWithTime(memberId: number, checkInTime: string) {
     throw new Error(`Member with id ${memberId} not found`);
   }
 
-  const stmt = db.prepare(`
-    INSERT INTO checkins (member_id, member_id_str, affiliation, check_in_time)
-    VALUES (?, ?, ?, datetime(?, '-9 hours'))
-  `);
-  const result = stmt.run(
-    memberId,
-    member.member_id,
-    member.affiliation,
-    checkInTime
-  );
-  return result.lastInsertRowid;
+  const affiliation = customAffiliation || member.affiliation;
+
+  if (checkOutTime) {
+    const stmt = db.prepare(`
+      INSERT INTO checkins (member_id, member_id_str, affiliation, check_in_time, check_out_time)
+      VALUES (?, ?, ?, datetime(?, '-9 hours'), datetime(?, '-9 hours'))
+    `);
+    const result = stmt.run(
+      memberId,
+      member.member_id,
+      affiliation,
+      checkInTime,
+      checkOutTime
+    );
+    return result.lastInsertRowid;
+  } else {
+    const stmt = db.prepare(`
+      INSERT INTO checkins (member_id, member_id_str, affiliation, check_in_time)
+      VALUES (?, ?, ?, datetime(?, '-9 hours'))
+    `);
+    const result = stmt.run(
+      memberId,
+      member.member_id,
+      affiliation,
+      checkInTime
+    );
+    return result.lastInsertRowid;
+  }
 }
 
 // チェックイン履歴の削除
@@ -767,7 +789,8 @@ export function deleteUncheckedInExpiredMembers() {
   try {
     const expiredMembers = db.prepare(`
       SELECT id, member_id FROM members
-      WHERE datetime(replace(replace(created_at, '/', '-'), 'T', ' ')) <= datetime('now', '-24 hours')
+      WHERE (email_verified IS NULL OR email_verified = 0)
+        AND datetime(replace(replace(created_at, '/', '-'), 'T', ' ')) <= datetime('now', '-24 hours')
         AND NOT EXISTS (
           SELECT 1 FROM checkins
           WHERE checkins.member_id = members.id OR checkins.member_id_str = members.member_id
