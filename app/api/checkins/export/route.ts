@@ -1,21 +1,37 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getCheckInHistory } from '@/lib/database';
 
 // チェックイン履歴をCSV形式でエクスポート
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    // 全履歴を取得（limit=999999で実質全件）
-    const history = getCheckInHistory(999999, 0) as Array<{
+    const { searchParams } = new URL(request.url);
+    const isReport = searchParams.get('report') === 'true';
+    const affiliation = searchParams.get('affiliation') || undefined;
+    const startDate = searchParams.get('startDate') || undefined;
+    const endDate = searchParams.get('endDate') || undefined;
+
+    // レポートモードの場合は絞り込みを実行、そうでない場合は全件取得
+    const history = getCheckInHistory(
+      999999,
+      0,
+      isReport ? affiliation : undefined,
+      isReport ? startDate : undefined,
+      isReport ? endDate : undefined
+    ) as Array<{
       id: number;
       member_id: number;
       member_id_str: string | null;
       affiliation: string | null;
       check_in_time: string;
       check_out_time: string | null;
+      name?: string | null;
+      organization_member_id?: string | null;
     }>;
 
     // CSVヘッダー
-    const headers = ['timestamp', 'checkout_time', 'stay_duration_minutes', 'member_id', 'affiliation'];
+    const headers = isReport
+      ? ['入室時刻', '退室時刻', '滞在時間', 'ID', '所属', '所属ID', '氏名']
+      : ['timestamp', 'checkout_time', 'stay_duration_minutes', 'member_id', 'affiliation'];
 
     // CSVデータ行を生成
     const rows = history.map(item => {
@@ -45,7 +61,27 @@ export async function GET() {
         const outDate = new Date(item.check_out_time + 'Z');
         const jstOutDate = new Date(outDate.getTime() + 9 * 60 * 60 * 1000);
         formattedCheckOut = formatJst(jstOutDate);
-        stayDuration = String(Math.round((outDate.getTime() - date.getTime()) / (60 * 1000)));
+        const diffMins = Math.round((outDate.getTime() - date.getTime()) / (60 * 1000));
+        
+        if (isReport) {
+          const hrs = String(Math.floor(diffMins / 60)).padStart(2, '0');
+          const mins = String(diffMins % 60).padStart(2, '0');
+          stayDuration = `${hrs}:${mins}`;
+        } else {
+          stayDuration = String(diffMins);
+        }
+      }
+
+      if (isReport) {
+        return [
+          formattedCheckIn,
+          formattedCheckOut,
+          stayDuration,
+          item.member_id_str || '',
+          item.affiliation || '',
+          item.organization_member_id || '',
+          item.name || '',
+        ];
       }
 
       return [
@@ -75,7 +111,7 @@ export async function GET() {
     const bom = '\uFEFF';
     const csvWithBom = bom + csvContent;
 
-    // ファイル名に日付を含める
+    // ファイル名生成
     const today = new Intl.DateTimeFormat('ja-JP', {
       year: 'numeric',
       month: '2-digit',
@@ -83,11 +119,24 @@ export async function GET() {
       timeZone: 'Asia/Tokyo',
     }).format(new Date()).replace(/\//g, '-');
 
+    let filename = `checkins_${today}.csv`;
+    if (isReport) {
+      if (startDate && endDate) {
+        filename = `report_${startDate}_to_${endDate}.csv`;
+      } else if (startDate) {
+        filename = `report_from_${startDate}.csv`;
+      } else if (endDate) {
+        filename = `report_until_${endDate}.csv`;
+      } else {
+        filename = `report_${today}.csv`;
+      }
+    }
+
     return new NextResponse(csvWithBom, {
       status: 200,
       headers: {
         'Content-Type': 'text/csv; charset=utf-8',
-        'Content-Disposition': `attachment; filename="checkins_${today}.csv"`,
+        'Content-Disposition': `attachment; filename="${filename}"`,
       },
     });
   } catch (error) {

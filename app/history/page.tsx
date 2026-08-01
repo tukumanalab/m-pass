@@ -265,6 +265,21 @@ export default function HistoryPage() {
     window.location.href = apiUrl("/api/checkins/export");
   };
 
+  const handleExportReport = () => {
+    const params = new URLSearchParams();
+    params.append("report", "true");
+    if (selectedAffiliation) {
+      params.append("affiliation", selectedAffiliation);
+    }
+    if (filterStartDate) {
+      params.append("startDate", filterStartDate);
+    }
+    if (filterEndDate) {
+      params.append("endDate", filterEndDate);
+    }
+    window.location.href = apiUrl(`/api/checkins/export?${params.toString()}`);
+  };
+
   const handleDeleteByDateRange = async () => {
     if (!startDate || !endDate) {
       setError("開始日と終了日を指定してください");
@@ -609,6 +624,25 @@ export default function HistoryPage() {
                 />
               </svg>
               CSVダウンロード
+            </button>
+            <button
+              onClick={handleExportReport}
+              className="flex items-center gap-2 bg-gradient-to-r from-teal-500 to-teal-600 text-white py-2 px-4 rounded-xl hover:from-teal-600 hover:to-teal-700 transition-all shadow-md hover:shadow-lg"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
+              </svg>
+              レポート作成
             </button>
             <button
               onClick={fetchHistory}

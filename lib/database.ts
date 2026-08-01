@@ -590,7 +590,8 @@ export function getCheckInHistory(limit = 50, offset = 0, affiliation?: string, 
       c.affiliation,
       c.check_in_time,
       c.check_out_time,
-      m.name
+      m.name,
+      m.organization_member_id
     FROM checkins c
     LEFT JOIN members m ON c.member_id_str = m.member_id
   `;
