@@ -53,19 +53,38 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'CSV must contain header and at least one data row' }, { status: 400 });
     }
 
-    // ヘッダー行を検証（スペースを除去して比較）
-    const expectedHeaders = ['timestamp', 'member_id'];
+    // ヘッダー行を検証（大文字小文字・空白無視でインデックス特定）
     const headerFields = parseCSVLine(cleanedLines[0]);
+    const normalizedHeaders = headerFields.map(h => h.toLowerCase().replace(/\s+/g, ''));
 
-    // ヘッダーの空白文字を全て削除して正規化
-    const normalizedHeaders = headerFields.map(h => h.replace(/\s+/g, ''));
-    const isValidHeader = expectedHeaders.every((h, i) => normalizedHeaders[i] === h.replace(/\s+/g, ''));
+    const timestampIndex = normalizedHeaders.findIndex(h => h === 'timestamp' || h === 'check_in_time' || h === 'checkin_time');
+    const memberIdIndex = normalizedHeaders.findIndex(h => h === 'member_id' || h === 'memberid');
+    const checkoutTimeIndex = normalizedHeaders.findIndex(h => h === 'checkout_time' || h === 'check_out_time' || h === 'checkouttime');
+    const affiliationIndex = normalizedHeaders.findIndex(h => h === 'affiliation');
 
-    if (!isValidHeader) {
+    if (timestampIndex === -1 || memberIdIndex === -1) {
       return NextResponse.json({
-        error: `Invalid CSV header. Expected: ${expectedHeaders.join(',')}. Got: ${headerFields.join(',')}`
+        error: `Invalid CSV header. Expected 'timestamp' and 'member_id' columns. Got: ${headerFields.join(',')}`
       }, { status: 400 });
     }
+
+    // 日時パース用ヘルパー
+    const parseDateTime = (str: string): string | null => {
+      if (!str) return null;
+      const normalized = str.replace(/-/g, '/').trim();
+      if (normalized.includes(':')) {
+        const match = normalized.match(/^(\d{4})\/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2}):(\d{2})$/);
+        if (match) {
+          return `${match[1]}-${match[2]}-${match[3]} ${match[4]}:${match[5]}:${match[6]}`;
+        }
+      } else {
+        const match = normalized.match(/^(\d{4})\/(\d{2})\/(\d{2})$/);
+        if (match) {
+          return `${match[1]}-${match[2]}-${match[3]} 00:00:00`;
+        }
+      }
+      return null;
+    };
 
     const successRows: Array<{
       dateTime: string;
@@ -92,7 +111,7 @@ export async function POST(request: NextRequest) {
       try {
         const fields = parseCSVLine(line);
 
-        if (fields.length < 2) {
+        if (fields.length <= Math.max(timestampIndex, memberIdIndex)) {
           failedRows.push({
             row: i + 1,
             data: line,
@@ -101,7 +120,10 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        const [dateTimeStr, memberId] = fields;
+        const dateTimeStr = fields[timestampIndex];
+        const memberId = fields[memberIdIndex];
+        const checkoutTimeStr = checkoutTimeIndex !== -1 && checkoutTimeIndex < fields.length ? fields[checkoutTimeIndex] : '';
+        const affiliationStr = affiliationIndex !== -1 && affiliationIndex < fields.length ? fields[affiliationIndex] : '';
 
         // 必須フィールドのチェック
         if (!dateTimeStr || !memberId) {
@@ -111,6 +133,24 @@ export async function POST(request: NextRequest) {
             error: 'timestamp、member_idは必須です',
           });
           continue;
+        }
+
+        const checkInTime = parseDateTime(dateTimeStr);
+        if (!checkInTime) {
+          failedRows.push({
+            row: i + 1,
+            data: line,
+            error: `timestamp形式が不正です（入力: ${dateTimeStr}）`,
+          });
+          continue;
+        }
+
+        let checkOutTime: string | undefined = undefined;
+        if (checkoutTimeStr) {
+          const parsed = parseDateTime(checkoutTimeStr);
+          if (parsed) {
+            checkOutTime = parsed;
+          }
         }
 
         // メンバーをmember_idで検索
@@ -125,35 +165,6 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // 日時をパース（YYYY/MM/DD HH:mm:ss または YYYY/MM/DD 形式）
-        let checkInTime: string;
-
-        if (dateTimeStr.includes(':')) {
-          // 時刻あり: YYYY/MM/DD HH:mm:ss
-          const match = dateTimeStr.match(/^(\d{4})\/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2}):(\d{2})$/);
-          if (!match) {
-            failedRows.push({
-              row: i + 1,
-              data: line,
-              error: `timestamp形式が不正です（期待: YYYY/MM/DD HH:mm:ss または YYYY/MM/DD）`,
-            });
-            continue;
-          }
-          checkInTime = `${match[1]}-${match[2]}-${match[3]} ${match[4]}:${match[5]}:${match[6]}`;
-        } else {
-          // 時刻なし: YYYY/MM/DD
-          const match = dateTimeStr.match(/^(\d{4})\/(\d{2})\/(\d{2})$/);
-          if (!match) {
-            failedRows.push({
-              row: i + 1,
-              data: line,
-              error: `timestamp形式が不正です（期待: YYYY/MM/DD HH:mm:ss または YYYY/MM/DD）`,
-            });
-            continue;
-          }
-          checkInTime = `${match[1]}-${match[2]}-${match[3]} 00:00:00`;
-        }
-
         // 重複チェック
         if (checkDuplicateCheckIn(member.id, checkInTime)) {
           duplicateRows.push({
@@ -165,7 +176,7 @@ export async function POST(request: NextRequest) {
         }
 
         // チェックインを登録
-        createCheckInWithTime(member.id, checkInTime);
+        createCheckInWithTime(member.id, checkInTime, checkOutTime, affiliationStr || undefined);
 
         successRows.push({
           dateTime: dateTimeStr,

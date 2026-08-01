@@ -738,12 +738,13 @@ export default function HistoryPage() {
             <div className="mb-4 p-4 bg-white rounded-lg border border-blue-200">
               <p className="text-sm text-gray-700 mb-2 font-medium">CSV形式:</p>
               <pre className="text-xs bg-gray-50 p-2 rounded border border-gray-200 overflow-x-auto">
-                timestamp,member_id{"\n"}
-                2025/01/15 10:30:00,5a1b{"\n"}
-                2025/01/15,1q9s
+                timestamp,checkout_time,stay_duration_minutes,member_id,affiliation{"\n"}
+                2026/07/31 13:05:13,2026/07/31 17:26:53,262,6n5v,中等部{"\n"}
+                2026/07/31 15:16:46,,,2p0v,教職員
               </pre>
               <p className="text-xs text-gray-600 mt-2">
-                ※ timestampは「YYYY/MM/DD HH:mm:ss」または「YYYY/MM/DD」形式
+                ※ エクスポートしたCSVをそのままアップロード可能です（`timestamp,member_id` のみの形式にも対応）
+                <br />※ timestamp / checkout_time は「YYYY/MM/DD HH:mm:ss」または「YYYY/MM/DD」形式
                 <br />※ メンバーIDは登録済みのメンバーのものを指定してください
               </p>
             </div>
