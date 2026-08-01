@@ -34,6 +34,41 @@ interface CsvRow {
   organization_member_id?: string; // オプショナル
 }
 
+// 日付文字列をISO形式(UTC)の文字列に安定して変換するパース関数
+function parseToISOString(dateStr: string): string | null {
+  if (!dateStr || typeof dateStr !== 'string') return null;
+  const trimmed = dateStr.trim();
+  if (!trimmed) return null;
+
+  // 正規表現で YYYY-MM-DD または YYYY/MM/DD (HH:mm:ss)? などをキャプチャ
+  const match = trimmed.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})(?:[T\s](\d{1,2}):(\d{1,2}):(\d{1,2})(?:\.(\d+))?)?(?:Z|[+-]\d{2}:?\d{2})?$/);
+
+  if (match) {
+    const year = parseInt(match[1], 10);
+    const month = parseInt(match[2], 10);
+    const day = parseInt(match[3], 10);
+    const hours = match[4] ? parseInt(match[4], 10) : 0;
+    const minutes = match[5] ? parseInt(match[5], 10) : 0;
+    const seconds = match[6] ? parseInt(match[6], 10) : 0;
+    const ms = match[7] ? parseInt(match[7].padEnd(3, '0').slice(0, 3), 10) : 0;
+
+    if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59 && seconds >= 0 && seconds <= 59) {
+      const d = new Date(Date.UTC(year, month - 1, day, hours, minutes, seconds, ms));
+      if (!isNaN(d.getTime())) {
+        return d.toISOString();
+      }
+    }
+  }
+
+  // 予備: Date.parse を試す
+  const timestamp = Date.parse(trimmed);
+  if (!isNaN(timestamp)) {
+    return new Date(timestamp).toISOString();
+  }
+
+  return null;
+}
+
 function validateCsvRow(row: CsvRow, lineNumber: number): string | null {
   if (!row.name || row.name.trim() === '') {
     return `行${lineNumber}: 名前が空です`;
@@ -58,9 +93,9 @@ function validateCsvRow(row: CsvRow, lineNumber: number): string | null {
   if (!row.created_at || row.created_at.trim() === '') {
     return `行${lineNumber}: 登録日が空です`;
   }
-  // 日付フォーマットチェック (YYYY/MM/DD または YYYY/MM/DD HH:mm:ss)
-  if (!/^\d{4}\/\d{1,2}\/\d{1,2}(\s+\d{1,2}:\d{1,2}:\d{1,2})?$/.test(row.created_at)) {
-    return `行${lineNumber}: 登録日の形式が不正です (YYYY/MM/DD または YYYY/MM/DD HH:mm:ss形式で入力してください)`;
+  // 日付フォーマットチェック
+  if (!parseToISOString(row.created_at)) {
+    return `行${lineNumber}: 登録日の形式が不正です (YYYY/MM/DD または YYYY-MM-DD, ISO8601形式等で入力してください)`;
   }
 
   return null;
@@ -286,40 +321,17 @@ export async function POST(request: NextRequest) {
         // パスワードハッシュ化
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // created_at: ISO形式の文字列をそのまま使用、またはレガシー形式をISO形式に変換
-        let createdAtISO: string;
-        if (row.created_at.includes('T') || row.created_at.includes('Z')) {
-          // 既にISO形式 (YYYY-MM-DDTHH:mm:ss.sssZ)
-          createdAtISO = row.created_at;
-        } else if (row.created_at.includes(':')) {
-          // レガシー形式: 時刻付き (YYYY/MM/DD HH:mm:ss) - UTCとして扱う
-          const [datePart, timePart] = row.created_at.split(' ');
-          const [year, month, day] = datePart.split('/').map(Number);
-          const [hours, minutes, seconds] = timePart.split(':').map(Number);
-          createdAtISO = new Date(Date.UTC(year, month - 1, day, hours, minutes, seconds, 0)).toISOString();
-        } else {
-          // レガシー形式: 時刻なし (YYYY/MM/DD) - 00:00:00 UTCとして扱う
-          const [year, month, day] = row.created_at.split('/').map(Number);
-          createdAtISO = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0)).toISOString();
+        // created_at: ISO形式の文字列に変換
+        const parsedCreatedAt = parseToISOString(row.created_at);
+        if (!parsedCreatedAt) {
+          throw new Error(`登録日 '${row.created_at}' の変換に失敗しました`);
         }
+        const createdAtISO = parsedCreatedAt;
 
-        // mypage_notification_sent_at: ISO形式の文字列をそのまま使用、またはレガシー形式をISO形式に変換
+        // mypage_notification_sent_at: ISO形式の文字列に変換
         let notificationSentAtISO: string | null = null;
         if (row.mypage_notification_sent_at && row.mypage_notification_sent_at.trim() !== '') {
-          if (row.mypage_notification_sent_at.includes('T') || row.mypage_notification_sent_at.includes('Z')) {
-            // 既にISO形式 (YYYY-MM-DDTHH:mm:ss.sssZ)
-            notificationSentAtISO = row.mypage_notification_sent_at;
-          } else if (row.mypage_notification_sent_at.includes(':')) {
-            // レガシー形式: 時刻付き (YYYY/MM/DD HH:mm:ss) - UTCとして扱う
-            const [datePart, timePart] = row.mypage_notification_sent_at.split(' ');
-            const [year, month, day] = datePart.split('/').map(Number);
-            const [hours, minutes, seconds] = timePart.split(':').map(Number);
-            notificationSentAtISO = new Date(Date.UTC(year, month - 1, day, hours, minutes, seconds, 0)).toISOString();
-          } else {
-            // レガシー形式: 時刻なし (YYYY/MM/DD) - 00:00:00 UTCとして扱う
-            const [year, month, day] = row.mypage_notification_sent_at.split('/').map(Number);
-            notificationSentAtISO = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0)).toISOString();
-          }
+          notificationSentAtISO = parseToISOString(row.mypage_notification_sent_at);
         }
 
         // 所属の処理：選択肢にない場合は「その他」にして、所属詳細に元の所属を追加
