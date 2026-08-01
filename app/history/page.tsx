@@ -54,6 +54,12 @@ export default function HistoryPage() {
   const [selectedAffiliation, setSelectedAffiliation] = useState<string>("");
   const [affiliations, setAffiliations] = useState<string[]>([]);
 
+  // ページネーションのステート
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [limit, setLimit] = useState<number>(50);
+  const [totalCount, setTotalCount] = useState<number>(0);
+  const [totalPages, setTotalPages] = useState<number>(1);
+
   // 日付範囲絞り込みのステート (デフォルトは直近1ヶ月)
   const [filterStartDate, setFilterStartDate] = useState(() => {
     const d = new Date();
@@ -110,17 +116,18 @@ export default function HistoryPage() {
     }
   };
 
-  // 認証完了後、またはフィルター変更時に履歴を取得
+  // 認証完了後、またはフィルター/ページ変更時に履歴を取得
   useEffect(() => {
     if (authChecked) {
       fetchHistory();
     }
-  }, [authChecked, selectedAffiliation, filterStartDate, filterEndDate]);
+  }, [authChecked, selectedAffiliation, filterStartDate, filterEndDate, currentPage, limit]);
 
   const fetchHistory = async () => {
     try {
       const params = new URLSearchParams();
-      params.append("limit", "100");
+      params.append("page", String(currentPage));
+      params.append("limit", String(limit));
       if (selectedAffiliation) {
         params.append("affiliation", selectedAffiliation);
       }
@@ -135,7 +142,15 @@ export default function HistoryPage() {
         throw new Error("履歴の取得に失敗しました");
       }
       const data = await response.json();
-      setCheckIns(data);
+      if (Array.isArray(data)) {
+        setCheckIns(data);
+        setTotalCount(data.length);
+        setTotalPages(1);
+      } else {
+        setCheckIns(data.items || []);
+        setTotalCount(data.total || 0);
+        setTotalPages(data.totalPages || 1);
+      }
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "エラーが発生しました");
@@ -632,7 +647,10 @@ export default function HistoryPage() {
             <select
               id="affiliation-filter"
               value={selectedAffiliation}
-              onChange={(e) => setSelectedAffiliation(e.target.value)}
+              onChange={(e) => {
+                setSelectedAffiliation(e.target.value);
+                setCurrentPage(1);
+              }}
               className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm bg-white text-gray-900"
             >
               <option value="">すべての所属</option>
@@ -649,16 +667,41 @@ export default function HistoryPage() {
             <input
               type="date"
               value={filterStartDate}
-              onChange={(e) => setFilterStartDate(e.target.value)}
+              onChange={(e) => {
+                setFilterStartDate(e.target.value);
+                setCurrentPage(1);
+              }}
               className="px-3 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm bg-white text-gray-900"
             />
             <span className="text-gray-500 text-sm">〜</span>
             <input
               type="date"
               value={filterEndDate}
-              onChange={(e) => setFilterEndDate(e.target.value)}
+              onChange={(e) => {
+                setFilterEndDate(e.target.value);
+                setCurrentPage(1);
+              }}
               className="px-3 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm bg-white text-gray-900"
             />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label htmlFor="limit-select" className="text-sm font-semibold text-gray-700">
+              表示件数:
+            </label>
+            <select
+              id="limit-select"
+              value={limit}
+              onChange={(e) => {
+                setLimit(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm bg-white text-gray-900"
+            >
+              <option value={20}>20件</option>
+              <option value={50}>50件</option>
+              <option value={100}>100件</option>
+            </select>
           </div>
         </div>
 
@@ -1008,6 +1051,104 @@ export default function HistoryPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* ページネーションコントロール */}
+        {totalCount > 0 && (
+          <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 px-2">
+            <div className="text-sm text-gray-600 font-medium">
+              全 <span className="font-bold text-gray-900">{totalCount}</span> 件中{" "}
+              <span className="font-bold text-gray-900">
+                {Math.min((currentPage - 1) * limit + 1, totalCount)}
+              </span>{" "}
+              〜{" "}
+              <span className="font-bold text-gray-900">
+                {Math.min(currentPage * limit, totalCount)}
+              </span>{" "}
+              件を表示
+            </div>
+
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <button
+                  onClick={() => setCurrentPage(1)}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1.5 border border-gray-300 rounded-lg text-xs font-semibold text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                  title="最初のページ"
+                >
+                  «
+                </button>
+                <button
+                  onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1.5 border border-gray-300 rounded-lg text-xs font-semibold text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                >
+                  前へ
+                </button>
+
+                {(() => {
+                  const pages: (number | string)[] = [];
+                  const maxVisiblePages = 5;
+                  let startPage = Math.max(1, currentPage - 2);
+                  let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+                  if (endPage - startPage + 1 < maxVisiblePages) {
+                    startPage = Math.max(1, endPage - maxVisiblePages + 1);
+                  }
+
+                  if (startPage > 1) {
+                    pages.push(1);
+                    if (startPage > 2) pages.push("...");
+                  }
+
+                  for (let i = startPage; i <= endPage; i++) {
+                    pages.push(i);
+                  }
+
+                  if (endPage < totalPages) {
+                    if (endPage < totalPages - 1) pages.push("...");
+                    pages.push(totalPages);
+                  }
+
+                  return pages.map((p, idx) =>
+                    typeof p === "number" ? (
+                      <button
+                        key={idx}
+                        onClick={() => setCurrentPage(p)}
+                        className={`px-3 py-1.5 border rounded-lg text-xs font-semibold transition-all ${
+                          currentPage === p
+                            ? "bg-primary-600 text-white border-primary-600 shadow-sm"
+                            : "border-gray-300 text-gray-700 bg-white hover:bg-gray-50"
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    ) : (
+                      <span key={idx} className="px-2 text-xs text-gray-400">
+                        {p}
+                      </span>
+                    )
+                  );
+                })()}
+
+                <button
+                  onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1.5 border border-gray-300 rounded-lg text-xs font-semibold text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                >
+                  次へ
+                </button>
+                <button
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1.5 border border-gray-300 rounded-lg text-xs font-semibold text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                  title="最後のページ"
+                >
+                  »
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

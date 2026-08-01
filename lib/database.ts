@@ -601,6 +601,40 @@ export function getCheckInHistory(limit = 50, offset = 0, affiliation?: string, 
   return stmt.all(...params);
 }
 
+// 利用履歴の総件数を取得（絞り込み条件対応）
+export function getCheckInHistoryCount(affiliation?: string, startDate?: string, endDate?: string): number {
+  let query = `
+    SELECT COUNT(*) as count
+    FROM checkins c
+  `;
+  const conditions: string[] = [];
+  const params: any[] = [];
+
+  if (affiliation) {
+    conditions.push(`c.affiliation = ?`);
+    params.push(affiliation);
+  }
+
+  if (startDate) {
+    conditions.push(`DATE(datetime(c.check_in_time, '+9 hours')) >= DATE(?)`);
+    params.push(startDate);
+  }
+
+  if (endDate) {
+    conditions.push(`DATE(datetime(c.check_in_time, '+9 hours')) <= DATE(?)`);
+    params.push(endDate);
+  }
+
+  if (conditions.length > 0) {
+    query += ` WHERE ` + conditions.join(' AND ');
+  }
+
+  const stmt = db.prepare(query);
+  const result = stmt.get(...params) as { count: number };
+  return result.count;
+}
+
+
 // 登録されている全ての所属を取得（重複なし）
 export function getAllAffiliations() {
   const stmt = db.prepare(`
