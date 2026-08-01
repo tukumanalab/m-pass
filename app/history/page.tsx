@@ -323,44 +323,6 @@ export default function HistoryPage() {
     }
   };
 
-  const handleDeleteAll = async () => {
-    const totalCount = checkIns.length;
-    
-    if (!confirm(`全ての履歴（${totalCount}件）を削除しますか？\n\nこの操作は取り消せません。`)) {
-      return;
-    }
-
-    // 二重確認
-    if (!confirm(`本当に全削除してもよろしいですか？`)) {
-      return;
-    }
-
-    setDeleting(true);
-    try {
-      const response = await fetch(apiUrl("/api/checkins"), {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ deleteAll: true }),
-      });
-
-      if (!response.ok) {
-        throw new Error("削除に失敗しました");
-      }
-
-      const result = await response.json();
-      setSelectedIds(new Set());
-      setError(null);
-      await fetchHistory();
-      alert(`${result.deletedCount}件の履歴を削除しました`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "削除エラーが発生しました");
-    } finally {
-      setDeleting(false);
-    }
-  };
-
   const handleCsvUpload = async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
@@ -525,125 +487,25 @@ export default function HistoryPage() {
             </div>
             <h1 className="text-3xl font-bold text-gray-900">利用履歴</h1>
           </div>
-          <div className="flex gap-2 flex-wrap">
-            {selectedIds.size > 0 && (
-              <button
-                onClick={handleDelete}
-                disabled={deleting}
-                className="flex items-center gap-2 bg-gradient-to-r from-red-500 to-red-600 text-white py-2 px-4 rounded-xl hover:from-red-600 hover:to-red-700 transition-all shadow-md hover:shadow-lg disabled:opacity-50"
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <label htmlFor="limit-select" className="text-sm font-semibold text-gray-700">
+                表示件数:
+              </label>
+              <select
+                id="limit-select"
+                value={limit}
+                onChange={(e) => {
+                  setLimit(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="px-3 py-1.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm bg-white text-gray-900"
               >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                  />
-                </svg>
-                {deleting ? "削除中..." : `削除 (${selectedIds.size})`}
-              </button>
-            )}
-            <button
-              onClick={() => setShowDateRangeDelete(!showDateRangeDelete)}
-              className="flex items-center gap-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white py-2 px-4 rounded-xl hover:from-orange-600 hover:to-orange-700 transition-all shadow-md hover:shadow-lg"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                />
-              </svg>
-              日付指定削除
-            </button>
-            <button
-              onClick={handleDeleteAll}
-              disabled={deleting || checkIns.length === 0}
-              className="flex items-center gap-2 bg-gradient-to-r from-red-600 to-red-700 text-white py-2 px-4 rounded-xl hover:from-red-700 hover:to-red-800 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                />
-              </svg>
-              全削除
-            </button>
-            <button
-              onClick={() => setShowCsvUpload(!showCsvUpload)}
-              className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white py-2 px-4 rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all shadow-md hover:shadow-lg"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                />
-              </svg>
-              CSVアップロード
-            </button>
-            <button
-              onClick={handleExportCSV}
-              className="flex items-center gap-2 bg-gradient-to-r from-green-500 to-green-600 text-white py-2 px-4 rounded-xl hover:from-green-600 hover:to-green-700 transition-all shadow-md hover:shadow-lg"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                />
-              </svg>
-              CSVダウンロード
-            </button>
-            <button
-              onClick={handleExportReport}
-              className="flex items-center gap-2 bg-gradient-to-r from-teal-500 to-teal-600 text-white py-2 px-4 rounded-xl hover:from-teal-600 hover:to-teal-700 transition-all shadow-md hover:shadow-lg"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                />
-              </svg>
-              レポート作成
-            </button>
+                <option value={20}>20件</option>
+                <option value={50}>50件</option>
+                <option value={100}>100件</option>
+              </select>
+            </div>
             <button
               onClick={fetchHistory}
               className="flex items-center gap-2 bg-gradient-to-r from-primary-500 to-primary-600 text-white py-2 px-4 rounded-xl hover:from-primary-600 hover:to-primary-700 transition-all shadow-md hover:shadow-lg"
@@ -676,7 +538,7 @@ export default function HistoryPage() {
         <div className="mb-6 p-4 bg-gray-50/50 rounded-xl border border-primary-100 flex flex-wrap items-center gap-6">
           <div className="flex items-center gap-2">
             <label htmlFor="affiliation-filter" className="text-sm font-semibold text-gray-700">
-              所属で絞り込み:
+              条件:
             </label>
             <select
               id="affiliation-filter"
@@ -719,23 +581,26 @@ export default function HistoryPage() {
             />
           </div>
 
-          <div className="flex items-center gap-2">
-            <label htmlFor="limit-select" className="text-sm font-semibold text-gray-700">
-              表示件数:
-            </label>
-            <select
-              id="limit-select"
-              value={limit}
-              onChange={(e) => {
-                setLimit(Number(e.target.value));
-                setCurrentPage(1);
-              }}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm bg-white text-gray-900"
+          <div className="ml-auto">
+            <button
+              onClick={handleExportReport}
+              className="flex items-center gap-2 bg-gradient-to-r from-teal-500 to-teal-600 text-white py-2 px-4 rounded-xl hover:from-teal-600 hover:to-teal-700 transition-all shadow-md hover:shadow-lg"
             >
-              <option value={20}>20件</option>
-              <option value={50}>50件</option>
-              <option value={100}>100件</option>
-            </select>
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
+              </svg>
+              レポート作成
+            </button>
           </div>
         </div>
 
@@ -1186,6 +1051,89 @@ export default function HistoryPage() {
             )}
           </div>
         )}
+
+        {/* フッター管理操作ボタン */}
+        <div className="mt-8 pt-6 border-t border-gray-200 flex justify-end gap-2 flex-wrap">
+          {selectedIds.size > 0 && (
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="flex items-center gap-2 bg-gradient-to-r from-red-500 to-red-600 text-white py-2 px-4 rounded-xl hover:from-red-600 hover:to-red-700 transition-all shadow-md hover:shadow-lg disabled:opacity-50"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                />
+              </svg>
+              {deleting ? "削除中..." : `削除 (${selectedIds.size})`}
+            </button>
+          )}
+          <button
+            onClick={() => setShowDateRangeDelete(!showDateRangeDelete)}
+            className="flex items-center gap-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white py-2 px-4 rounded-xl hover:from-orange-600 hover:to-orange-700 transition-all shadow-md hover:shadow-lg"
+          >
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+              />
+            </svg>
+            日付指定削除
+          </button>
+          <button
+            onClick={() => setShowCsvUpload(!showCsvUpload)}
+            className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white py-2 px-4 rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all shadow-md hover:shadow-lg"
+          >
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+              />
+            </svg>
+            データアップロード
+          </button>
+          <button
+            onClick={handleExportCSV}
+            className="flex items-center gap-2 bg-gradient-to-r from-green-500 to-green-600 text-white py-2 px-4 rounded-xl hover:from-green-600 hover:to-green-700 transition-all shadow-md hover:shadow-lg"
+          >
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+              />
+            </svg>
+            データダウンロード
+          </button>
+        </div>
       </div>
 
       {/* メンバー詳細モーダル */}
