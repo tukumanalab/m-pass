@@ -580,8 +580,8 @@ export function getTodayCheckIns() {
   return stmt.all();
 }
 
-// 利用履歴を取得（ページネーション付き、所属情報はチェックイン時に保存された値を使用、所属および日付範囲による絞り込みが可能）
-export function getCheckInHistory(limit = 50, offset = 0, affiliation?: string, startDate?: string, endDate?: string) {
+// 利用履歴を取得（ページネーション付き、所属情報はチェックイン時に保存された値を使用、所属および日付範囲による絞り込みが可能、ソート順指定対応）
+export function getCheckInHistory(limit = 50, offset = 0, affiliation?: string, startDate?: string, endDate?: string, sortAsc = false) {
   let query = `
     SELECT
       c.id,
@@ -617,7 +617,8 @@ export function getCheckInHistory(limit = 50, offset = 0, affiliation?: string, 
     query += ` WHERE ` + conditions.join(' AND ');
   }
 
-  query += ` ORDER BY c.check_in_time DESC LIMIT ? OFFSET ?`;
+  const sortOrder = sortAsc ? 'ASC' : 'DESC';
+  query += ` ORDER BY c.check_in_time ${sortOrder} LIMIT ? OFFSET ?`;
   params.push(limit, offset);
 
   const stmt = db.prepare(query);

@@ -10,13 +10,14 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get('startDate') || undefined;
     const endDate = searchParams.get('endDate') || undefined;
 
-    // レポートモードの場合は絞り込みを実行、そうでない場合は全件取得
+    // レポートモードの場合は昇順（古い順）で取得、通常エクスポートは降順（新しい順）
     const history = getCheckInHistory(
       999999,
       0,
       isReport ? affiliation : undefined,
       isReport ? startDate : undefined,
-      isReport ? endDate : undefined
+      isReport ? endDate : undefined,
+      isReport // sortAsc: レポート時は昇順 (true)
     ) as Array<{
       id: number;
       member_id: number;
@@ -121,22 +122,32 @@ export async function GET(request: NextRequest) {
 
     let filename = `checkins_${today}.csv`;
     if (isReport) {
-      if (startDate && endDate) {
-        filename = `report_${startDate}_to_${endDate}.csv`;
-      } else if (startDate) {
-        filename = `report_from_${startDate}.csv`;
-      } else if (endDate) {
-        filename = `report_until_${endDate}.csv`;
-      } else {
-        filename = `report_${today}.csv`;
+      const parts: string[] = ['report'];
+      if (affiliation) {
+        parts.push(affiliation);
       }
+      if (startDate && endDate) {
+        const startYear = startDate.slice(0, 4);
+        const endYear = endDate.slice(0, 4);
+        const formattedEndDate = startYear === endYear ? endDate.slice(5) : endDate;
+        parts.push(`${startDate}_to_${formattedEndDate}`);
+      } else if (startDate) {
+        parts.push(`from_${startDate}`);
+      } else if (endDate) {
+        parts.push(`until_${endDate}`);
+      } else {
+        parts.push(today);
+      }
+      filename = `${parts.join('_')}.csv`;
     }
+
+    const encodedFilename = encodeURIComponent(filename);
 
     return new NextResponse(csvWithBom, {
       status: 200,
       headers: {
         'Content-Type': 'text/csv; charset=utf-8',
-        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Content-Disposition': `attachment; filename="${encodedFilename}"; filename*=UTF-8''${encodedFilename}`,
       },
     });
   } catch (error) {
