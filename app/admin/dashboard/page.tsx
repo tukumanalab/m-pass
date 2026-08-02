@@ -19,7 +19,7 @@ export default async function AdminDashboardPage() {
               管理者ダッシュボード
             </h1>
             <p className="mt-2 text-sm text-gray-600">
-              訪問者管理システムの管理画面
+              利用者管理システムの管理画面
             </p>
           </div>
 
@@ -96,7 +96,7 @@ export default async function AdminDashboardPage() {
               </div>
             </Link>
 
-            {/* 訪問履歴 */}
+            {/* 利用履歴 */}
             <Link
               href="/history"
               className="bg-white overflow-hidden shadow rounded-lg hover:shadow-lg transition-shadow"
@@ -121,7 +121,7 @@ export default async function AdminDashboardPage() {
                   <div className="ml-5 w-0 flex-1">
                     <dl>
                       <dt className="text-sm font-medium text-gray-500 truncate">
-                        訪問履歴
+                        利用履歴
                       </dt>
                       <dd className="text-sm text-gray-900 mt-1">
                         過去のチェックイン記録

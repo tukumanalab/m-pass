@@ -880,7 +880,7 @@ export default function SettingsPage() {
                 QRコード発行時に印刷するカードのテンプレート（SVG形式）を設定できます。
               </p>
               <ul className="text-sm text-gray-600 mb-3 list-disc list-inside space-y-1">
-                <li>テンプレート内の「NAME」が訪問者名に置き換えられます</li>
+                <li>テンプレート内の「NAME」が利用者名に置き換えられます</li>
                 <li>
                   テンプレート内の「XXXX」がQRコード（4桁ID）に置き換えられます
                 </li>
