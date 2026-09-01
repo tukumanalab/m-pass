@@ -46,6 +46,11 @@ export default function ScanPage() {
   // WebUSB FeliCa フック
   const { status: nfcStatus, connect: connectNfc, readIdm: readNfcIdm, disconnect: disconnectNfc, errorMessage: nfcError, isPolling: nfcIsPolling } = useWebUSBFeliCa();
   const nfcLoopActiveRef = useRef(false);
+  // NFC読み取りループ内でクロージャの stale value を回避するため ref で追跡
+  const lastScannedCodeRef = useRef<string | null>(null);
+  const lastScannedTimeRef = useRef<number>(0);
+  // NFCカード置きっぱなし対策: 同一カードIDのチェックイン後のクールダウン（30秒）
+  const NFC_COOLDOWN_MS = 30_000;
   const [unregisteredNfcId, setUnregisteredNfcId] = useState<string | null>(null);
   const [showNfcRegisterModal, setShowNfcRegisterModal] = useState(false);
   const [nfcMemberSearchQuery, setNfcMemberSearchQuery] = useState("");
@@ -242,12 +247,17 @@ export default function ScanPage() {
 
           if (idm) {
             const now = Date.now();
-            // 設定された秒数以内の連続読み取り防止
-            if (idm === lastScannedCode && now - lastScannedTime < successDisplaySeconds * 1000) {
+            // 同一NFCカードのクールダウン判定（ref を使って最新値を参照）
+            // カードを置きっぱなしにしてもチェックイン直後にチェックアウトされないよう、
+            // 30秒間は同じカードIDの再処理をブロックする
+            if (idm === lastScannedCodeRef.current && now - lastScannedTimeRef.current < NFC_COOLDOWN_MS) {
               await new Promise(resolve => setTimeout(resolve, 500));
               continue;
             }
 
+            // ref と state の両方を更新（ref はループ内即時参照用、state はQR側との共有用）
+            lastScannedCodeRef.current = idm;
+            lastScannedTimeRef.current = now;
             setLastScannedCode(idm);
             setLastScannedTime(now);
 
