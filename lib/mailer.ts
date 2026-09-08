@@ -7,9 +7,17 @@ const CLIENT_ID = process.env.GMAIL_CLIENT_ID;
 const CLIENT_SECRET = process.env.GMAIL_CLIENT_SECRET;
 const REFRESH_TOKEN = process.env.GMAIL_REFRESH_TOKEN;
 const APP_URL = process.env.APP_URL || 'http://localhost:3000';
+const APP_NAME = process.env.APP_NAME || 'メンバー登録システム';
+const CONTACT_EMAIL = process.env.CONTACT_EMAIL || GMAIL_USER;
 
-// メール用共通フッター
+// メール用共通フッター（HTML版）
 function getEmailFooter(): string {
+    const contactInfo = CONTACT_EMAIL ? `
+        <p style="color: #999; font-size: 12px; margin: 8px 0 0 0;">
+          お問い合わせ: <a href="mailto:${CONTACT_EMAIL}" style="color: #666; text-decoration: underline;">${CONTACT_EMAIL}</a>
+        </p>
+    ` : '';
+
     return `
         <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
         <div style="text-align: center; margin: 15px 0;">
@@ -17,11 +25,31 @@ function getEmailFooter(): string {
           <span style="color: #ccc; font-size: 12px;">|</span>
           <a href="${APP_URL}/terms-of-service" style="color: #666; font-size: 12px; text-decoration: none; margin: 0 8px;">利用規約</a>
         </div>
-        <p style="color: #999; font-size: 12px;">
+        <p style="color: #999; font-size: 12px; margin: 5px 0;">
           このメールはシステムから自動送信されています。<br>
           直接返信しないでください。
         </p>
+        ${contactInfo}
     `;
+}
+
+// メール用共通フッター（プレーンテキスト版）
+function getTextEmailFooter(): string {
+    const lines = [
+        '--------------------------------------------------',
+        `プライバシーポリシー: ${APP_URL}/privacy-policy`,
+        `利用規約: ${APP_URL}/terms-of-service`,
+    ];
+    if (CONTACT_EMAIL) {
+        lines.push(`お問い合わせ: ${CONTACT_EMAIL}`);
+    }
+    lines.push(
+        '',
+        'このメールはシステムから自動送信されています。',
+        '直接返信しないでください。',
+        '--------------------------------------------------'
+    );
+    return lines.join('\n');
 }
 
 if (!GMAIL_USER || !CLIENT_ID || !CLIENT_SECRET || !REFRESH_TOKEN) {
@@ -84,10 +112,26 @@ export async function sendVerificationEmail(
 ): Promise<void> {
     const verificationUrl = `${APP_URL}/register/verify?token=${token}`;
 
+    const text = [
+        `${name} 様`,
+        '',
+        'メンバー登録のお申し込みありがとうございます。',
+        '以下のリンクをクリックして、登録を完了してください。',
+        '',
+        verificationUrl,
+        '',
+        '※このリンクは24時間有効です。',
+        '※もしこのメールに心当たりがない場合は、無視してください。',
+        '',
+        getTextEmailFooter(),
+    ].join('\n');
+
     const mailOptions = {
-        from: `"メンバー登録システム" <${GMAIL_USER}>`,
+        from: `"${APP_NAME}" <${GMAIL_USER}>`,
+        replyTo: CONTACT_EMAIL || GMAIL_USER,
         to,
         subject: 'メンバー登録の確認',
+        text,
         html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #333;">メンバー登録の確認</h2>
@@ -100,6 +144,10 @@ export async function sendVerificationEmail(
             登録を確認する
           </a>
         </div>
+        <p style="color: #666; font-size: 12px; word-break: break-all; margin: 15px 0;">
+          ボタンをクリックできない場合は、以下のURLをブラウザのアドレスバーに貼り付けてアクセスしてください：<br>
+          <a href="${verificationUrl}" style="color: #4F46E5;">${verificationUrl}</a>
+        </p>
         <p style="color: #666; font-size: 14px;">
           このリンクは24時間有効です。<br>
           もしこのメールに心当たりがない場合は、無視してください。
@@ -129,10 +177,26 @@ export async function sendPasswordResetEmail(
 ): Promise<void> {
     const resetUrl = `${APP_URL}/member/reset-password?token=${token}`;
 
+    const text = [
+        `${name} 様`,
+        '',
+        'パスワードリセットのリクエストを受け付けました。',
+        '以下のリンクをクリックして、新しいパスワードを設定してください。',
+        '',
+        resetUrl,
+        '',
+        '※このリンクは1時間有効です。',
+        '※もしこのメールに心当たりがない場合は、無視してください。',
+        '',
+        getTextEmailFooter(),
+    ].join('\n');
+
     const mailOptions = {
-        from: `"メンバー登録システム" <${GMAIL_USER}>`,
+        from: `"${APP_NAME}" <${GMAIL_USER}>`,
+        replyTo: CONTACT_EMAIL || GMAIL_USER,
         to,
         subject: 'パスワードリセットのお知らせ',
+        text,
         html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #333;">パスワードリセット</h2>
@@ -145,6 +209,10 @@ export async function sendPasswordResetEmail(
             パスワードをリセットする
           </a>
         </div>
+        <p style="color: #666; font-size: 12px; word-break: break-all; margin: 15px 0;">
+          ボタンをクリックできない場合は、以下のURLをブラウザのアドレスバーに貼り付けてアクセスしてください：<br>
+          <a href="${resetUrl}" style="color: #4F46E5;">${resetUrl}</a>
+        </p>
         <p style="color: #666; font-size: 14px;">
           このリンクは1時間有効です。<br>
           もしこのメールに心当たりがない場合は、無視してください。
@@ -180,20 +248,49 @@ export async function sendPasswordResetEmailMultiple(
           <div style="font-size: 14px; color: #666; margin-bottom: 12px;">
             所属: ${member.affiliation}${member.affiliationDetail ? ` (${member.affiliationDetail})` : ''}
           </div>
-          <div style="text-align: center;">
+          <div style="text-align: center; margin-bottom: 10px;">
             <a href="${resetUrl}" 
                style="background-color: #4F46E5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 8px; display: inline-block; font-size: 14px;">
               このアカウントのパスワードをリセット
             </a>
           </div>
+          <p style="color: #888; font-size: 11px; word-break: break-all; margin: 0;">
+            URL: <a href="${resetUrl}" style="color: #4F46E5;">${resetUrl}</a>
+          </p>
         </div>
       `;
     }).join('');
 
+    const memberTextList = members.map((member) => {
+        const resetUrl = `${APP_URL}/member/reset-password?token=${member.token}`;
+        return [
+            `・${member.name} (メンバーID: ${member.memberId})`,
+            `  所属: ${member.affiliation}${member.affiliationDetail ? ` (${member.affiliationDetail})` : ''}`,
+            `  再設定URL: ${resetUrl}`,
+        ].join('\n');
+    }).join('\n\n');
+
+    const text = [
+        'パスワードリセットのリクエストを受け付けました。',
+        '',
+        '【重要】このメールアドレスには複数のアカウントが登録されています。',
+        'パスワードをリセットするアカウントのリンクを選択してください。',
+        '',
+        memberTextList,
+        '',
+        '※各リンクは1時間有効です。',
+        '※注意: 1つのリンクを使用すると、そのアカウントのパスワードのみがリセットされます。',
+        '※もしこのメールに心当たりがない場合は、無視してください。',
+        '',
+        getTextEmailFooter(),
+    ].join('\n');
+
     const mailOptions = {
-        from: `"メンバー登録システム" <${GMAIL_USER}>`,
+        from: `"${APP_NAME}" <${GMAIL_USER}>`,
+        replyTo: CONTACT_EMAIL || GMAIL_USER,
         to,
         subject: 'パスワードリセットのお知らせ',
+        text,
         html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #333;">パスワードリセット</h2>
@@ -232,10 +329,32 @@ export async function sendRegistrationCompleteEmail(
     memberId: string,
     affiliation: string
 ): Promise<void> {
+    const loginUrl = `${APP_URL}/member/login?id=${encodeURIComponent(memberId)}`;
+
+    const text = [
+        `${name} 様`,
+        '',
+        'メンバー登録が完了しました。以下の情報でログインできます。',
+        '',
+        '【登録情報】',
+        `・メンバーID: ${memberId}`,
+        `・お名前: ${name}`,
+        `・所属: ${affiliation}`,
+        `・メールアドレス: ${to}`,
+        '',
+        `ログインページ: ${loginUrl}`,
+        '',
+        '※QRコードカードは、登録完了画面から印刷・ダウンロードできます。',
+        '',
+        getTextEmailFooter(),
+    ].join('\n');
+
     const mailOptions = {
-        from: `"メンバー登録システム" <${GMAIL_USER}>`,
+        from: `"${APP_NAME}" <${GMAIL_USER}>`,
+        replyTo: CONTACT_EMAIL || GMAIL_USER,
         to,
         subject: 'メンバー登録完了のお知らせ',
+        text,
         html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #333;">メンバー登録が完了しました</h2>
@@ -263,11 +382,15 @@ export async function sendRegistrationCompleteEmail(
         </div>
         <p>QRコードカードは、登録完了画面から印刷・ダウンロードできます。</p>
         <div style="text-align: center; margin: 30px 0;">
-          <a href="${APP_URL}/member/login?id=${encodeURIComponent(memberId)}" 
+          <a href="${loginUrl}" 
              style="background-color: #10B981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block;">
             ログインページへ
           </a>
         </div>
+        <p style="color: #666; font-size: 12px; word-break: break-all; margin: 15px 0;">
+          ボタンをクリックできない場合は、以下のURLからログインしてください：<br>
+          <a href="${loginUrl}" style="color: #10B981;">${loginUrl}</a>
+        </p>
         ${getEmailFooter()}
       </div>
     `,
@@ -293,10 +416,26 @@ export async function sendEmailChangeVerificationEmail(
 ): Promise<void> {
     const verificationUrl = `${APP_URL}/member/verify-email?token=${token}`;
 
+    const text = [
+        `${name} 様`,
+        '',
+        'メールアドレスの変更リクエストを受け付けました。',
+        '新しいメールアドレスを確認するために、以下のリンクをクリックしてください。',
+        '',
+        verificationUrl,
+        '',
+        '※このリンクは1時間有効です。',
+        '※もしこのメールに心当たりがない場合は、無視してください。',
+        '',
+        getTextEmailFooter(),
+    ].join('\n');
+
     const mailOptions = {
-        from: `"メンバー登録システム" <${GMAIL_USER}>`,
+        from: `"${APP_NAME}" <${GMAIL_USER}>`,
+        replyTo: CONTACT_EMAIL || GMAIL_USER,
         to,
         subject: 'メールアドレス変更の確認',
+        text,
         html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #333;">メールアドレス変更の確認</h2>
@@ -309,6 +448,10 @@ export async function sendEmailChangeVerificationEmail(
             メールアドレスを確認する
           </a>
         </div>
+        <p style="color: #666; font-size: 12px; word-break: break-all; margin: 15px 0;">
+          ボタンをクリックできない場合は、以下のURLをブラウザのアドレスバーに貼り付けてアクセスしてください：<br>
+          <a href="${verificationUrl}" style="color: #4F46E5;">${verificationUrl}</a>
+        </p>
         <p style="color: #666; font-size: 14px;">
           このリンクは1時間有効です。<br>
           もしこのメールに心当たりがない場合は、無視してください。
@@ -344,10 +487,36 @@ export async function sendMyPageAnnouncementEmail(
 
     const loginUrl = `${APP_URL}/member/login?id=${encodeURIComponent(memberId)}`;
 
+    const text = [
+        `${name} 様`,
+        '',
+        'いつもご利用ありがとうございます。',
+        'この度、メンバー専用のマイページ機能がリリースされました。マイページでは以下のことができます：',
+        '',
+        '【マイページでできること】',
+        '・QRコードの表示: チェックイン用のQRコードをいつでも確認できます',
+        '・メンバー情報の変更: お名前、所属、メールアドレスなどを変更できます',
+        '・パスワードの変更: セキュリティ強化のためパスワード変更も可能です',
+        '・チェックイン履歴の確認: 過去のご利用履歴をご覧いただけます',
+        '',
+        '【ログイン情報】',
+        `・ログインID: ${memberId}`,
+        `・初期パスワード: ${to}`,
+        '※初期パスワードはメールアドレスと同じです。セキュリティのため、初回ログイン後にパスワードの変更をお勧めします。',
+        '',
+        `マイページログインURL: ${loginUrl}`,
+        '',
+        '※ヒント: マイページのURLをブックマークしておくと便利です。スマートフォンのホーム画面に追加すればアプリのように使えます。',
+        '',
+        getTextEmailFooter(),
+    ].join('\n');
+
     const mailOptions = {
-        from: `"メンバー登録システム" <${GMAIL_USER}>`,
+        from: `"${APP_NAME}" <${GMAIL_USER}>`,
+        replyTo: CONTACT_EMAIL || GMAIL_USER,
         to,
         subject: '【重要】メンバー専用マイページのご案内',
+        text,
         html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #333;">メンバー専用マイページができました</h2>
@@ -389,6 +558,10 @@ export async function sendMyPageAnnouncementEmail(
             マイページにログイン
           </a>
         </div>
+        <p style="color: #666; font-size: 12px; word-break: break-all; margin: 15px 0;">
+          ボタンをクリックできない場合は、以下のURLからログインしてください：<br>
+          <a href="${loginUrl}" style="color: #4F46E5;">${loginUrl}</a>
+        </p>
 
         <div style="background-color: #f9fafb; padding: 15px; border-radius: 8px; margin: 20px 0;">
           <p style="color: #666; font-size: 14px; margin: 0;">
