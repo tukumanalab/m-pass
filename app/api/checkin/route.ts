@@ -63,6 +63,27 @@ export async function POST(request: NextRequest) {
         const currentJstDate = new Date(currentTime).toLocaleDateString('en-US', { timeZone: 'Asia/Tokyo' });
 
         if (lastCheckInJstDate === currentJstDate) {
+          // 直前のチェックインから1分未満（60秒以内）の再スキャンはチェックアウトさせず、既にチェックイン済みであることを通知
+          const MIN_CHECKOUT_INTERVAL_MS = 60 * 1000;
+          const timeSinceCheckIn = currentTime - lastCheckInTime;
+
+          if (timeSinceCheckIn < MIN_CHECKOUT_INTERVAL_MS) {
+            return NextResponse.json(
+              {
+                error: 'このメンバーは既にチェックイン済みです。',
+                action: 'already_checked_in',
+                checkIn: {
+                  id: latestCheckIn.id,
+                  memberId: member.id,
+                  memberName: member.name,
+                  affiliation: member.affiliation,
+                  email: member.email,
+                },
+              },
+              { status: 429 }
+            );
+          }
+
           // 同日の未チェックアウトなのでチェックアウトする
           updateCheckOutTime(latestCheckIn.id);
           actionType = 'checkout';
@@ -97,7 +118,17 @@ export async function POST(request: NextRequest) {
 
           if (timeDiffFromCheckIn < checkInIntervalMs) {
             return NextResponse.json(
-              { error: 'このメンバーは既にチェックイン済みです。' },
+              {
+                error: 'このメンバーは既にチェックイン済みです。',
+                action: 'already_checked_in',
+                checkIn: {
+                  id: latestCheckIn.id,
+                  memberId: member.id,
+                  memberName: member.name,
+                  affiliation: member.affiliation,
+                  email: member.email,
+                },
+              },
               { status: 429 }
             );
           }

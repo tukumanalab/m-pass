@@ -328,13 +328,15 @@ export default function ScanPage() {
             return;
           }
 
-          // 同じQRコードを3秒以内に連続スキャンしないようにする
+          // 同じQRコードを3秒以内に連続スキャンしないようにする（refで最新値を同期判定）
           const now = Date.now();
-          if (decodedText === lastScannedCode && now - lastScannedTime < 3000) {
+          if (decodedText === lastScannedCodeRef.current && now - lastScannedTimeRef.current < 3000) {
             return;
           }
 
-          // 最後にスキャンしたQRコードと時刻を記録
+          // 最後にスキャンしたQRコードと時刻を記録（refとstateの両方を更新）
+          lastScannedCodeRef.current = decodedText;
+          lastScannedTimeRef.current = now;
           setLastScannedCode(decodedText);
           setLastScannedTime(now);
 
@@ -636,6 +638,34 @@ export default function ScanPage() {
       const data = await response.json();
 
       if (!response.ok) {
+        // すでにチェックイン済みの場合
+        if (response.status === 429 && data.checkIn) {
+          playSuccessSound();
+          setResult({
+            ...data.checkIn,
+            action: 'already_checked_in',
+          });
+          setError(null);
+          setMessageOpacity(1);
+
+          const fadeStart = Date.now();
+          const fadeDuration = 3000;
+          const fadeInterval = setInterval(() => {
+            const elapsed = Date.now() - fadeStart;
+            const opacity = Math.max(0, 1 - elapsed / fadeDuration);
+            setMessageOpacity(opacity);
+
+            if (opacity === 0) {
+              clearInterval(fadeInterval);
+              setResult(null);
+              setMessageOpacity(1);
+              processingRef.current = false;
+            }
+          }, 50);
+
+          return;
+        }
+
         playErrorSound();
         setError(data.error || "チェックインに失敗しました");
         setResult(null);
@@ -776,16 +806,46 @@ export default function ScanPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        // エラー音を鳴らす
-        playErrorSound();
-
         // 未登録のNFCカードの場合は、メンバー紐付けモーダルを表示する
         if (response.status === 404 && data.unregisteredNfcId) {
+          playErrorSound();
           setUnregisteredNfcId(data.unregisteredNfcId);
           setShowNfcRegisterModal(true);
           processingRef.current = false;
           return;
         }
+
+        // すでにチェックイン済みの場合（チェックイン直後クールダウンまたは再チェックイン防止時間内）
+        if (response.status === 429 && data.checkIn) {
+          playSuccessSound();
+          setResult({
+            ...data.checkIn,
+            action: 'already_checked_in',
+          });
+          setError(null);
+          setMessageOpacity(1);
+
+          // フェードアウトアニメーション
+          const fadeStart = Date.now();
+          const fadeDuration = successDisplaySeconds * 1000;
+          const fadeInterval = setInterval(() => {
+            const elapsed = Date.now() - fadeStart;
+            const opacity = Math.max(0, 1 - elapsed / fadeDuration);
+            setMessageOpacity(opacity);
+
+            if (opacity === 0) {
+              clearInterval(fadeInterval);
+              setResult(null);
+              setMessageOpacity(1);
+              processingRef.current = false;
+            }
+          }, 50);
+
+          return;
+        }
+
+        // エラー音を鳴らす
+        playErrorSound();
 
         // エラーメッセージを設定（サーバーからのメッセージを優先）
         let errorMessage = data.error || "チェックインに失敗しました";
@@ -1487,13 +1547,19 @@ export default function ScanPage() {
           {/* チェックイン/チェックアウト成功メッセージ */}
           {result && (
             <div className={`p-8 bg-white rounded-2xl shadow-2xl max-w-md w-full border ${
-              result.action === 'checkin' ? 'border-green-100' : 'border-blue-100'
+              result.action === 'checkin'
+                ? 'border-green-100'
+                : result.action === 'already_checked_in'
+                  ? 'border-amber-200'
+                  : 'border-blue-100'
             }`}>
               <div className="flex items-center gap-4 mb-4">
                 <div className={`w-14 h-14 bg-gradient-to-br ${
                   result.action === 'checkin' 
                     ? 'from-green-500 to-green-600 shadow-green-100' 
-                    : 'from-blue-500 to-blue-600 shadow-blue-100'
+                    : result.action === 'already_checked_in'
+                      ? 'from-amber-500 to-amber-600 shadow-amber-100'
+                      : 'from-blue-500 to-blue-600 shadow-blue-100'
                 } rounded-full flex items-center justify-center shadow-lg`}>
                   {result.action === 'checkin' ? (
                     <svg
@@ -1507,6 +1573,20 @@ export default function ScanPage() {
                         strokeLinejoin="round"
                         strokeWidth={2.5}
                         d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                  ) : result.action === 'already_checked_in' ? (
+                    <svg
+                      className="w-8 h-8 text-white"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2.5}
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                       />
                     </svg>
                   ) : (
@@ -1527,20 +1607,28 @@ export default function ScanPage() {
                 </div>
                 <div>
                   <span className={`text-sm font-semibold tracking-wider uppercase block ${
-                    result.action === 'checkin' ? 'text-green-600' : 'text-blue-600'
+                    result.action === 'checkin' 
+                      ? 'text-green-600' 
+                      : result.action === 'already_checked_in'
+                        ? 'text-amber-600'
+                        : 'text-blue-600'
                   }`}>
                     {result.action === 'checkin' 
                       ? 'Checkin Success' 
-                      : result.action === 'checkout_extension' 
-                        ? 'Checkout Updated' 
-                        : 'Checkout Success'}
+                      : result.action === 'already_checked_in'
+                        ? 'Already Checked In'
+                        : result.action === 'checkout_extension' 
+                          ? 'Checkout Updated' 
+                          : 'Checkout Success'}
                   </span>
                   <h2 className="text-2xl font-black text-gray-900 leading-tight">
                     {result.action === 'checkin' 
                       ? 'チェックイン完了' 
-                      : result.action === 'checkout_extension' 
-                        ? 'チェックアウト更新' 
-                        : 'チェックアウト完了'}
+                      : result.action === 'already_checked_in'
+                        ? 'すでにチェックインしています'
+                        : result.action === 'checkout_extension' 
+                          ? 'チェックアウト更新' 
+                          : 'チェックアウト完了'}
                   </h2>
                 </div>
               </div>
@@ -1553,7 +1641,12 @@ export default function ScanPage() {
                     {result.affiliation}
                   </p>
                 )}
-                {result.action !== 'checkin' && result.stayDurationMinutes !== undefined && result.stayDurationMinutes !== null && (
+                {result.action === 'already_checked_in' && (
+                  <div className="mt-3 p-3 bg-amber-50 rounded-xl border border-amber-200 text-sm font-semibold text-amber-800">
+                    現在入室中です（チェックイン直後の誤退室は防止されています）
+                  </div>
+                )}
+                {result.action !== 'checkin' && result.action !== 'already_checked_in' && result.stayDurationMinutes !== undefined && result.stayDurationMinutes !== null && (
                   <div className="mt-3 p-3 bg-blue-50 rounded-xl border border-blue-100 flex justify-between items-center">
                     <span className="text-sm font-bold text-blue-700">滞在時間</span>
                     <span className="text-lg font-black text-blue-900">
