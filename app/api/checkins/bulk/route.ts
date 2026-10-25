@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { findMemberByMemberId, createCheckInWithTime, checkDuplicateCheckIn } from '@/lib/database';
+import { checkAdminAuth } from '@/lib/auth';
 
 // CSV形式でチェックイン履歴を一括登録
 export async function POST(request: NextRequest) {
+  // 管理者認証チェック
+  const unauthorized = await checkAdminAuth();
+  if (unauthorized) return unauthorized;
+
   try {
     const body = await request.json();
     const { csvData } = body;

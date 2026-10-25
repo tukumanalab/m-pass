@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs/promises';
 import path from 'path';
+import { checkAdminAuth } from '@/lib/auth';
 
 // GETリクエスト: 現在のカードテンプレートを取得
 export async function GET() {
@@ -36,6 +37,10 @@ export async function GET() {
 
 // POSTリクエスト: カードテンプレートをアップロード
 export async function POST(request: NextRequest) {
+  // 管理者認証チェック
+  const unauthorized = await checkAdminAuth();
+  if (unauthorized) return unauthorized;
+
   try {
     const { template } = await request.json();
 
@@ -85,6 +90,10 @@ export async function POST(request: NextRequest) {
 
 // DELETEリクエスト: カスタムテンプレートを削除してデフォルトに戻す
 export async function DELETE() {
+  // 管理者認証チェック
+  const unauthorized = await checkAdminAuth();
+  if (unauthorized) return unauthorized;
+
   try {
     const customTemplatePath = path.join(process.cwd(), 'public/uploads/card-template-custom.svg');
 

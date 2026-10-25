@@ -3,8 +3,13 @@ import { saveSettings, SiteSettings } from '@/lib/settings';
 import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
 import fs from 'fs';
+import { checkAdminAuth } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
+  // 管理者認証チェック
+  const unauthorized = await checkAdminAuth();
+  if (unauthorized) return unauthorized;
+
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File;

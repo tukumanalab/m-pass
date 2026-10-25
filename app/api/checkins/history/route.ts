@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCheckInHistory, getCheckInHistoryCount } from '@/lib/database';
+import { checkAdminAuth } from '@/lib/auth';
 
 // チェックイン履歴を取得
 export async function GET(request: NextRequest) {
+  // 管理者認証チェック
+  const unauthorized = await checkAdminAuth();
+  if (unauthorized) return unauthorized;
+
   try {
     const { searchParams } = new URL(request.url);
     const limit = Math.max(1, parseInt(searchParams.get('limit') || '50'));

@@ -2,12 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { findMemberByMemberId, getMemberById, findMemberByNfcId, createCheckIn, getLatestCheckIn, updateCheckOutTime, markMyPageNotificationSent, deleteUncheckedInExpiredMembers } from '@/lib/database';
 import { sendMyPageAnnouncementEmail } from '@/lib/mailer';
 import { loadSettings } from '@/lib/settings';
+import { checkAdminAuth } from '@/lib/auth';
 
 // 2025年11月6日 23:59:59 (JST) のUTC時刻
 const MYPAGE_ANNOUNCEMENT_CUTOFF_DATE = new Date('2025-11-06T23:59:59+09:00');
 
 // member_idまたはデータベースIDでチェックイン
 export async function POST(request: NextRequest) {
+  // 管理者認証チェック
+  const unauthorized = await checkAdminAuth();
+  if (unauthorized) return unauthorized;
+
   try {
     // 登録後24時間未チェックインの期限切れメンバーを自動削除
     deleteUncheckedInExpiredMembers();

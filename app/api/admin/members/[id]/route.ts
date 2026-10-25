@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import db, { getMemberNfcCards } from '@/lib/database';
 import bcrypt from 'bcrypt';
+import { checkAdminAuth } from '@/lib/auth';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -8,6 +9,10 @@ interface RouteParams {
 
 // メンバー情報取得
 export async function GET(request: NextRequest, { params }: RouteParams) {
+  // 管理者認証チェック
+  const unauthorized = await checkAdminAuth();
+  if (unauthorized) return unauthorized;
+
   try {
     const { id } = await params;
 
@@ -57,6 +62,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
 // メンバー情報更新
 export async function PUT(request: NextRequest, { params }: RouteParams) {
+  // 管理者認証チェック
+  const unauthorized = await checkAdminAuth();
+  if (unauthorized) return unauthorized;
+
   try {
     const { id } = await params;
     const { name, affiliation, affiliation_detail, organization_member_id, email, password } = await request.json();
@@ -117,6 +126,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
 // メンバー削除
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
+  // 管理者認証チェック
+  const unauthorized = await checkAdminAuth();
+  if (unauthorized) return unauthorized;
+
   try {
     const { id } = await params;
 

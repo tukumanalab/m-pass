@@ -2,11 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { unlink } from 'fs/promises';
 import { existsSync } from 'fs';
 import path from 'path';
+import { checkAdminAuth } from '@/lib/auth';
 
 const UPLOADS_DIR = path.join(process.cwd(), 'public', 'uploads');
 
 // 画像ファイルの削除
 export async function DELETE(request: NextRequest) {
+    // 管理者認証チェック
+    const unauthorized = await checkAdminAuth();
+    if (unauthorized) return unauthorized;
+
     try {
         const { searchParams } = new URL(request.url);
         const type = searchParams.get('type');

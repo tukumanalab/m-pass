@@ -2,12 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { writeFile, unlink } from 'fs/promises';
 import { existsSync } from 'fs';
 import path from 'path';
+import { checkAdminAuth } from '@/lib/auth';
 
 const AUDIO_DIR = path.join(process.cwd(), 'public', 'uploads');
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 // 音声ファイルのアップロード
 export async function POST(request: NextRequest) {
+  // 管理者認証チェック
+  const unauthorized = await checkAdminAuth();
+  if (unauthorized) return unauthorized;
+
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File;
@@ -68,6 +73,10 @@ export async function POST(request: NextRequest) {
 
 // 音声ファイルの削除
 export async function DELETE(request: NextRequest) {
+  // 管理者認証チェック
+  const unauthorized = await checkAdminAuth();
+  if (unauthorized) return unauthorized;
+
   try {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type');

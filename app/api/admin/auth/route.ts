@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcrypt';
 import { headers } from 'next/headers';
+import { createAdminToken, ADMIN_TOKEN_MAX_AGE } from '@/lib/auth';
 
 // ログ出力用のヘルパー関数
 function logToConsole(message: string, isError: boolean = false) {
@@ -121,19 +122,21 @@ function isAllowedIP(ip: string): boolean {
 async function getClientIP(): Promise<string> {
   const headersList = await headers();
   
-  // プロキシ経由の場合を考慮
-  const forwarded = headersList.get('x-forwarded-for');
-  if (forwarded) {
-    // カンマ区切りの最初のIPを使用
-    const ip = forwarded.split(',')[0].trim();
-    logToConsole(`[IP DETECT] From X-Forwarded-For: ${ip}`);
-    return ip;
-  }
-  
+  // nginx が接続元アドレスを設定する X-Real-IP を優先する
+  // （X-Forwarded-For の先頭はクライアントが自由に書き換えられるため）
   const realIP = headersList.get('x-real-ip');
   if (realIP) {
     logToConsole(`[IP DETECT] From X-Real-IP: ${realIP}`);
     return realIP;
+  }
+
+  const forwarded = headersList.get('x-forwarded-for');
+  if (forwarded) {
+    // カンマ区切りの最後のIP（直近のプロキシが付加したもの）を使用
+    const ips = forwarded.split(',').map(s => s.trim()).filter(Boolean);
+    const ip = ips[ips.length - 1];
+    logToConsole(`[IP DETECT] From X-Forwarded-For: ${ip}`);
+    return ip;
   }
   
   // フォールバック（開発環境用）
@@ -174,8 +177,8 @@ export async function POST(request: NextRequest) {
     // const isValid = true; // TEMPORARY BYPASS FOR TESTING
 
     if (isValid) {
-      // セッショントークン生成（簡易実装）
-      const token = Buffer.from(`admin:${Date.now()}`).toString('base64');
+      // セッショントークン生成（署名付きJWT）
+      const token = await createAdminToken();
 
       const response = NextResponse.json({ success: true, message: 'ログイン成功' });
 
@@ -184,7 +187,7 @@ export async function POST(request: NextRequest) {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'strict',
-        maxAge: 60 * 60 * 24, // 24時間
+        maxAge: ADMIN_TOKEN_MAX_AGE, // 24時間
         path: '/',
       });
 

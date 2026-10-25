@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getMemberById } from '@/lib/database';
 import QRCode from 'qrcode';
+import { checkAdminAuth } from '@/lib/auth';
 
 interface Member {
   id: number;
@@ -17,6 +18,10 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // 管理者認証チェック
+  const unauthorized = await checkAdminAuth();
+  if (unauthorized) return unauthorized;
+
   try {
     const { id } = await params;
     const memberId = parseInt(id);

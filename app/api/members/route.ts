@@ -2,14 +2,22 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createMember, getAllMembers, isMemberIdExists, findMemberByEmailAndName, countMembersByEmail, generateUniqueMemberId } from '@/lib/database';
 import QRCode from 'qrcode';
 import bcrypt from 'bcrypt';
+import { checkAdminAuth } from '@/lib/auth';
 
 // 同じメールアドレスで登録可能な最大人数
 const MAX_MEMBERS_PER_EMAIL = 3;
 
 // メンバー一覧を取得
 export async function GET() {
+  // 管理者認証チェック
+  const unauthorized = await checkAdminAuth();
+  if (unauthorized) return unauthorized;
+
   try {
-    const members = getAllMembers();
+    // パスワードハッシュや確認トークンは返さない
+    const members = (getAllMembers() as any[]).map(
+      ({ password_hash, verification_token, ...member }) => member
+    );
     return NextResponse.json(members);
   } catch (error) {
     console.error('Error fetching members:', error);

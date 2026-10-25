@@ -1,11 +1,16 @@
 import { NextResponse } from 'next/server';
 import { existsSync } from 'fs';
 import path from 'path';
+import { checkAdminAuth } from '@/lib/auth';
 
 const UPLOADS_DIR = path.join(process.cwd(), 'public', 'uploads');
 
 // 音声ファイルの存在確認（カスタム音声のみ）
 export async function GET() {
+  // 管理者認証チェック
+  const unauthorized = await checkAdminAuth();
+  if (unauthorized) return unauthorized;
+
   try {
     const extensions = ['mp3', 'wav', 'ogg'];
 

@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { deleteCheckIns, deleteCheckInsByDateRange, deleteAllCheckIns } from '@/lib/database';
+import { checkAdminAuth } from '@/lib/auth';
 
 // チェックイン履歴の削除
 export async function DELETE(request: NextRequest) {
+  // 管理者認証チェック
+  const unauthorized = await checkAdminAuth();
+  if (unauthorized) return unauthorized;
+
   try {
     const body = await request.json();
     const { ids, startDate, endDate, deleteAll } = body;

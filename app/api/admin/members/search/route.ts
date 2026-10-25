@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import db, { getMemberNfcCards, deleteUncheckedInExpiredMembers } from '@/lib/database';
+import { checkAdminAuth } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
+  // 管理者認証チェック
+  const unauthorized = await checkAdminAuth();
+  if (unauthorized) return unauthorized;
+
   try {
     // 期限切れ未チェックインアカウントの自動削除
     deleteUncheckedInExpiredMembers();

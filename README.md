@@ -578,6 +578,12 @@ member_id,affiliation,how_did_you_know,created_at
 
 ## セキュリティ
 
+### 管理者認証
+
+- 管理者ログインに成功すると、署名付きJWT（有効期限24時間）が `admin_token` クッキー（HttpOnly）に保存されます。署名鍵は `ADMIN_JWT_SECRET`、未設定なら `ADMIN_PASSWORD_HASH` です（どちらかを変更すると既存のセッションは無効になります）。
+- `/api/admin/*` の全API（ログイン・ログアウト・認証確認を除く）と、管理画面から使う `/api/checkin`、`/api/checkins/*`（`today` を除く）、`GET /api/members`、`POST/DELETE /api/settings/template` は、トークンの検証とIP制限のチェックを通過しないと 401 を返します。
+- 接続元IPは nginx が設定する `X-Real-IP` を優先して判定します。
+
 ### 管理者アクセスのIP制限
 
 管理者ページへのアクセスは、デフォルトで **組織内のネットワーク（プライベートIPアドレス範囲）からのみ** 許可されます。

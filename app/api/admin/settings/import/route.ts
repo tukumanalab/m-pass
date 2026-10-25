@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { saveSettings, SiteSettings } from '@/lib/settings';
 import fs from 'fs';
 import path from 'path';
+import { checkAdminAuth } from '@/lib/auth';
 
 type ExportData = {
   version: string;
@@ -18,6 +19,10 @@ type ExportData = {
 };
 
 export async function POST(request: NextRequest) {
+  // 管理者認証チェック
+  const unauthorized = await checkAdminAuth();
+  if (unauthorized) return unauthorized;
+
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File;

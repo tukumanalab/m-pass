@@ -1,5 +1,36 @@
 import { cookies, headers } from 'next/headers';
+import { NextResponse } from 'next/server';
+import { SignJWT, jwtVerify } from 'jose';
 import { logger } from './logger';
+
+// 管理者トークンの署名鍵（ADMIN_JWT_SECRET 未設定時は管理者パスワードのハッシュを鍵として使う）
+const ADMIN_TOKEN_SECRET = new TextEncoder().encode(
+  process.env.ADMIN_JWT_SECRET || process.env.ADMIN_PASSWORD_HASH || 'change-this-admin-secret-in-production'
+);
+export const ADMIN_TOKEN_MAX_AGE = 60 * 60 * 24; // 24時間
+
+/**
+ * 管理者トークン（署名付きJWT）を生成
+ */
+export async function createAdminToken(): Promise<string> {
+  return await new SignJWT({ role: 'admin' })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuedAt()
+    .setExpirationTime(`${ADMIN_TOKEN_MAX_AGE}s`)
+    .sign(ADMIN_TOKEN_SECRET);
+}
+
+/**
+ * 管理者トークンの署名と有効期限を検証
+ */
+async function verifyAdminToken(token: string): Promise<boolean> {
+  try {
+    const { payload } = await jwtVerify(token, ADMIN_TOKEN_SECRET);
+    return payload.role === 'admin';
+  } catch {
+    return false;
+  }
+}
 
 // ログ出力用のヘルパー関数
 function logToConsole(message: string, isError: boolean = false) {
@@ -110,19 +141,21 @@ function matchesCIDR(ip: string, network: string, maskBits: number): boolean {
 async function getClientIP(): Promise<string> {
   const headersList = await headers();
   
-  // プロキシ経由の場合を考慮
-  const forwarded = headersList.get('x-forwarded-for');
-  if (forwarded) {
-    // カンマ区切りの最初のIPを使用
-    const ip = forwarded.split(',')[0].trim();
-    logToConsole(`[IP DETECT] From X-Forwarded-For: ${ip}`);
-    return ip;
-  }
-  
+  // nginx が接続元アドレスを設定する X-Real-IP を優先する
+  // （X-Forwarded-For の先頭はクライアントが自由に書き換えられるため）
   const realIP = headersList.get('x-real-ip');
   if (realIP) {
     logToConsole(`[IP DETECT] From X-Real-IP: ${realIP}`);
     return realIP;
+  }
+
+  const forwarded = headersList.get('x-forwarded-for');
+  if (forwarded) {
+    // カンマ区切りの最後のIP（直近のプロキシが付加したもの）を使用
+    const ips = forwarded.split(',').map(s => s.trim()).filter(Boolean);
+    const ip = ips[ips.length - 1];
+    logToConsole(`[IP DETECT] From X-Forwarded-For: ${ip}`);
+    return ip;
   }
   
   // フォールバック（開発環境用）
@@ -145,7 +178,12 @@ export async function isAdminAuthenticated(): Promise<boolean> {
     return false;
   }
 
-  logToConsole(`[ADMIN AUTH] ✓ Admin token found`);
+  if (!(await verifyAdminToken(token.value))) {
+    logToConsole(`[ADMIN AUTH] ✗ Invalid or expired admin token`, true);
+    return false;
+  }
+
+  logToConsole(`[ADMIN AUTH] ✓ Admin token verified`);
 
   // IP制限チェック
   const clientIP = await getClientIP();
@@ -175,4 +213,18 @@ export async function requireAdminAuth() {
   }
 
   return true;
+}
+
+/**
+ * 管理者API用の認証チェック
+ * 未認証なら401レスポンスを返し、認証済みならnullを返す
+ */
+export async function checkAdminAuth(): Promise<NextResponse | null> {
+  if (await isAdminAuthenticated()) {
+    return null;
+  }
+  return NextResponse.json(
+    { success: false, error: '認証が必要です', message: '認証が必要です' },
+    { status: 401 }
+  );
 }

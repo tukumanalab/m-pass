@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCheckInHistory } from '@/lib/database';
+import { checkAdminAuth } from '@/lib/auth';
 
 // チェックイン履歴をCSV形式でエクスポート
 export async function GET(request: NextRequest) {
+  // 管理者認証チェック
+  const unauthorized = await checkAdminAuth();
+  if (unauthorized) return unauthorized;
+
   try {
     const { searchParams } = new URL(request.url);
     const isReport = searchParams.get('report') === 'true';

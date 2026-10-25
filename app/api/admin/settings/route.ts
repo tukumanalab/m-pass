@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { loadSettings, saveSettings } from '@/lib/settings';
+import { checkAdminAuth } from '@/lib/auth';
 
 // 設定取得
 export async function GET() {
+  // 管理者認証チェック
+  const unauthorized = await checkAdminAuth();
+  if (unauthorized) return unauthorized;
+
   try {
     const settings = loadSettings();
     return NextResponse.json({ success: true, settings });
@@ -17,6 +22,10 @@ export async function GET() {
 
 // 設定更新
 export async function PUT(request: NextRequest) {
+  // 管理者認証チェック
+  const unauthorized = await checkAdminAuth();
+  if (unauthorized) return unauthorized;
+
   try {
     const settings = await request.json();
 

@@ -2,8 +2,13 @@ import { NextResponse } from 'next/server';
 import { loadSettings } from '@/lib/settings';
 import fs from 'fs';
 import path from 'path';
+import { checkAdminAuth } from '@/lib/auth';
 
 export async function GET() {
+  // 管理者認証チェック
+  const unauthorized = await checkAdminAuth();
+  if (unauthorized) return unauthorized;
+
   try {
     const settings = loadSettings();
 

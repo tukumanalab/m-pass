@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { resetMyPageNotificationFlag } from '@/lib/database';
+import { checkAdminAuth } from '@/lib/auth';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -7,6 +8,10 @@ interface RouteParams {
 
 // メンバーのマイページ通知フラグをリセット
 export async function POST(request: NextRequest, { params }: RouteParams) {
+  // 管理者認証チェック
+  const unauthorized = await checkAdminAuth();
+  if (unauthorized) return unauthorized;
+
   try {
     const { id } = await params;
     const memberId = parseInt(id, 10);
