@@ -427,7 +427,7 @@ db.close();
 
 - `POST /api/members/register` - メンバー仮登録 & 確認メール送信
 - `POST /api/members/verify` - メールトークン検証 & 本登録 & QR コード生成（4 桁 ID: 年+英字+数字+英字）
-- `GET /api/members` - メンバー一覧取得
+- `GET /api/members` - メンバー一覧取得（管理者のみ）
 - `GET /api/admin/members/search` - メンバー検索
 - `PUT /api/admin/members/[id]` - メンバー情報更新
 - `DELETE /api/admin/members/[id]` - メンバー削除

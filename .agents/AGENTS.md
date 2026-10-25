@@ -93,7 +93,7 @@ pm2 restart m-pass   # 再起動
 
 **メンバー管理 API:**
 
-- `GET /api/members` - 全メンバー一覧取得
+- `GET /api/members` - 全メンバー一覧取得（管理者のみ。メンバー登録は `/api/members/register` のみ）
 - `POST /api/members/register` - メンバー即時本登録 ＆ ログインセッション発行（非同期確認メール送信）
 - `POST /api/members/verify` - メール確認リンクの検証・メールアドレス検証完了処理（ログインセッション発行含む）
 - `POST /api/members/resend-verification` - ログイン中ユーザーへの確認メール再送信
