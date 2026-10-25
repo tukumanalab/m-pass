@@ -62,16 +62,17 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const { name, affiliation, affiliation_detail, organization_member_id, email, password } = await request.json();
 
     // バリデーション
-    if (!name || !affiliation || !email) {
+    if (!name || !affiliation) {
       return NextResponse.json(
-        { success: false, message: '名前、所属、メールアドレスは必須です' },
+        { success: false, message: '名前、所属は必須です' },
         { status: 400 }
       );
     }
 
-    // メールアドレスの形式チェック
+    // メールアドレスは任意（空文字はメール未登録）。入力がある場合のみ形式チェック
+    const cleanEmail = typeof email === 'string' ? email.trim() : '';
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    if (cleanEmail && !emailRegex.test(cleanEmail)) {
       return NextResponse.json(
         { success: false, message: 'メールアドレスの形式が正しくありません' },
         { status: 400 }
@@ -94,14 +95,14 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         UPDATE members
         SET name = ?, affiliation = ?, affiliation_detail = ?, email = ?, password_hash = ?, organization_member_id = ?
         WHERE id = ?
-      `).run(name, affiliation, affiliation_detail || '', email, hashedPassword, organization_member_id || null, id);
+      `).run(name, affiliation, affiliation_detail || '', cleanEmail, hashedPassword, organization_member_id || null, id);
     } else {
       // パスワードなしで更新
       db.prepare(`
         UPDATE members
         SET name = ?, affiliation = ?, affiliation_detail = ?, email = ?, organization_member_id = ?
         WHERE id = ?
-      `).run(name, affiliation, affiliation_detail || '', email, organization_member_id || null, id);
+      `).run(name, affiliation, affiliation_detail || '', cleanEmail, organization_member_id || null, id);
     }
 
     return NextResponse.json({ success: true, message: 'メンバー情報を更新しました' });

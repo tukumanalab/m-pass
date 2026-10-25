@@ -41,16 +41,16 @@ export async function POST(request: NextRequest) {
     if (!affiliation || affiliation.trim() === '') {
       return NextResponse.json({ success: false, message: '所属は必須です' }, { status: 400 });
     }
-    if (!email || email.trim() === '') {
-      return NextResponse.json({ success: false, message: 'メールアドレスは必須です' }, { status: 400 });
-    }
     if (!password || password.trim() === '') {
       return NextResponse.json({ success: false, message: 'パスワードは必須です' }, { status: 400 });
     }
 
-    // メールアドレス形式チェック
+    // メールアドレスは任意（空文字はメール未登録）
+    const cleanEmail = typeof email === 'string' ? email.trim() : '';
+
+    // メールアドレス形式チェック（入力がある場合のみ）
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    if (cleanEmail && !emailRegex.test(cleanEmail)) {
       return NextResponse.json(
         { success: false, message: 'メールアドレスの形式が正しくありません' },
         { status: 400 }
@@ -65,8 +65,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 4. 重複チェック（メールアドレスと名前での重複）
-    const existingMember = findMemberByEmailAndName(email, name);
+    // 4. 重複チェック（メールアドレスと名前での重複。メール未登録の場合はスキップ）
+    const existingMember = cleanEmail ? findMemberByEmailAndName(cleanEmail, name) : null;
     if (existingMember) {
       return NextResponse.json(
         { success: false, message: '同じメールアドレスと名前の組み合わせは既に登録されています' },
@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
           name: name.trim(),
           affiliation: affiliation.trim(),
           affiliationDetail: affiliation_detail ? affiliation_detail.trim() : null,
-          email: email.trim(),
+          email: cleanEmail,
           passwordHash,
           memberId,
           organizationMemberId: organization_member_id ? organization_member_id.trim() : null
@@ -140,7 +140,7 @@ export async function POST(request: NextRequest) {
         affiliation,
         affiliation_detail,
         organization_member_id,
-        email,
+        email: cleanEmail,
       }
     });
   } catch (error) {

@@ -264,8 +264,8 @@ export default function AdminMembersPage() {
 
   // 更新実行
   const handleUpdate = async (id: number) => {
-    if (!editForm.name || !editForm.affiliation || !editForm.email) {
-      toast.error("名前、所属、メールアドレスは必須です");
+    if (!editForm.name || !editForm.affiliation) {
+      toast.error("名前、所属は必須です");
       return;
     }
 
@@ -365,8 +365,8 @@ export default function AdminMembersPage() {
 
   // 新規追加実行
   const handleAddMember = async () => {
-    if (!addForm.name || !addForm.affiliation || !addForm.email || !addForm.password) {
-      toast.error("名前、所属、メールアドレス、パスワードは必須です");
+    if (!addForm.name || !addForm.affiliation || !addForm.password) {
+      toast.error("名前、所属、パスワードは必須です");
       return;
     }
 
@@ -1129,9 +1129,15 @@ export default function AdminMembersPage() {
                               {member.affiliation_detail &&
                                 ` - ${member.affiliation_detail}`}
                             </p>
-                            <p className="text-sm text-blue-600 mt-1">
-                              {member.email}
-                            </p>
+                            {member.email ? (
+                              <p className="text-sm text-blue-600 mt-1">
+                                {member.email}
+                              </p>
+                            ) : (
+                              <p className="text-sm text-gray-400 mt-1">
+                                メール未登録
+                              </p>
+                            )}
                             <p className="text-xs text-gray-500 mt-1">
                               メンバーID: {member.member_id}
                               {member.organization_member_id && ` | 組織内ID: ${member.organization_member_id}`}
@@ -1821,7 +1827,7 @@ export default function AdminMembersPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
-                    メールアドレス *
+                    メールアドレス（任意）
                   </label>
                   <input
                     type="email"
@@ -1835,6 +1841,9 @@ export default function AdminMembersPage() {
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     placeholder="example@example.com"
                   />
+                  <p className="mt-1 text-xs text-gray-500">
+                    未入力の場合、パスワードリセット等のメール機能は利用できません
+                  </p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
@@ -2092,7 +2101,7 @@ export default function AdminMembersPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
-                    メールアドレス *
+                    メールアドレス（任意）
                   </label>
                   <input
                     type="email"
@@ -2106,6 +2115,9 @@ export default function AdminMembersPage() {
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     placeholder="example@example.com"
                   />
+                  <p className="mt-1 text-xs text-gray-500">
+                    未入力の場合、パスワードリセット等のメール機能は利用できません
+                  </p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">

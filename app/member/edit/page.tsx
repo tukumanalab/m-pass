@@ -42,6 +42,7 @@ export default function MemberEditPage() {
     password: "",
     passwordConfirm: "",
   });
+  const [noEmail, setNoEmail] = useState(false); // 取得時点でメール未登録か
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -83,9 +84,10 @@ export default function MemberEditPage() {
         }
 
         const data = (await response.json()) as MemberResponse & { cards?: any[] };
+        setNoEmail(!data.email);
         setFormValues({
           name: data.name,
-          email: data.email,
+          email: data.email ?? "",
           affiliation: data.affiliation,
           affiliationDetail: data.affiliationDetail ?? "",
           password: "",
@@ -349,8 +351,13 @@ export default function MemberEditPage() {
                 value={formValues.email}
                 onChange={handleChange("email")}
                 className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                required
+                required={!noEmail}
               />
+              {noEmail && (
+                <p className="mt-1 text-xs text-gray-500">
+                  メールアドレスを登録するとパスワードリセットが使えます
+                </p>
+              )}
             </div>
 
             <div>

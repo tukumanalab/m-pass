@@ -104,6 +104,9 @@ export default function RequestResetPage() {
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
                 placeholder="例: example@example.com"
               />
+              <p className="mt-2 text-xs text-gray-500">
+                メールアドレス未登録の方は管理者にお問い合わせください
+              </p>
             </div>
 
             <button

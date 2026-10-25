@@ -1194,7 +1194,7 @@ export default function HistoryPage() {
                       </div>
                       <div className="col-span-1 md:col-span-2">
                         <p className="text-sm text-gray-500">メールアドレス</p>
-                        <p className="text-gray-900">{selectedMember.email}</p>
+                        <p className="text-gray-900">{selectedMember.email || "未登録"}</p>
                       </div>
                     </div>
                   </div>

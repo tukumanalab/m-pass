@@ -47,7 +47,7 @@ export async function GET() {
 
       // 各フィールドをCSV形式に変換（カンマや改行を含む場合はダブルクォートで囲む）
       const fields = [
-        member.email,
+        member.email ?? '',
         member.name,
         member.affiliation,
         member.affiliation_detail || '',

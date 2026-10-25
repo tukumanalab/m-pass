@@ -68,7 +68,7 @@ export async function PUT(request: NextRequest) {
         const body = await request.json();
         const {
             name,
-            email,
+            email: inputEmail,
             affiliation,
             affiliationDetail = null,
             password,
@@ -80,17 +80,9 @@ export async function PUT(request: NextRequest) {
             password?: string;
         };
 
-        if (!name || !email || !affiliation) {
+        if (!name || !affiliation) {
             return NextResponse.json(
-                { error: '名前、所属、メールアドレスは必須です' },
-                { status: 400 }
-            );
-        }
-
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
-            return NextResponse.json(
-                { error: 'メールアドレスの形式が正しくありません' },
+                { error: '名前、所属は必須です' },
                 { status: 400 }
             );
         }
@@ -104,8 +96,28 @@ export async function PUT(request: NextRequest) {
             );
         }
 
-        // メールアドレスが変更される場合は確認メールを送信
-        const emailChanged = email !== member.email;
+        // メール未登録のメンバーのみ、メールアドレス未入力での保存を許可する
+        const hasNoEmail = !member.email;
+        const email = (inputEmail ?? '').trim();
+        if (!email && !hasNoEmail) {
+            return NextResponse.json(
+                { error: '名前、所属、メールアドレスは必須です' },
+                { status: 400 }
+            );
+        }
+
+        if (email) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                return NextResponse.json(
+                    { error: 'メールアドレスの形式が正しくありません' },
+                    { status: 400 }
+                );
+            }
+        }
+
+        // メールアドレスが変更される場合は確認メールを送信（未入力の場合は変更なし）
+        const emailChanged = email !== '' && email !== member.email;
         
         if (emailChanged) {
             // 既存の保留中のメールアドレス変更申請を削除
@@ -193,7 +205,7 @@ export async function PUT(request: NextRequest) {
 
         updateMemberProfile(session.memberId, {
             name,
-            email,
+            email: member.email ?? '',
             affiliation,
             affiliationDetail,
             passwordHash,
@@ -201,7 +213,7 @@ export async function PUT(request: NextRequest) {
 
         await createMemberSession({
             memberId: session.memberId,
-            email,
+            email: member.email ?? '',
             name,
         });
 

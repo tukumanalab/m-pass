@@ -134,7 +134,7 @@ sequenceDiagram
 
 | ステータス | ボディ | 説明 |
 |---|---|---|
-| `200` | `{ success: true, action: "checkin" \| "checkout" \| "checkout_extension", checkIn: { id, memberId, memberName, affiliation, email, stayDurationMinutes } }` | 処理成功（action に応じてチェックイン/チェックアウト/チェックアウト延長が決定） |
+| `200` | `{ success: true, action: "checkin" \| "checkout" \| "checkout_extension", checkIn: { id, memberId, memberName, affiliation, email, stayDurationMinutes } }` | 処理成功（`checkIn.email` はメール未登録のメンバーでは空文字になり得る。action に応じてチェックイン/チェックアウト/チェックアウト延長が決定） |
 | `404` | `{ error: "未登録のNFCカードです", unregisteredNfcId: "..." }` | 未登録カード |
 | `429` | `{ error: "このメンバーは既にチェックイン済みです。" }` | 再チェックイン制限内（前回のチェックインから一定時間未満でチェックインしようとした場合） |
 | `400` | `{ error: "メンバーIDが読み取れませんでした" }` | パラメータ不足 |

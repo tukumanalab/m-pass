@@ -375,7 +375,7 @@ db.close();
 | name               | TEXT     | 氏名                         |
 | affiliation        | TEXT     | 所属（必須）                 |
 | affiliation_detail | TEXT     | 所属詳細（任意）             |
-| email              | TEXT     | メールアドレス（必須）       |
+| email              | TEXT     | メールアドレス（任意。空文字はメール未登録） |
 | password_hash      | TEXT     | パスワードハッシュ（bcrypt） |
 | created_at         | DATETIME | 登録日時                     |
 

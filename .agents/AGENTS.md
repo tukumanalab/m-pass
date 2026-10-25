@@ -69,6 +69,8 @@ pm2 restart m-pass   # 再起動
 - 所属情報（affiliation/affiliation_detail）を保存
 - 組織内ID（organization_member_id。学生番号や職員番号など）を保存
 - パスワードハッシュ（bcrypt、saltRounds=10）を保存
+- メールアドレス（`email`）は NOT NULL だが、メール無しメンバーは空文字 `''` で保存する（管理画面の「メンバー追加」「編集」ではメール任意。パスワードは管理者入力が必須で、`email_verified=1` で登録される）
+- メール無しメンバーの制約: パスワードリセット・メール確認・マイページ案内メールなどメールに依存する機能は利用できない。QR/NFC 入退室とマイページログイン（会員ID＋パスワード）は利用可能。マイページ編集でメールを入力すると通常のメール変更確認フローで登録できる。公開の自己登録（`/api/members/register`）と CSV 一括登録の挙動は従来どおり
 - メール検証状態（`email_verified` 0/1, `verification_token`, `verification_expires_at`）を保存
 - 登録時に 4 桁の ID 生成（年+英字+数字+英字）
 - **未チェックイン自動削除**: 新規登録から24時間以内にチェックイン履歴が1件もないメンバーは、クリーンアップ関数（`deleteUncheckedInExpiredMembers`）により自動削除される（アンケート回答含む）。
