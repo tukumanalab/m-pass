@@ -561,3 +561,56 @@ export async function sendMyPageAnnouncementEmail(
         // マイページ案内メールの送信失敗は致命的ではないため、エラーをログに記録するのみ
     }
 }
+
+/**
+ * テストメールを送信（管理画面からの送信設定確認用）
+ * 送信に失敗した場合は Resend からのエラー内容を含む例外を投げる
+ */
+export async function sendTestEmail(to: string): Promise<void> {
+    const sentAt = new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
+
+    const text = [
+        'これはメール送信設定の確認用テストメールです。',
+        '',
+        `送信日時: ${sentAt}`,
+        `送信元: ${MAIL_FROM}`,
+        `アプリケーションURL: ${APP_URL}`,
+        '',
+        'このメールが届いていれば、メール送信設定は正常に動作しています。',
+        '',
+        getTextEmailFooter(),
+    ].join('\n');
+
+    const mailOptions: MailOptions = {
+        to,
+        subject: `[${APP_NAME}] テストメール`,
+        text,
+        html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #333;">テストメール</h2>
+        <p>これはメール送信設定の確認用テストメールです。</p>
+        <div style="background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
+          <table style="width: 100%;">
+            <tr>
+              <td style="padding: 8px 0; color: #666;">送信日時:</td>
+              <td style="padding: 8px 0; font-weight: bold;">${sentAt}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #666;">送信元:</td>
+              <td style="padding: 8px 0; font-weight: bold;">${MAIL_FROM}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #666;">アプリケーションURL:</td>
+              <td style="padding: 8px 0; font-weight: bold;">${APP_URL}</td>
+            </tr>
+          </table>
+        </div>
+        <p>このメールが届いていれば、メール送信設定は正常に動作しています。</p>
+        ${getEmailFooter()}
+      </div>
+    `,
+    };
+
+    await sendMail(mailOptions);
+    console.log(`Test email sent to ${to}`);
+}

@@ -38,6 +38,9 @@ export default function SettingsPage() {
   const [hasSuccessSound, setHasSuccessSound] = useState(false);
   const [hasErrorSound, setHasErrorSound] = useState(false);
   const [imageRefreshKey, setImageRefreshKey] = useState(Date.now());
+  const [testMailTo, setTestMailTo] = useState("");
+  const [testMailSending, setTestMailSending] = useState(false);
+  const [testMailResult, setTestMailResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [previewImages, setPreviewImages] = useState<{
     logo?: string;
     favicon?: string;
@@ -283,6 +286,26 @@ export default function SettingsPage() {
   }, [authChecked]);
 
   // 設定保存
+  const handleSendTestMail = async () => {
+    if (!testMailTo) return;
+    setTestMailSending(true);
+    setTestMailResult(null);
+    try {
+      const response = await fetch(apiUrl("/api/admin/settings/test-mail"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to: testMailTo }),
+      });
+      const data = await response.json();
+      setTestMailResult({ ok: Boolean(data.success), message: data.message || "不明なエラー" });
+    } catch (error) {
+      console.error("Test mail error:", error);
+      setTestMailResult({ ok: false, message: "テストメールの送信に失敗しました" });
+    } finally {
+      setTestMailSending(false);
+    }
+  };
+
   const handleSave = async () => {
     try {
       setSaving(true);
@@ -1090,6 +1113,42 @@ export default function SettingsPage() {
                 {saving ? "保存中..." : "設定を保存"}
               </button>
             </div>
+          </div>
+
+          {/* テストメール送信 */}
+          <div className="mt-6 bg-white shadow rounded-lg p-6">
+            <h2 className="text-lg font-medium text-gray-900 mb-4">
+              メール送信テスト
+            </h2>
+            <p className="text-sm text-gray-600 mb-3">
+              サーバーのメール送信設定（Resend）が正しく動作するかを確認します。入力したアドレス宛にテストメールを送信します。
+            </p>
+            <div className="flex gap-3 flex-col sm:flex-row">
+              <input
+                type="email"
+                value={testMailTo}
+                onChange={(e) => setTestMailTo(e.target.value)}
+                placeholder="送信先メールアドレス"
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              />
+              <button
+                type="button"
+                onClick={handleSendTestMail}
+                disabled={testMailSending || !testMailTo}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {testMailSending ? "送信中..." : "テストメールを送信"}
+              </button>
+            </div>
+            {testMailResult && (
+              <p
+                className={`mt-3 text-sm break-all ${
+                  testMailResult.ok ? "text-green-700" : "text-red-700"
+                }`}
+              >
+                {testMailResult.message}
+              </p>
+            )}
           </div>
 
           {/* インポート/エクスポート */}
