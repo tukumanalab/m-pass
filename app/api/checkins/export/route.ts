@@ -14,6 +14,7 @@ export async function GET(request: NextRequest) {
     const affiliation = searchParams.get('affiliation') || undefined;
     const startDate = searchParams.get('startDate') || undefined;
     const endDate = searchParams.get('endDate') || undefined;
+    const search = searchParams.get('search')?.trim() || undefined;
 
     // レポートモードの場合は昇順（古い順）で取得、通常エクスポートは降順（新しい順）
     const history = getCheckInHistory(
@@ -22,7 +23,8 @@ export async function GET(request: NextRequest) {
       isReport ? affiliation : undefined,
       isReport ? startDate : undefined,
       isReport ? endDate : undefined,
-      isReport // sortAsc: レポート時は昇順 (true)
+      isReport, // sortAsc: レポート時は昇順 (true)
+      isReport ? search : undefined
     ) as Array<{
       id: number;
       member_id: number;
@@ -32,11 +34,12 @@ export async function GET(request: NextRequest) {
       check_out_time: string | null;
       name?: string | null;
       organization_member_id?: string | null;
+      affiliation_detail?: string | null;
     }>;
 
     // CSVヘッダー
     const headers = isReport
-      ? ['入室時刻', '退室時刻', '滞在時間', 'ID', '所属', '所属ID', '氏名']
+      ? ['入室時刻', '退室時刻', '滞在時間', 'ID', '所属', '所属詳細', '所属ID', '氏名']
       : ['timestamp', 'checkout_time', 'stay_duration_minutes', 'member_id', 'affiliation'];
 
     // CSVデータ行を生成
@@ -85,6 +88,7 @@ export async function GET(request: NextRequest) {
           stayDuration,
           item.member_id_str || '',
           item.affiliation || '',
+          item.affiliation_detail || '',
           item.organization_member_id || '',
           item.name || '',
         ];
@@ -130,6 +134,9 @@ export async function GET(request: NextRequest) {
       const parts: string[] = ['report'];
       if (affiliation) {
         parts.push(affiliation);
+      }
+      if (search) {
+        parts.push(search);
       }
       if (startDate && endDate) {
         const startYear = startDate.slice(0, 4);

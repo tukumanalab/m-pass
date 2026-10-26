@@ -21,9 +21,10 @@ export async function GET(request: NextRequest) {
     const affiliation = searchParams.get('affiliation') || undefined;
     const startDate = searchParams.get('startDate') || undefined;
     const endDate = searchParams.get('endDate') || undefined;
+    const search = searchParams.get('search')?.trim() || undefined;
 
-    const total = getCheckInHistoryCount(affiliation, startDate, endDate);
-    const history = getCheckInHistory(limit, offset, affiliation, startDate, endDate);
+    const total = getCheckInHistoryCount(affiliation, startDate, endDate, search);
+    const history = getCheckInHistory(limit, offset, affiliation, startDate, endDate, false, search);
     const totalPages = Math.ceil(total / limit) || 1;
 
     return NextResponse.json({

@@ -54,6 +54,10 @@ export default function HistoryPage() {
   const [selectedAffiliation, setSelectedAffiliation] = useState<string>("");
   const [affiliations, setAffiliations] = useState<string[]>([]);
 
+  // 文字列検索のステート（searchInput: 入力中、searchQuery: 適用済み）
+  const [searchInput, setSearchInput] = useState<string>("");
+  const [searchQuery, setSearchQuery] = useState<string>("");
+
   // ページネーションのステート
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [limit, setLimit] = useState<number>(50);
@@ -121,7 +125,7 @@ export default function HistoryPage() {
     if (authChecked) {
       fetchHistory();
     }
-  }, [authChecked, selectedAffiliation, filterStartDate, filterEndDate, currentPage, limit]);
+  }, [authChecked, selectedAffiliation, searchQuery, filterStartDate, filterEndDate, currentPage, limit]);
 
   const fetchHistory = async () => {
     try {
@@ -130,6 +134,9 @@ export default function HistoryPage() {
       params.append("limit", String(limit));
       if (selectedAffiliation) {
         params.append("affiliation", selectedAffiliation);
+      }
+      if (searchQuery) {
+        params.append("search", searchQuery);
       }
       if (filterStartDate) {
         params.append("startDate", filterStartDate);
@@ -271,6 +278,9 @@ export default function HistoryPage() {
     if (selectedAffiliation) {
       params.append("affiliation", selectedAffiliation);
     }
+    if (searchQuery) {
+      params.append("search", searchQuery);
+    }
     if (filterStartDate) {
       params.append("startDate", filterStartDate);
     }
@@ -278,6 +288,18 @@ export default function HistoryPage() {
       params.append("endDate", filterEndDate);
     }
     window.location.href = apiUrl(`/api/checkins/export?${params.toString()}`);
+  };
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSearchQuery(searchInput.trim());
+    setCurrentPage(1);
+  };
+
+  const handleClearSearch = () => {
+    setSearchInput("");
+    setSearchQuery("");
+    setCurrentPage(1);
   };
 
   const handleDeleteByDateRange = async () => {
@@ -556,6 +578,30 @@ export default function HistoryPage() {
                 </option>
               ))}
             </select>
+            <form onSubmit={handleSearch} className="flex items-center gap-2">
+              <input
+                type="text"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                placeholder="名前、所属、所属詳細、メール、ID等で検索"
+                className="w-64 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm bg-white text-gray-900"
+              />
+              <button
+                type="submit"
+                className="px-3 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm"
+              >
+                検索
+              </button>
+              {(searchInput || searchQuery) && (
+                <button
+                  type="button"
+                  onClick={handleClearSearch}
+                  className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm"
+                >
+                  クリア
+                </button>
+              )}
+            </form>
           </div>
 
           <div className="flex items-center gap-2">

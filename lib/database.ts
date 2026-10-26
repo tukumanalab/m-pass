@@ -580,21 +580,9 @@ export function getTodayCheckIns() {
   return stmt.all();
 }
 
-// 利用履歴を取得（ページネーション付き、所属情報はチェックイン時に保存された値を使用、所属および日付範囲による絞り込みが可能、ソート順指定対応）
-export function getCheckInHistory(limit = 50, offset = 0, affiliation?: string, startDate?: string, endDate?: string, sortAsc = false) {
-  let query = `
-    SELECT
-      c.id,
-      c.member_id,
-      c.member_id_str,
-      c.affiliation,
-      c.check_in_time,
-      c.check_out_time,
-      m.name,
-      m.organization_member_id
-    FROM checkins c
-    LEFT JOIN members m ON c.member_id_str = m.member_id
-  `;
+// 利用履歴の絞り込み条件を組み立てる（所属・日付範囲・文字列検索）
+// 文字列検索の対象はメンバー管理の検索と同じ（名前、所属、所属詳細、メール、メンバーID、NFC ID、組織内ID）
+function buildCheckInHistoryConditions(affiliation?: string, startDate?: string, endDate?: string, search?: string) {
   const conditions: string[] = [];
   const params: any[] = [];
 
@@ -612,6 +600,38 @@ export function getCheckInHistory(limit = 50, offset = 0, affiliation?: string, 
     conditions.push(`DATE(datetime(c.check_in_time, '+9 hours')) <= DATE(?)`);
     params.push(endDate);
   }
+
+  if (search) {
+    // NFC IDはJOINすると行が重複するためEXISTSで判定
+    conditions.push(`(
+      m.name LIKE ? OR m.affiliation LIKE ? OR c.affiliation LIKE ? OR m.affiliation_detail LIKE ?
+      OR m.email LIKE ? OR c.member_id_str LIKE ? OR m.organization_member_id LIKE ?
+      OR EXISTS (SELECT 1 FROM member_nfc_cards n WHERE n.member_id = m.id AND n.nfc_id LIKE ?)
+    )`);
+    const pattern = `%${search}%`;
+    params.push(pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern);
+  }
+
+  return { conditions, params };
+}
+
+// 利用履歴を取得（ページネーション付き、所属情報はチェックイン時に保存された値を使用、所属・日付範囲・文字列検索による絞り込みが可能、ソート順指定対応）
+export function getCheckInHistory(limit = 50, offset = 0, affiliation?: string, startDate?: string, endDate?: string, sortAsc = false, search?: string) {
+  let query = `
+    SELECT
+      c.id,
+      c.member_id,
+      c.member_id_str,
+      c.affiliation,
+      c.check_in_time,
+      c.check_out_time,
+      m.name,
+      m.organization_member_id,
+      m.affiliation_detail
+    FROM checkins c
+    LEFT JOIN members m ON c.member_id_str = m.member_id
+  `;
+  const { conditions, params } = buildCheckInHistoryConditions(affiliation, startDate, endDate, search);
 
   if (conditions.length > 0) {
     query += ` WHERE ` + conditions.join(' AND ');
@@ -626,28 +646,13 @@ export function getCheckInHistory(limit = 50, offset = 0, affiliation?: string, 
 }
 
 // 利用履歴の総件数を取得（絞り込み条件対応）
-export function getCheckInHistoryCount(affiliation?: string, startDate?: string, endDate?: string): number {
+export function getCheckInHistoryCount(affiliation?: string, startDate?: string, endDate?: string, search?: string): number {
   let query = `
     SELECT COUNT(*) as count
     FROM checkins c
+    LEFT JOIN members m ON c.member_id_str = m.member_id
   `;
-  const conditions: string[] = [];
-  const params: any[] = [];
-
-  if (affiliation) {
-    conditions.push(`c.affiliation = ?`);
-    params.push(affiliation);
-  }
-
-  if (startDate) {
-    conditions.push(`DATE(datetime(c.check_in_time, '+9 hours')) >= DATE(?)`);
-    params.push(startDate);
-  }
-
-  if (endDate) {
-    conditions.push(`DATE(datetime(c.check_in_time, '+9 hours')) <= DATE(?)`);
-    params.push(endDate);
-  }
+  const { conditions, params } = buildCheckInHistoryConditions(affiliation, startDate, endDate, search);
 
   if (conditions.length > 0) {
     query += ` WHERE ` + conditions.join(' AND ');
