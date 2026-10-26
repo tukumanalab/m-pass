@@ -66,31 +66,30 @@ export default function PrivacyPolicyPage() {
         </section>
 
         <section className="mb-8 bg-blue-50 p-6 rounded-lg">
-          <h2 className="text-2xl font-semibold mb-4 text-gray-800">Google サービスとの連携</h2>
+          <h2 className="text-2xl font-semibold mb-4 text-gray-800">外部メール配信サービスとの連携</h2>
           <p className="mb-4 text-gray-700 leading-relaxed">
-            本サービスは、メール送信機能のために <strong>Gmail API</strong> を使用します：
+            本サービスは、メール送信機能のために <strong>Resend</strong> を使用します：
           </p>
           
           <div className="mb-4">
-            <h3 className="text-xl font-medium mb-3 text-gray-800">使用するGoogleサービス</h3>
+            <h3 className="text-xl font-medium mb-3 text-gray-800">使用する外部サービス</h3>
             <ul className="mb-4 ml-6 text-gray-700 space-y-2">
-              <li>• <strong>Gmail API</strong>: 確認メールやパスワードリセットメール等の送信</li>
+              <li>• <strong>Resend</strong>: 確認メールやパスワードリセットメール等の送信</li>
             </ul>
           </div>
 
           <div className="mb-4">
-            <h3 className="text-xl font-medium mb-3 text-gray-800">アクセスするGoogleデータ</h3>
+            <h3 className="text-xl font-medium mb-3 text-gray-800">外部サービスに渡すデータ</h3>
             <ul className="mb-4 ml-6 text-gray-700 space-y-2">
-              <li>• <strong>送信するメールのコンテンツ</strong>: 当団体が作成するメール内容のみ</li>
-              <li>• <strong className="text-red-600">注意</strong>: ユーザーのGmailアカウントやメール内容にはアクセスしません</li>
+              <li>• <strong>送信先メールアドレスと送信するメールのコンテンツ</strong>: 当団体が作成するメール内容のみ</li>
+              <li>• <strong className="text-red-600">注意</strong>: ユーザーのメールアカウントやメール内容にはアクセスしません</li>
             </ul>
           </div>
 
           <div className="mb-4">
             <h3 className="text-xl font-medium mb-3 text-gray-800">認証とセキュリティ</h3>
             <ul className="mb-4 ml-6 text-gray-700 space-y-2">
-              <li>• OAuth 2.0による安全な認証</li>
-              <li>• 最小限の権限（メール送信のみ）でのアクセス</li>
+              <li>• APIキーによる認証（メール送信権限のみ）</li>
               <li>• 送信メールはシステムに保存されません</li>
             </ul>
           </div>
@@ -112,7 +111,7 @@ export default function PrivacyPolicyPage() {
             以下のサービスプロバイダーと必要最小限の情報を共有する場合があります：
           </p>
           <ul className="mb-4 ml-6 text-gray-700 space-y-2">
-            <li>• <strong>Google LLC</strong>: メール送信サービス（Gmail API）</li>
+            <li>• <strong>Resend, Inc.</strong>: メール送信サービス（Resend）</li>
             <li>• <strong>クラウドホスティングプロバイダー</strong>: サーバー運用のため</li>
           </ul>
         </section>

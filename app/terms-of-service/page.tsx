@@ -69,11 +69,11 @@ export default function TermsOfServicePage() {
             本サービスは、機能向上のため以下の外部サービスと連携します：
           </p>
           
-          <h3 className="text-xl font-medium mb-3 text-gray-800">Google サービス</h3>
+          <h3 className="text-xl font-medium mb-3 text-gray-800">メール配信サービス</h3>
           <ul className="mb-4 ml-6 text-gray-700 space-y-2">
-            <li>• <strong>Gmail API</strong>: 会員登録確認メール、パスワードリセットメール等の送信</li>
+            <li>• <strong>Resend</strong>: 会員登録確認メール、パスワードリセットメール等の送信</li>
             <li>• <strong>使用目的</strong>: システムからユーザーへの重要な通知の配信</li>
-            <li>• <strong>データアクセス</strong>: ユーザーの個人的なGoogleアカウント情報にはアクセスしません</li>
+            <li>• <strong>データアクセス</strong>: ユーザーのメールアカウント情報にはアクセスしません</li>
           </ul>
 
           <h3 className="text-xl font-medium mb-3 text-gray-800">連携に関する同意</h3>

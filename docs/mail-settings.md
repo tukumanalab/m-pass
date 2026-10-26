@@ -1,6 +1,6 @@
 # メール送信・認証設定仕様書
 
-本ドキュメントは、M-Pass アプリケーションにおけるメール送信機能の設計、現在の運用設定、環境変数、および将来的な独自ドメイン移行時のメール認証（SPF / DKIM / DMARC）設定手順をまとめた仕様書です。
+本ドキュメントは、M-Pass アプリケーションにおけるメール送信機能の設計、現在の運用設定、環境変数、およびメール認証（SPF / DKIM / DMARC）の設定内容をまとめた仕様書です。
 
 ---
 
@@ -9,15 +9,15 @@
 M-Pass では、新規登録時のメールアドレス確認やパスワードリセット、マイページ案内などのメール送信を行っています。
 
 ### 送信方式の概要
-- **送信方式**: Gmail API (OAuth 2.0) + [lib/mailer.ts](file:///Users/ky/Documents/workspace/m-pass/lib/mailer.ts)
-- **ライブラリ**: `nodemailer` + `googleapis` (OAuth2 クライアント)
-- **差出人（From ヘッダー）**: `"${APP_NAME}" <${GMAIL_USER}>`（未設定時は `"メンバー登録システム" <${GMAIL_USER}>`）
-- **返信先（Reply-To ヘッダー）**: `${CONTACT_EMAIL}`（未設定時は `${GMAIL_USER}`）
-- **現在の送信元アドレス**: `tukumanalab@gmail.com`（環境変数 `GMAIL_USER` にて指定）
+- **送信方式**: [Resend](https://resend.com/) の HTTP API + [lib/mailer.ts](../lib/mailer.ts)
+- **ライブラリ**: `resend`（公式 Node.js SDK）
+- **差出人（From ヘッダー）**: `${APP_NAME} <${MAIL_FROM}>`（`APP_NAME` 未設定時は `メンバー登録システム <${MAIL_FROM}>`）
+- **返信先（Reply-To ヘッダー）**: `${CONTACT_EMAIL}`（未設定時は `${MAIL_FROM}`）
+- **送信元アドレス**: 環境変数 `MAIL_FROM` にて指定。現在は `tukumana.si.aoyama.ac.jp` ドメインのアドレスを使用（Resend でドメイン認証済み）
 - **Web サーバー**: `https://tukumana.si.aoyama.ac.jp/members` (Ubuntu + PM2 + Nginx)
 
 > [!NOTE]
-> 現在の運用では送信元に Gmail アドレス（`tukumanalab@gmail.com`）を使用しているため、Google 側のインフラによって **SPF / DKIM（gmail.com ドメイン）が自動的に署名・認証**されます。そのため、現行の送信元アドレスを使用する限り、DNS サーバーへの追加 TXT レコード登録なしで受信サーバー側での認証（PASS）が満たされます。
+> 送信元ドメイン `tukumana.si.aoyama.ac.jp` は Resend 側で **Verified** 済みです。`MAIL_FROM` にはこのドメインのアドレスを指定してください。別ドメインから送信する場合や DNS レコードを再設定する場合は第 4 章を参照してください。
 
 ---
 
@@ -60,11 +60,9 @@ APP_HOME_URL=https://tukumana.si.aoyama.ac.jp/members
 CONTACT_EMAIL=tukumanalab@gmail.com
 TERMS_OF_SERVICE_URL=https://tukumana.si.aoyama.ac.jp/members/api/terms-of-service-html
 
-# Gmail OAuth2 設定（メール送信用）
-GMAIL_USER=tukumanalab@gmail.com
-GMAIL_CLIENT_ID=xxxxx.apps.googleusercontent.com
-GMAIL_CLIENT_SECRET=GOCSPX-xxxxx
-GMAIL_REFRESH_TOKEN=1//xxxxx-yyyyy-zzzzz
+# Resend 設定（メール送信用）
+RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxxxxxx
+MAIL_FROM=noreply@tukumana.si.aoyama.ac.jp
 ```
 
 ### 設定確認コマンド
@@ -77,19 +75,11 @@ node scripts/check-env.js
 
 ## 4. メール認証（SPF / DKIM / DMARC）設定
 
-### 4-1. 現行構成（`@gmail.com` 送信）の場合
-- 送信元が `@gmail.com` ドメインである場合、Gmail の SMTP/API 経由で送信されるメールには Google の DKIM 署名（`d=gmail.com`）および Google の SPF が自動的に適用されます。
-- 追加の DNS 設定は不要です。
-
----
-
-### 4-2. 独自ドメイン（`@tukumana.si.aoyama.ac.jp`）から送信する場合
-
-将来的に送信元アドレス（`GMAIL_USER`）を `noreply@tukumana.si.aoyama.ac.jp` などの独自ドメインに変更し、Google Workspace を配信基盤として利用する場合の手順です。
-受信サーバー側で **SPF: PASS / DKIM: PASS / DMARC: PASS** を達成するために、DNS レコードの設定が必要となります。
+`tukumana.si.aoyama.ac.jp` は Resend 側でドメイン登録・認証済みです。以下は、別ドメインを追加する場合や DNS レコードを再設定する場合の手順です。
+受信サーバー側で **SPF: PASS / DKIM: PASS / DMARC: PASS** を達成するための手順です。
 
 #### 必要権限
-- Google Workspace 特権管理者権限（Google 管理コンソールへのアクセス）
+- Resend アカウントの管理権限
 - `tukumana.si.aoyama.ac.jp` の DNS レコード編集権限（学内ネームサーバー管理責任者）
 
 #### DNS ホスト名の入力仕様について
@@ -98,50 +88,33 @@ DNS サービスや学内ネームサーバー（青山学院大学情報メデ�
 - **パターンB（親ゾーンからの相対名指定 / 親が `si.aoyama.ac.jp` の場合）**: サブドメイン部分のみを記述（例: `tukumana`）
 - **パターンC（独立したゾーン `tukumana.si.aoyama.ac.jp` を管理している場合）**: apex（ゾーン直下）は `@` または空欄
 
-#### DNS レコード設定クイックリファレンス
+#### 設定ステップ
 
-| 認証規格 | ホスト名（FQDN指定の場合） | ホスト名（tukumana ゾーン管理の場合） | 種別 | TTL | 設定値（Value） |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **SPF** | `tukumana.si.aoyama.ac.jp` | `@`（または空欄） | TXT | 3600 | `v=spf1 include:_spf.google.com ~all` |
-| **DKIM** | `google._domainkey.tukumana.si.aoyama.ac.jp` | `google._domainkey` | TXT | 3600 | `v=DKIM1; k=rsa; p=Google管理画面で生成した公開鍵` |
-| **DMARC** | `_dmarc.tukumana.si.aoyama.ac.jp` | `_dmarc` | TXT | 3600 | `v=DMARC1; p=none; rua=mailto:dmarc-reports@tukumana.si.aoyama.ac.jp` |
+##### Step 1: Resend にドメインを追加
+1. [Resend ダッシュボード](https://resend.com/domains) で **[Add Domain]** をクリック。
+2. ドメイン名に `tukumana.si.aoyama.ac.jp` を入力し、リージョンを選択（通常は Tokyo または US East）。
+3. 画面に SPF 用の MX / TXT レコードと DKIM 用の TXT レコードが表示されます。
+
+##### Step 2: DNS レコードの登録
+Resend が表示する値をそのまま DNS に登録します。代表的なレコードは以下の通りです（実際の値は Resend の画面に従ってください）。
+
+| 認証規格 | ホスト名（例） | 種別 | 設定値（Value） |
+| :--- | :--- | :--- | :--- |
+| **SPF** | `send.tukumana.si.aoyama.ac.jp` | MX | `feedback-smtp.<region>.amazonses.com`（優先度 10） |
+| **SPF** | `send.tukumana.si.aoyama.ac.jp` | TXT | `v=spf1 include:amazonses.com ~all` |
+| **DKIM** | `resend._domainkey.tukumana.si.aoyama.ac.jp` | TXT | `p=` で始まる公開鍵（Resend の画面に表示） |
+| **DMARC** | `_dmarc.tukumana.si.aoyama.ac.jp` | TXT | `v=DMARC1; p=none; rua=mailto:dmarc-reports@tukumana.si.aoyama.ac.jp` |
 
 > [!WARNING]
-> - 1つのドメインに対して **SPF レコードは必ず1行** です。すでに他の送信元がある場合は、1行の中に `include:` を追加してください。
-> - 親ドメイン `si.aoyama.ac.jp` では Microsoft 365 (`spf.protection.outlook.com`) が使用されています。サブドメイン `tukumana.si.aoyama.ac.jp` を独自に定義する場合は、親ドメインの設定と競合しないようサブドメインのレコードとして登録してください。
+> - Resend の SPF はサブドメイン `send.` 配下に設定するため、親ドメインの既存 SPF レコード（`si.aoyama.ac.jp` の Microsoft 365 設定など）とは競合しません。
+> - 1つのホスト名に対して **SPF レコードは必ず1行** です。
 
-#### 詳細設定ステップ
-
-##### Step 1: SPF レコードの設定
-1. DNS 管理画面で TXT レコードを追加します。
-   - **ホスト名**: `tukumana.si.aoyama.ac.jp`（または `@` / 空欄）
-   - **種別**: `TXT`
-   - **値**: `v=spf1 include:_spf.google.com ~all`
-2. 反映確認:
+##### Step 3: 認証の確認
+1. DNS 反映後、Resend ダッシュボードで **[Verify DNS Records]** をクリック。
+2. ステータスが **Verified** になれば完了です。
+3. 反映確認コマンド:
    ```bash
-   dig TXT tukumana.si.aoyama.ac.jp +short
-   ```
-
-##### Step 2: DKIM レコードの生成・登録・有効化
-1. [Google 管理コンソール](https://admin.google.com) に特権管理者でログイン。
-2. **[メニュー]** > **[アプリ]** > **[Google Workspace]** > **[Gmail]** > **[メールの認証]** を開く。
-3. ドメイン `tukumana.si.aoyama.ac.jp` を選択し、**[新しいレコードを生成]** をクリック。
-   - キー長: `2048`（DNSが非対応の場合は `1024`）
-   - プレフィックスセレクタ: `google`
-4. 表示された TXT レコード（ホスト名: `google._domainkey`、値: `v=DKIM1; k=rsa; p=...`）を DNS 管理画面に登録。
-5. 反映確認:
-   ```bash
-   dig TXT google._domainkey.tukumana.si.aoyama.ac.jp +short
-   ```
-6. 反映後、Google 管理コンソールの **[認証を開始]** をクリックし、ステータスが「メールを DKIM で認証しています」になることを確認。
-
-##### Step 3: DMARC レコードの設定
-1. DNS 管理画面で TXT レコードを追加します。
-   - **ホスト名**: `_dmarc.tukumana.si.aoyama.ac.jp`（または `_dmarc`）
-   - **種別**: `TXT`
-   - **値**: `v=DMARC1; p=none; rua=mailto:dmarc-reports@tukumana.si.aoyama.ac.jp`
-2. 反映確認:
-   ```bash
+   dig TXT resend._domainkey.tukumana.si.aoyama.ac.jp +short
    dig TXT _dmarc.tukumana.si.aoyama.ac.jp +short
    ```
 
@@ -167,13 +140,14 @@ DMARC: 'PASS'
 
 ## 6. トラブルシューティング
 
-### Q1: `Error: Failed to get Gmail access token` が発生する
-- **原因**: OAuth2 のリフレッシュトークンが無効化されている、または環境変数が未設定です。
+### Q1: `Error: Resend is not configured` または `Resend error: ...` が発生する
+- **原因**: `RESEND_API_KEY` / `MAIL_FROM` が未設定、API キーが無効、または `MAIL_FROM` のドメインが Resend で未認証です。
 - **対処**:
   1. `node scripts/check-env.js` で各環境変数が `SET` になっているか確認。
-  2. [GMAIL-OAUTH2-SETUP.md](file:///Users/ky/Documents/workspace/m-pass/GMAIL-OAUTH2-SETUP.md) の手順に従い、Google OAuth 2.0 Playground で新しいリフレッシュトークンを再取得して `.env` を更新。
-  3. アプリケーション（PM2 等）を再起動。
+  2. [Resend ダッシュボード](https://resend.com/api-keys) で API キーが有効か、[Domains](https://resend.com/domains) で `MAIL_FROM` のドメインが Verified かを確認。
+  3. エラーログの `Resend error:` 以降に Resend からのエラー内容（例: `validation_error`）が出力されるので内容を確認。
+  4. アプリケーション（PM2 等）を再起動。
 
 ### Q2: 独自ドメイン移行時に DMARC が FAIL になる
 - **原因**: メールヘッダーの `From` ドメインと DKIM 署名（`d=` タグ）または SPF ドメインが一致（アライメント）していません。
-- **対処**: `lib/mailer.ts` の `from` 設定と、環境変数 `GMAIL_USER` のドメインが DNS 設定を行ったドメインと完全に一致しているか確認してください。
+- **対処**: 環境変数 `MAIL_FROM` のドメインが Resend で認証したドメインと完全に一致しているか確認してください。
