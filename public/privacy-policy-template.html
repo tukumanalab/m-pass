@@ -101,23 +101,22 @@
         </section>
 
         <div class="highlight">
-            <h2>4. Google サービスとの連携</h2>
-            <h3>Gmail API の使用</h3>
+            <h2>4. 外部メール配信サービスとの連携</h2>
+            <h3>Resend の使用</h3>
             <p>
-                本サービスは、<strong>Gmail API</strong>を使用してメール送信機能を提供します：
+                本サービスは、<strong>Resend</strong>を使用してメール送信機能を提供します：
             </p>
             <ul>
                 <li><strong>目的</strong>: 会員登録確認メール、パスワードリセットメールの送信</li>
                 <li><strong>アクセス範囲</strong>: 当団体が作成するメール内容の送信のみ</li>
-                <li><strong>重要</strong>: ユーザーのGmailアカウントやメール内容にはアクセスしません</li>
-                <li><strong>認証</strong>: OAuth 2.0による安全な認証</li>
-                <li><strong>権限</strong>: 最小限の権限（メール送信のみ）</li>
+                <li><strong>重要</strong>: ユーザーのメールアカウントやメール内容にはアクセスしません</li>
+                <li><strong>認証</strong>: APIキーによる認証（メール送信権限のみ）</li>
             </ul>
             
             <p>
                 <strong>データの取り扱い:</strong>
-                Gmail API経由で送信されるメールは、送信後に当団体のシステムには保存されません。
-                Googleのプライバシーポリシーにも準拠しています。
+                Resend経由で送信されるメールは、送信後に当団体のシステムには保存されません。
+                Resendのプライバシーポリシーにも準拠しています。
             </p>
         </div>
 
@@ -132,7 +131,7 @@
 
             <h3>サービスプロバイダー</h3>
             <ul>
-                <li><strong>Google LLC</strong>: メール送信サービス（Gmail API）</li>
+                <li><strong>Resend, Inc.</strong>: メール送信サービス（Resend）</li>
                 <li>クラウドホスティングプロバイダー: サーバー運用のため</li>
             </ul>
         </section>
@@ -184,19 +183,6 @@
 
         <hr style="margin: 30px 0; border: 1px solid #e5e7eb;">
         
-        <section>
-            <h2>Google OAuth 認証について</h2>
-            <p>
-                本サービスがGoogle OAuth認証をリクエストする理由は、
-                <strong>Gmail API を使用したメール送信機能</strong>のためです。
-                これにより、会員登録の確認メールやパスワードリセット機能を安全に提供できます。
-            </p>
-            <p>
-                ユーザーの個人的なGoogleアカウント情報にはアクセスせず、
-                メール送信に必要な最小限の権限のみを使用します。
-            </p>
-        </section>
-
         <footer style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center; color: #6b7280; font-size: 0.9em;">
             <p>© 2026 Tukumana Lab. </p>
         </footer>

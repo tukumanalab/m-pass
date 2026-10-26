@@ -5,7 +5,7 @@ QR コードを使った利用者の入室管理 Web アプリケーション
 ## 機能
 
 - **メンバー登録**: メンバー情報を登録してカードを発行（QR コード付き）
-  - **即時利用＋メール確認機能**: 登録直後から即座にログイン・マイページ利用が可能。Gmail 経由で確認メールを非同期送信し後から認証完了するフロー（Deferred Verification）に対応
+  - **即時利用＋メール確認機能**: 登録直後から即座にログイン・マイページ利用が可能。Resend 経由で確認メールを非同期送信し後から認証完了するフロー（Deferred Verification）に対応
   - **未チェックイン自動削除機能**: 不要登録防止のため、新規登録後24時間以内にチェックインがないアカウントを自動削除する保護機能を搭載
 - **CSV 一括登録**: CSV ファイルでメンバーデータを一括登録・更新
 - **CSV 一括ダウンロード**: 全メンバーデータを CSV 形式でエクスポート
@@ -24,7 +24,7 @@ QR コードを使った利用者の入室管理 Web アプリケーション
 - **データベース**: SQLite (better-sqlite3)
 - **QR コード**: qrcode (生成), html5-qrcode (スキャン)
 - **認証**: bcrypt (パスワードハッシュ化)
-- **メール送信**: nodemailer + Gmail API (OAuth2)
+- **メール送信**: Resend
 - **デプロイ**: Ubuntu Server + PM2 + Nginx
 
 ## 開発環境のセットアップ
@@ -34,7 +34,7 @@ QR コードを使った利用者の入室管理 Web アプリケーション
 - Node.js 20 以上
 - npm
 - **Docker Desktop for Mac**（Nginx 環境が必要な場合）
-- **Gmail アカウント**（メール送信機能を使う場合）
+- **Resend アカウント**（メール送信機能を使う場合）
 
 ### シンプルな開発（Nginx 不要）
 
@@ -44,7 +44,7 @@ npm install
 
 # 環境変数の設定
 cp .env.example .env
-# .envファイルを編集してGmail設定を追加（後述）
+# .envファイルを編集してResend設定を追加（後述）
 
 # 開発サーバーの起動（Turbopack使用）
 npm run dev
@@ -52,76 +52,34 @@ npm run dev
 
 アプリケーションは http://localhost:3000 で起動します。
 
-### Gmail メール送信の設定（OAuth2）
+### メール送信の設定（Resend）
 
-メンバー登録時のメール確認機能を使用するには、Gmail API の OAuth2 認証が必要です。
+メンバー登録時のメール確認機能やパスワードリセットには [Resend](https://resend.com/) を使用します。
 
-> 📖 **詳細な設定手順**: [GMAIL-OAUTH2-SETUP.md](GMAIL-OAUTH2-SETUP.md) を参照してください。
+> 📖 **詳細な設定手順**: [docs/mail-settings.md](docs/mail-settings.md) を参照してください。
 
-#### 1. Google Cloud Console でプロジェクトを作成
+#### 1. Resend アカウントと API キーを作成
 
-1. [Google Cloud Console](https://console.cloud.google.com/) にアクセス
-2. 新しいプロジェクトを作成（例: "m-pass-mailer"）
-3. プロジェクトを選択
+1. [Resend](https://resend.com/) にサインアップ
+2. 「API Keys」→「Create API Key」で API キーを発行（権限は `Sending access` で十分です）
+3. 発行された `re_` で始まるキーをコピーして保存（再表示できません）
 
-#### 2. Gmail API を有効化
+#### 2. 送信元ドメインを認証
 
-1. 「API とサービス」→「ライブラリ」に移動
-2. "Gmail API" を検索して選択
-3. 「有効にする」をクリック
+1. 「Domains」→「Add Domain」で送信元に使うドメインを追加
+2. 表示された DNS レコード（SPF / DKIM / DMARC）をドメインの DNS に登録
+3. ステータスが「Verified」になるのを待つ
 
-#### 3. OAuth 同意画面を設定
+本番環境の送信元ドメイン `tukumana.si.aoyama.ac.jp` は Resend で認証済みです。別ドメインで試す場合、認証前でも `MAIL_FROM=onboarding@resend.dev` を使えば Resend アカウントのメールアドレス宛てにのみテスト送信できます。
 
-1. 「API とサービス」→「OAuth 同意画面」に移動
-2. ユーザータイプ: **外部** を選択（個人利用の場合）
-3. アプリ情報を入力:
-   - アプリ名: `M-Pass Mailer`
-   - ユーザーサポートメール: あなたのメールアドレス
-   - デベロッパーの連絡先情報: あなたのメールアドレス
-4. スコープは設定不要（デフォルトで OK）
-5. テストユーザーに **メール送信に使用する Gmail アドレス** を追加
-
-#### 4. OAuth 2.0 クライアント ID を作成
-
-1. 「API とサービス」→「認証情報」に移動
-2. 「認証情報を作成」→「OAuth クライアント ID」を選択
-3. アプリケーションの種類: **ウェブアプリケーション**
-4. 名前: `M-Pass Web Client`
-5. 承認済みのリダイレクト URI に以下を追加:
-   ```
-   https://developers.google.com/oauthplayground
-   ```
-6. 「作成」をクリック
-7. **クライアント ID** と **クライアント シークレット** をコピーして保存
-
-#### 5. リフレッシュトークンを取得
-
-1. [OAuth 2.0 Playground](https://developers.google.com/oauthplayground/) にアクセス
-2. 右上の歯車アイコン（Settings）をクリック
-3. 「Use your own OAuth credentials」にチェック
-4. 先ほど作成した **OAuth Client ID** と **OAuth Client secret** を入力
-5. 左側の「Step 1」で以下のスコープを選択:
-   ```
-   https://mail.google.com/
-   ```
-6. 「Authorize APIs」をクリック
-7. Google アカウントでログイン（テストユーザーとして追加したアカウント）
-8. 「このアプリは確認されていません」と表示される場合:
-   - 「詳細」→「M-Pass Mailer（安全でないページ）に移動」をクリック
-9. アクセスを許可
-10. 「Step 2」で「Exchange authorization code for tokens」をクリック
-11. **Refresh token** をコピーして保存
-
-#### 6. 環境変数の設定
+#### 3. 環境変数の設定
 
 `.env` ファイルに以下を設定:
 
 ```env
-# Gmail OAuth2設定
-GMAIL_USER=your-email@gmail.com
-GMAIL_CLIENT_ID=your-client-id.apps.googleusercontent.com
-GMAIL_CLIENT_SECRET=your-client-secret
-GMAIL_REFRESH_TOKEN=your-refresh-token
+# Resend設定
+RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxxxxxx
+MAIL_FROM=noreply@yourdomain.com
 
 # アプリケーションURL（メール内のリンクで使用）
 APP_URL=http://localhost:3000
@@ -130,7 +88,7 @@ APP_URL=http://localhost:3000
 **注意**:
 
 - 本番環境では `APP_URL` を実際のドメインに変更してください
-- OAuth2 認証情報は機密情報です。`.env` ファイルは Git にコミットしないでください
+- API キーは機密情報です。`.env` ファイルは Git にコミットしないでください
 
 ### メンバー登録フロー（即時利用＋バックグラウンドメール確認）
 

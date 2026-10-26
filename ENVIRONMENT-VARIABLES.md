@@ -15,28 +15,28 @@ cp .env.example .env
 
 #### アプリケーション基本情報
 ```env
-# アプリケーション名（OAuth設定やページタイトルで使用）
+# アプリケーション名（メールの差出人名やページタイトルで使用）
 APP_NAME=つくまなラボメンバーズサイト (LabMem)
 
 # アプリケーションのベースURL（メール内のリンクで使用）
 APP_URL=http://localhost:3000
 
-# アプリのホームページURL（OAuth設定やプライバシーポリシーで使用）
+# アプリのホームページURL（プライバシーポリシーで使用）
 APP_HOME_URL=http://localhost:3000
 
 # お問い合わせ用メールアドレス（プライバシーポリシーで表示）
 CONTACT_EMAIL=contact@yourdomain.com
 
-# 利用規約のURL（OAuth設定で使用）
+# 利用規約のURL
 TERMS_OF_SERVICE_URL=http://localhost:3000/api/terms-of-service-html
 ```
 
-#### Gmail OAuth2設定
+#### メール送信設定（Resend）
 ```env
-GMAIL_USER=your-email@gmail.com
-GMAIL_CLIENT_ID=xxxxx.apps.googleusercontent.com
-GMAIL_CLIENT_SECRET=GOCSPX-xxxxx
-GMAIL_REFRESH_TOKEN=1//xxxxx-yyyyy-zzzzz
+# Resend の API キー（https://resend.com/api-keys で発行）
+RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxxxxxx
+# 送信元アドレス（Resend でドメイン認証済みのアドレス）
+MAIL_FROM=noreply@yourdomain.com
 ```
 
 #### データベース設定
@@ -62,11 +62,9 @@ APP_URL=https://yourdomain.com
 APP_HOME_URL=https://yourdomain.com
 CONTACT_EMAIL=support@yourdomain.com
 
-# Gmail設定
-GMAIL_USER=noreply@yourdomain.com
-GMAIL_CLIENT_ID=123456789-abc.apps.googleusercontent.com
-GMAIL_CLIENT_SECRET=GOCSPX-abcdefghijklmnop
-GMAIL_REFRESH_TOKEN=1//04-abcdefghijklmnop
+# メール送信設定（Resend）
+RESEND_API_KEY=re_abcdefghijklmnopqrstuvwxyz
+MAIL_FROM=noreply@yourdomain.com
 
 # データベース
 DB_PATH=/app/data/members.db
@@ -86,11 +84,10 @@ APP_HOME_URL=http://localhost:3000
 CONTACT_EMAIL=dev@localhost
 TERMS_OF_SERVICE_URL=http://localhost:3000/api/terms-of-service-html
 
-# Gmail設定（テスト用）
-GMAIL_USER=test@gmail.com
-GMAIL_CLIENT_ID=test-client-id.apps.googleusercontent.com
-GMAIL_CLIENT_SECRET=test-client-secret
-GMAIL_REFRESH_TOKEN=test-refresh-token
+# メール送信設定（テスト用）
+# ドメイン未認証の場合、Resend はアカウント所有者のアドレス宛にのみ送信できます
+RESEND_API_KEY=re_test_xxxxxxxx
+MAIL_FROM=onboarding@resend.dev
 
 # データベース
 DB_PATH=members-dev.db
@@ -102,13 +99,12 @@ ADMIN_ALLOWED_IPS=private
 ## 環境変数の使用箇所
 
 ### APP_NAME
-- Google OAuth設定の「アプリ名」
+- メールの差出人名
 - プライバシーポリシーページのタイトル
 - 利用規約ページのタイトル
 - 各種法的文書での表示名
 
 ### APP_HOME_URL
-- Google OAuth設定の「アプリのホームページ」
 - プライバシーポリシーのリンク
 
 ### CONTACT_EMAIL
@@ -119,24 +115,11 @@ ADMIN_ALLOWED_IPS=private
 - メール送信時の送信者情報
 
 ### TERMS_OF_SERVICE_URL
-- Google OAuth設定の「利用規約」
 - 各種法的文書へのリンク
 
 ### APP_URL
 - メール内のリンク生成
 - QRコード生成時のベースURL
-
-## Google OAuth設定との連携
-
-Google Cloud ConsoleのOAuth同意画面では、以下のように設定してください：
-
-```
-アプリ名: [APP_NAMEの値]
-アプリのホームページ: [APP_HOME_URLの値]
-アプリ プライバシー ポリシー: [APP_URL]/api/privacy-policy-html
-利用規約: [TERMS_OF_SERVICE_URLの値]
-デベロッパーの連絡先情報: [CONTACT_EMAILの値]
-```
 
 ## 環境変数の検証
 
@@ -184,7 +167,7 @@ node scripts/check-env.js
 3. **環境変数の値を確認**
    ```bash
    # 開発環境でのみ実行（本番では実行しないでください）
-   printenv | grep -E "(APP_NAME|APP_URL|APP_HOME_URL|CONTACT_|GMAIL_USER)"
+   printenv | grep -E "(APP_NAME|APP_URL|APP_HOME_URL|CONTACT_|MAIL_FROM)"
    ```
 
 ### プライバシーポリシーが正しく表示されない場合

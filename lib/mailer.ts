@@ -1,14 +1,12 @@
-import nodemailer from 'nodemailer';
-import { google } from 'googleapis';
+import { Resend } from 'resend';
 
-// Gmail OAuth2設定を環境変数から取得
-const GMAIL_USER = process.env.GMAIL_USER;
-const CLIENT_ID = process.env.GMAIL_CLIENT_ID;
-const CLIENT_SECRET = process.env.GMAIL_CLIENT_SECRET;
-const REFRESH_TOKEN = process.env.GMAIL_REFRESH_TOKEN;
+// Resend設定を環境変数から取得
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
+// 送信元アドレス（Resendで認証済みのドメインのアドレスを指定する）
+const MAIL_FROM = process.env.MAIL_FROM;
 const APP_URL = process.env.APP_URL || 'http://localhost:3000';
 const APP_NAME = process.env.APP_NAME || 'メンバー登録システム';
-const CONTACT_EMAIL = process.env.CONTACT_EMAIL || GMAIL_USER;
+const CONTACT_EMAIL = process.env.CONTACT_EMAIL || MAIL_FROM;
 
 // メール用共通フッター（HTML版）
 function getEmailFooter(): string {
@@ -52,54 +50,51 @@ function getTextEmailFooter(): string {
     return lines.join('\n');
 }
 
-if (!GMAIL_USER || !CLIENT_ID || !CLIENT_SECRET || !REFRESH_TOKEN) {
-    console.warn('Warning: Gmail OAuth2 credentials are not configured. Email sending will fail.');
-    console.warn('Required: GMAIL_USER, GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN');
+function isMailConfigured(): boolean {
+    return Boolean(RESEND_API_KEY && MAIL_FROM);
 }
 
-// OAuth2クライアントの作成
-const oauth2Client = new google.auth.OAuth2(
-    CLIENT_ID,
-    CLIENT_SECRET,
-    'https://developers.google.com/oauthplayground' // リダイレクトURI
-);
+if (!isMailConfigured()) {
+    console.warn('Warning: Resend credentials are not configured. Email sending will fail.');
+    console.warn('Required: RESEND_API_KEY, MAIL_FROM');
+}
 
-// リフレッシュトークンを設定
-oauth2Client.setCredentials({
-    refresh_token: REFRESH_TOKEN,
-});
-
-// アクセストークンを取得する関数
-async function getAccessToken() {
-    try {
-        const { token } = await oauth2Client.getAccessToken();
-        return token;
-    } catch (error) {
-        console.error('Error getting access token:', error);
-        console.error('Gmail OAuth2 configuration check:');
-        console.error('- GMAIL_USER:', GMAIL_USER ? 'Set' : 'NOT SET');
-        console.error('- CLIENT_ID:', CLIENT_ID ? 'Set' : 'NOT SET');
-        console.error('- CLIENT_SECRET:', CLIENT_SECRET ? 'Set' : 'NOT SET');
-        console.error('- REFRESH_TOKEN:', REFRESH_TOKEN ? 'Set' : 'NOT SET');
-        throw new Error('Failed to get Gmail access token');
+// Resendクライアント（遅延生成）
+let resendClient: Resend | null = null;
+function getResend(): Resend {
+    if (!RESEND_API_KEY || !MAIL_FROM) {
+        console.error('Resend configuration check:');
+        console.error('- RESEND_API_KEY:', RESEND_API_KEY ? 'Set' : 'NOT SET');
+        console.error('- MAIL_FROM:', MAIL_FROM ? 'Set' : 'NOT SET');
+        throw new Error('Resend is not configured');
     }
+    if (!resendClient) {
+        resendClient = new Resend(RESEND_API_KEY);
+    }
+    return resendClient;
 }
 
-// Gmailトランスポーターを作成する関数
-async function createTransporter() {
-    const accessToken = await getAccessToken();
+interface MailOptions {
+    to: string;
+    subject: string;
+    text: string;
+    html: string;
+}
 
-    return nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-            type: 'OAuth2',
-            user: GMAIL_USER,
-            clientId: CLIENT_ID,
-            clientSecret: CLIENT_SECRET,
-            refreshToken: REFRESH_TOKEN,
-            accessToken: accessToken || '',
-        },
+// Resend経由でメールを送信する（失敗時は例外を投げる）
+async function sendMail(options: MailOptions): Promise<void> {
+    const resend = getResend();
+    const { error } = await resend.emails.send({
+        from: `${APP_NAME} <${MAIL_FROM}>`,
+        replyTo: CONTACT_EMAIL || MAIL_FROM!,
+        to: options.to,
+        subject: options.subject,
+        text: options.text,
+        html: options.html,
     });
+    if (error) {
+        throw new Error(`Resend error: ${error.name}: ${error.message}`);
+    }
 }
 
 /**
@@ -126,9 +121,7 @@ export async function sendVerificationEmail(
         getTextEmailFooter(),
     ].join('\n');
 
-    const mailOptions = {
-        from: `"${APP_NAME}" <${GMAIL_USER}>`,
-        replyTo: CONTACT_EMAIL || GMAIL_USER,
+    const mailOptions: MailOptions = {
         to,
         subject: 'メンバー登録の確認',
         text,
@@ -158,8 +151,7 @@ export async function sendVerificationEmail(
     };
 
     try {
-        const transporter = await createTransporter();
-        await transporter.sendMail(mailOptions);
+        await sendMail(mailOptions);
         console.log(`Verification email sent to ${to}`);
     } catch (error) {
         console.error('Error sending verification email:', error);
@@ -191,9 +183,7 @@ export async function sendPasswordResetEmail(
         getTextEmailFooter(),
     ].join('\n');
 
-    const mailOptions = {
-        from: `"${APP_NAME}" <${GMAIL_USER}>`,
-        replyTo: CONTACT_EMAIL || GMAIL_USER,
+    const mailOptions: MailOptions = {
         to,
         subject: 'パスワードリセットのお知らせ',
         text,
@@ -223,8 +213,7 @@ export async function sendPasswordResetEmail(
     };
 
     try {
-        const transporter = await createTransporter();
-        await transporter.sendMail(mailOptions);
+        await sendMail(mailOptions);
         console.log(`Password reset email sent to ${to}`);
     } catch (error) {
         console.error('Error sending password reset email:', error);
@@ -285,9 +274,7 @@ export async function sendPasswordResetEmailMultiple(
         getTextEmailFooter(),
     ].join('\n');
 
-    const mailOptions = {
-        from: `"${APP_NAME}" <${GMAIL_USER}>`,
-        replyTo: CONTACT_EMAIL || GMAIL_USER,
+    const mailOptions: MailOptions = {
         to,
         subject: 'パスワードリセットのお知らせ',
         text,
@@ -311,8 +298,7 @@ export async function sendPasswordResetEmailMultiple(
     };
 
     try {
-        const transporter = await createTransporter();
-        await transporter.sendMail(mailOptions);
+        await sendMail(mailOptions);
         console.log(`Password reset email (multiple members) sent to ${to}`);
     } catch (error) {
         console.error('Error sending password reset email:', error);
@@ -349,9 +335,7 @@ export async function sendRegistrationCompleteEmail(
         getTextEmailFooter(),
     ].join('\n');
 
-    const mailOptions = {
-        from: `"${APP_NAME}" <${GMAIL_USER}>`,
-        replyTo: CONTACT_EMAIL || GMAIL_USER,
+    const mailOptions: MailOptions = {
         to,
         subject: 'メンバー登録完了のお知らせ',
         text,
@@ -397,8 +381,7 @@ export async function sendRegistrationCompleteEmail(
     };
 
     try {
-        const transporter = await createTransporter();
-        await transporter.sendMail(mailOptions);
+        await sendMail(mailOptions);
         console.log(`Registration complete email sent to ${to}`);
     } catch (error) {
         console.error('Error sending registration complete email:', error);
@@ -430,9 +413,7 @@ export async function sendEmailChangeVerificationEmail(
         getTextEmailFooter(),
     ].join('\n');
 
-    const mailOptions = {
-        from: `"${APP_NAME}" <${GMAIL_USER}>`,
-        replyTo: CONTACT_EMAIL || GMAIL_USER,
+    const mailOptions: MailOptions = {
         to,
         subject: 'メールアドレス変更の確認',
         text,
@@ -462,8 +443,7 @@ export async function sendEmailChangeVerificationEmail(
     };
 
     try {
-        const transporter = await createTransporter();
-        await transporter.sendMail(mailOptions);
+        await sendMail(mailOptions);
         console.log(`Email change verification email sent to ${to}`);
     } catch (error) {
         console.error('Error sending email change verification email:', error);
@@ -479,9 +459,9 @@ export async function sendMyPageAnnouncementEmail(
     name: string,
     memberId: string
 ): Promise<void> {
-    // Gmail設定がない場合はスキップ
-    if (!GMAIL_USER || !CLIENT_ID || !CLIENT_SECRET || !REFRESH_TOKEN) {
-        console.log(`Skipping MyPage announcement email to ${to} (Gmail not configured)`);
+    // Resend設定がない場合はスキップ
+    if (!isMailConfigured()) {
+        console.log(`Skipping MyPage announcement email to ${to} (Resend not configured)`);
         return;
     }
 
@@ -511,9 +491,7 @@ export async function sendMyPageAnnouncementEmail(
         getTextEmailFooter(),
     ].join('\n');
 
-    const mailOptions = {
-        from: `"${APP_NAME}" <${GMAIL_USER}>`,
-        replyTo: CONTACT_EMAIL || GMAIL_USER,
+    const mailOptions: MailOptions = {
         to,
         subject: '【重要】メンバー専用マイページのご案内',
         text,
@@ -576,8 +554,7 @@ export async function sendMyPageAnnouncementEmail(
     };
 
     try {
-        const transporter = await createTransporter();
-        await transporter.sendMail(mailOptions);
+        await sendMail(mailOptions);
         console.log(`MyPage announcement email sent to ${to}`);
     } catch (error) {
         console.error('Error sending MyPage announcement email:', error);

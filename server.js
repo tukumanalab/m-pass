@@ -22,12 +22,12 @@ if (result.error) {
 const envKeys = Object.keys(result.parsed || {});
 console.log(`Loaded ${envKeys.length} environment variables from .env`);
 
-// GMAILの環境変数が読み込まれたか確認
-const gmailKeys = envKeys.filter(k => k.startsWith('GMAIL_'));
-if (gmailKeys.length > 0) {
-  console.log('Gmail OAuth2 variables loaded:', gmailKeys.join(', '));
+// メール送信（Resend）の環境変数が読み込まれたか確認
+const mailKeys = envKeys.filter(k => k === 'RESEND_API_KEY' || k === 'MAIL_FROM');
+if (mailKeys.length > 0) {
+  console.log('Resend mail variables loaded:', mailKeys.join(', '));
 } else {
-  console.warn('Warning: No GMAIL_* variables found in .env');
+  console.warn('Warning: RESEND_API_KEY / MAIL_FROM not found in .env');
 }
 
 // Next.js を起動
