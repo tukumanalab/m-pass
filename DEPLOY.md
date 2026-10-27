@@ -86,20 +86,21 @@ sudo useradd --system --create-home --home-dir /var/lib/webapps --shell /usr/sbi
 sudo groupadd webapps-deploy
 sudo usermod -aG webapps-deploy <担当者のユーザー名>
 
-# 3-2. Node.js 22 と PM2 をシステム全体にインストール
+# 3-2. Node.js 22 と PM2 をシステム全体（/usr/bin）にインストール
 #      （個人の nvm に入っている Node は webapps から使えないため）
+#      Node を更新すると同じサーバーの他のアプリも新しい Node で動くことに注意する。
+#      既存ユーザーの PM2 デーモンは pm2 update で新しい Node に切り替える
 curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
 sudo apt-get install -y nodejs
 sudo npm install -g pm2
+pm2 update
 sudo -u webapps -H node -v
 sudo -u webapps -H pm2 -v
 
-# 3-3. 今まで動かしていたユーザー（例: ky）の PM2 を停止
-#      （ky で実行）
+# 3-3. 今まで動かしていたユーザー（例: ky）の PM2 から m-pass を外す（ky で実行）
+#      ky の PM2 で他のアプリも動いている場合があるため、pm2-ky 自体は止めない
 pm2 delete m-pass
 pm2 save
-pm2 unstartup systemd   # 表示された sudo コマンドを実行する
-sudo systemctl disable --now pm2-ky
 
 # 3-4. ディレクトリの所有者を変更し、.env に自動デプロイ用の値を追加
 sudo chown -R webapps:webapps /srv/m-pass

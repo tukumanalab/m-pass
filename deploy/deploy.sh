@@ -70,14 +70,20 @@ health_check() {
   return 1
 }
 
+# package-lock.json が変わったとき、または Node のバージョンが変わったとき
+# （better-sqlite3 などのネイティブモジュールは Node のバージョンごとにビルドが必要）に npm ci する
 install_dependencies_if_changed() {
   local from="$1"
   local to="$2"
-  if [ -z "$from" ] || [ ! -d "$APP_DIR/node_modules" ] || ! git diff --quiet "$from" "$to" -- package-lock.json; then
+  local marker="$APP_DIR/node_modules/.installed-node-version"
+  if [ -z "$from" ] || [ ! -d "$APP_DIR/node_modules" ] \
+    || [ "$(cat "$marker" 2>/dev/null)" != "$(node -v)" ] \
+    || ! git diff --quiet "$from" "$to" -- package-lock.json; then
     log_info "依存関係をインストールしています (npm ci --omit=dev)..."
     npm ci --omit=dev --no-audit --no-fund
+    node -v > "$marker"
   else
-    log_info "package-lock.json に変更がないため npm ci をスキップします"
+    log_info "package-lock.json と Node のバージョンに変更がないため npm ci をスキップします"
   fi
 }
 
