@@ -54,3 +54,11 @@ site-settings.json
 # Logs
 /logs
 *.log
+
+# Deploy (deploy/deploy.sh)
+/.next.new/
+/.next.prev/
+/.next.failed/
+/.deploy-tmp.*/
+/.deploy.lock
+/.deployed-commit

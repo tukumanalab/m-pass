@@ -1,0 +1,65 @@
+name: Build and Deploy
+
+# main への push で GitHub Actions 上でビルドし、本番サーバーの /api/deploy を呼んでデプロイする。
+# サーバーはビルドせず、成果物（.next）を取得して入れ替えるだけ（deploy/deploy.sh）。
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: 'ビルド後に本番へデプロイする'
+        type: boolean
+        default: true
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # next build の中で型チェックも行われる
+      - name: Build
+        run: npm run build
+        env:
+          BASE_PATH: /members
+
+      - name: Package build output
+        run: |
+          echo "$GITHUB_SHA" > .next/BUILD_COMMIT
+          tar --exclude=.next/cache -czf m-pass-build.tar.gz .next
+          sha256sum m-pass-build.tar.gz > m-pass-build.tar.gz.sha256
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: m-pass-build-${{ github.sha }}
+          path: |
+            m-pass-build.tar.gz
+            m-pass-build.tar.gz.sha256
+          retention-days: 30
+
+  deploy:
+    needs: build
+    if: ${{ github.event_name == 'push' || inputs.deploy }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger deploy webhook
+        run: |
+          curl -f -X POST \
+            https://tukumana.si.aoyama.ac.jp/members/api/deploy \
+            -H "Authorization: Bearer ${{ secrets.DEPLOY_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -d '{"runId":"${{ github.run_id }}","sha":"${{ github.sha }}"}'

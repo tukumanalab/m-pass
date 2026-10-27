@@ -9,6 +9,7 @@ chmod +x deploy/check-mysql.sh
 chmod +x deploy/emergency-recovery.sh
 chmod +x deploy/setup.sh
 chmod +x deploy/setup-debug.sh
+chmod +x deploy/deploy.sh
 
 echo "✅ すべてのスクリプトに実行権限を付与しました"
 echo ""
@@ -20,3 +21,4 @@ echo "  deploy/check-mysql.sh          - MySQL使用状況確認"
 echo "  deploy/emergency-recovery.sh   - 緊急メモリ復旧"
 echo "  deploy/setup.sh                - 本番環境セットアップ"
 echo "  deploy/setup-debug.sh          - デバッグ環境セットアップ"
+echo "  deploy/deploy.sh               - ビルド成果物のデプロイ (GitHub Actions から自動実行)"

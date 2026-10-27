@@ -53,6 +53,20 @@ DB_PATH=members.db
 ADMIN_ALLOWED_IPS=private
 ```
 
+#### 自動デプロイ設定（本番サーバーのみ）
+```env
+# GitHub Actions から /api/deploy を呼ぶときの共有シークレット
+# GitHub リポジトリの Secret DEPLOY_SECRET と同じ値にする（openssl rand -hex 32 などで生成）
+# 未設定の場合 /api/deploy は無効（503 を返す）
+DEPLOY_SECRET=
+
+# ビルド成果物（GitHub Actions の artifact）を取得するための GitHub トークン
+# fine-grained token: 対象リポジトリ tukumanalab/m-pass、権限 Actions: Read-only のみ
+GITHUB_ARTIFACT_TOKEN=
+```
+
+詳細は [DEPLOY.md](DEPLOY.md) を参照してください。
+
 ## 本番環境での設定例
 
 ```env
