@@ -130,61 +130,11 @@ npm start
 
 ### Ubuntu サーバーへのデプロイ
 
-#### 本番環境のみ
+本番環境（`https://tukumana.si.aoyama.ac.jp/members`）へは、**main ブランチへの push で自動的にデプロイ**されます。
+GitHub Actions でビルドし、サーバーはビルド成果物を受け取って入れ替えるだけです（サーバー上ではビルドしません）。
+アプリは専用ユーザー `webapps` の PM2 で動いています。
 
-```bash
-# セットアップスクリプトを実行（初回のみ）
-chmod +x deploy/setup.sh
-./deploy/setup.sh
-```
-
-セットアップスクリプトは以下を自動的に実行します：
-
-- Node.js、PM2、Nginx のインストール
-- 依存関係のインストールとビルド
-- PM2 でのアプリケーション起動
-- Nginx の設定
-
-本番環境は `/members` でアクセス可能です。
-
-#### デバッグ環境（本番環境と並行稼働）
-
-```bash
-# デバッグ環境セットアップスクリプトを実行
-chmod +x deploy/setup-debug.sh
-./deploy/setup-debug.sh
-```
-
-デバッグ環境の特徴：
-
-- 本番環境（`/members`）とデバッグ環境（`/members-debug`）が同時に稼働
-- 本番環境とデバッグ環境は別ポート（3001）で動作
-- デバッグ環境は別データベース（`members.db`）を使用
-- 本番環境とデバッグ環境は完全に独立
-
-アクセス URL：
-
-- 本番環境: `https://tukumana.si.aoyama.ac.jp/members`
-- デバッグ環境: `https://tukumana.si.aoyama.ac.jp/members-debug`
-
-### 手動デプロイ
-
-```bash
-# 依存関係のインストール
-npm install
-
-# ビルド
-npm run build
-
-# PM2で起動
-pm2 start npm --name "m-pass" -- start
-pm2 save
-
-# Nginx設定
-sudo cp deploy/nginx.conf /etc/nginx/sites-available/m-pass
-sudo ln -s /etc/nginx/sites-available/m-pass /etc/nginx/sites-enabled/
-sudo systemctl restart nginx
-```
+手動デプロイ・ロールバック、初回セットアップ、トラブルシューティングは [DEPLOY.md](DEPLOY.md) を参照してください。
 
 ## ディレクトリ構成
 
@@ -208,7 +158,7 @@ m-pass/
 │   ├── settings.ts          # サイト設定管理
 │   └── resource/            # リソースファイル
 ├── deploy/                   # デプロイ設定
-│   ├── setup.sh             # セットアップスクリプト
+│   ├── deploy.sh            # デプロイスクリプト（GitHub Actions から自動実行）
 │   ├── nginx.conf           # Nginx設定
 │   └── pm2.config.js        # PM2設定
 ├── public/
@@ -566,7 +516,7 @@ ADMIN_ALLOWED_IPS=192.168.1.0/24,10.0.0.0/8
 設定後、アプリケーションを再起動してください：
 
 ```bash
-pm2 restart m-pass
+sudo -u webapps -H pm2 restart m-pass
 ```
 
 #### 管理者アクセスログの確認
@@ -594,23 +544,23 @@ chmod +x deploy/check-admin-logs.sh
 
 ```bash
 # リアルタイムでログを監視
-pm2 logs m-pass
+sudo -u webapps -H pm2 logs m-pass
 
 # 管理者関連のログのみ表示
-pm2 logs m-pass --lines 100 --nostream | grep "ADMIN"
+sudo -u webapps -H pm2 logs m-pass --lines 100 --nostream | grep "ADMIN"
 
 # ログイン試行を確認
-pm2 logs m-pass --lines 500 --nostream | grep "ADMIN LOGIN"
+sudo -u webapps -H pm2 logs m-pass --lines 500 --nostream | grep "ADMIN LOGIN"
 
 # 拒否されたアクセスを確認
-pm2 logs m-pass --lines 500 --nostream | grep "DENIED"
+sudo -u webapps -H pm2 logs m-pass --lines 500 --nostream | grep "DENIED"
 
 # 成功したログインを確認
-pm2 logs m-pass --lines 500 --nostream | grep "SUCCESS"
+sudo -u webapps -H pm2 logs m-pass --lines 500 --nostream | grep "SUCCESS"
 
 # ログファイルから直接確認
-tail -f ~/.pm2/logs/m-pass-out.log | grep "ADMIN"
-tail -f ~/.pm2/logs/m-pass-error.log | grep "ADMIN"
+tail -f /srv/m-pass/logs/out.log | grep "ADMIN"
+tail -f /srv/m-pass/logs/err.log | grep "ADMIN"
 ```
 
 ##### ログの例
@@ -628,47 +578,32 @@ tail -f ~/.pm2/logs/m-pass-error.log | grep "ADMIN"
 
 1. **PM2を再起動**
    ```bash
-   pm2 restart m-pass
+   sudo -u webapps -H pm2 restart m-pass
    ```
 
 2. **ログファイルの存在確認**
    ```bash
-   ls -la ~/.pm2/logs/
+   ls -la /srv/m-pass/logs/
    ```
 
 3. **Next.jsの出力確認**
    ```bash
    # Next.jsが正しく起動しているか確認
-   pm2 info m-pass
+   sudo -u webapps -H pm2 info m-pass
    
    # すべてのログを確認
-   pm2 logs m-pass --lines 1000
+   sudo -u webapps -H pm2 logs m-pass --lines 1000
    ```
 
 ## PM2 コマンド
 
-### 本番環境のみ稼働時
+本番サーバーの PM2 は `webapps` ユーザーのものです。自分のユーザーで `pm2` を実行しても別の PM2 が表示されるだけなので、`sudo -u webapps -H` を付けて実行します。
 
 ```bash
-pm2 status              # ステータス確認
-pm2 logs m-pass         # ログ確認
-pm2 restart m-pass      # 再起動
-pm2 stop m-pass         # 停止
-pm2 delete m-pass       # 削除
-```
-
-### デバッグ環境も稼働時
-
-```bash
-pm2 status                      # 全アプリのステータス確認
-pm2 logs m-pass                 # 本番環境ログ確認
-pm2 logs m-pass-debug           # デバッグ環境ログ確認
-pm2 restart m-pass              # 本番環境再起動
-pm2 restart m-pass-debug        # デバッグ環境再起動
-pm2 restart all                 # 全環境再起動
-pm2 stop m-pass                 # 本番環境停止
-pm2 stop m-pass-debug           # デバッグ環境停止
-pm2 delete m-pass-debug         # デバッグ環境削除
+sudo -u webapps -H pm2 status              # ステータス確認
+sudo -u webapps -H pm2 logs m-pass         # ログ確認
+sudo -u webapps -H pm2 restart m-pass      # 再起動
+sudo -u webapps -H pm2 stop m-pass         # 停止
 ```
 
 ## ライセンス
