@@ -3,7 +3,18 @@
 # 管理者アクセスログ確認ヘルパースクリプト
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PM2_LOG_DIR="$HOME/.pm2/logs"
+APP_DIR="$(dirname "$SCRIPT_DIR")"
+# ログは deploy/pm2.config.js の設定で logs/ に出力される
+PM2_LOG_DIR="$APP_DIR/logs"
+# PM2 はアプリのディレクトリの所有者（webapps）のものを操作する
+APP_USER="$(stat -c %U "$APP_DIR")"
+pm2() {
+    if [ "$(id -un)" = "$APP_USER" ]; then
+        command pm2 "$@"
+    else
+        sudo -u "$APP_USER" -H pm2 "$@"
+    fi
+}
 
 echo "==================================="
 echo "管理者アクセスログ確認"
@@ -17,8 +28,8 @@ if [ ! -d "$PM2_LOG_DIR" ]; then
 fi
 
 # 確認するログファイル
-PROD_OUT_LOG="$PM2_LOG_DIR/m-pass-out.log"
-PROD_ERR_LOG="$PM2_LOG_DIR/m-pass-error.log"
+PROD_OUT_LOG="$PM2_LOG_DIR/out.log"
+PROD_ERR_LOG="$PM2_LOG_DIR/err.log"
 
 # メニュー表示
 echo "確認したいログを選択してください："
@@ -98,7 +109,7 @@ case $choice in
         echo ""
         echo "PM2ログディレクトリ: $PM2_LOG_DIR"
         echo ""
-        ls -lh "$PM2_LOG_DIR" 2>/dev/null | grep "m-pass"
+        ls -lh "$PM2_LOG_DIR" 2>/dev/null
         ;;
     8)
         echo "終了します。"

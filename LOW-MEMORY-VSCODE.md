@@ -143,6 +143,5 @@ docker-compose stop
 
 ## 関連ドキュメント
 
-- [LOW-MEMORY-OPERATION.md](./LOW-MEMORY-OPERATION.md) - アプリケーション実行時のメモリ最適化
 - [DEBUG.md](./DEBUG.md) - デバッグ環境の設定
 - [DEV-SETUP.md](./DEV-SETUP.md) - 開発環境のセットアップ

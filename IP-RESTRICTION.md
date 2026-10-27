@@ -104,7 +104,7 @@ chmod +x deploy/check-admin-logs.sh
 ./deploy/check-admin-logs.sh
 
 # または手動でPM2のログを確認
-pm2 logs m-pass --lines 100 --nostream | grep "ADMIN"
+sudo -u webapps -H pm2 logs m-pass --lines 100 --nostream | grep "ADMIN"
 
 # またはDockerのログを確認（Docker環境の場合）
 docker-compose logs app | grep "ADMIN"
@@ -140,7 +140,7 @@ hostname -I
 ./deploy/check-admin-logs.sh
 
 # または手動で確認
-pm2 logs m-pass --lines 100 --nostream | grep "ADMIN"
+sudo -u webapps -H pm2 logs m-pass --lines 100 --nostream | grep "ADMIN"
 ```
 
 以下のようなログが表示されているか確認：
@@ -160,7 +160,7 @@ pm2 logs m-pass --lines 100 --nostream | grep "ADMIN"
 cat /srv/m-pass/.env | grep ADMIN_ALLOWED_IPS
 
 # PM2の環境変数を確認
-pm2 env 0
+sudo -u webapps -H pm2 env 0
 ```
 
 4. **一時的にすべて許可する（デバッグ用）**
@@ -173,7 +173,7 @@ nano /srv/m-pass/.env
 ADMIN_ALLOWED_IPS=*
 
 # アプリを再起動
-pm2 restart m-pass
+sudo -u webapps -H pm2 restart m-pass
 ```
 
 ⚠️ **注意**: すべて許可する設定は一時的なデバッグ用です。問題解決後は必ず適切な範囲に戻してください。
@@ -208,7 +208,7 @@ proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 
 ```bash
 # 最近の管理者アクセスログを確認
-pm2 logs m-pass --lines 100 | grep "Admin"
+sudo -u webapps -H pm2 logs m-pass --lines 100 | grep "Admin"
 ```
 
 ## 実装詳細
