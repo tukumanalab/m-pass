@@ -13,7 +13,7 @@ QR コードを使ったメンバーの入室管理 Web アプリケーション
 - **スタイリング**: Tailwind CSS
 - **データベース**: SQLite (better-sqlite3)
 - **QR コード**: qrcode (生成), html5-qrcode (スキャン)
-- **デプロイ**: Ubuntu Server + PM2 + Nginx
+- **デプロイ**: Ubuntu Server + PM2 + Nginx（GitHub Actions でビルドし、Webhook で自動デプロイ）
 
 ## 環境変数
 
@@ -44,14 +44,20 @@ npm run lint         # ESLint実行
 
 ### デプロイ（Ubuntu Server）
 
+詳細は [DEPLOY.md](../DEPLOY.md) を参照。
+
+- main への push で GitHub Actions（`.github/workflows/deploy.yml`）がビルドし、`POST /api/deploy` 経由で `deploy/deploy.sh` が成果物（`.next`）を入れ替えて再起動する
+- サーバー上では `npm run build` を実行しない（メモリ不足でビルドが落ちるため）
+- アプリは専用ユーザー `webapps` の PM2 で動く。サーバー上の操作は `sudo -u webapps -H` を付けて行う
+
 ```bash
-chmod +x deploy/setup.sh
-./deploy/setup.sh    # 自動セットアップ（初回）
+# 手動デプロイ・ロールバック（指定したコミットのビルド成果物を配置）
+sudo -u webapps -H /srv/m-pass/deploy/deploy.sh <commit-sha>
 
 # PM2コマンド
-pm2 status           # ステータス確認
-pm2 logs m-pass      # ログ確認
-pm2 restart m-pass   # 再起動
+sudo -u webapps -H pm2 status           # ステータス確認
+sudo -u webapps -H pm2 logs m-pass      # ログ確認
+sudo -u webapps -H pm2 restart m-pass   # 再起動
 ```
 
 ## アーキテクチャ
@@ -113,6 +119,10 @@ pm2 restart m-pass   # 再起動
 
 - `GET /api/admin/survey` - アンケート集計データ取得（`startDate`/`endDate` クエリパラメータで期間フィルタ）
 - `GET /api/admin/survey/export` - アンケート回答 CSV エクスポート（`startDate`/`endDate` で期間フィルタ、ファイル名に期間が入る）
+
+**デプロイ API:**
+
+- `POST /api/deploy` - GitHub Actions からのデプロイ Webhook（`Authorization: Bearer <DEPLOY_SECRET>`、body `{ sha, runId }`）。`deploy/deploy.sh` をバックグラウンドで起動し 202 を返す
 
 ### フロントエンド構成
 
