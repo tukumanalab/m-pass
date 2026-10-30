@@ -40,6 +40,7 @@ export default function ScanPage() {
   const [selectedMember, setSelectedMember] = useState<any>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const processingRef = useRef(false);
+  const fadeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const router = useRouter();
 
@@ -49,8 +50,8 @@ export default function ScanPage() {
   // NFC読み取りループ内でクロージャの stale value を回避するため ref で追跡
   const lastScannedCodeRef = useRef<string | null>(null);
   const lastScannedTimeRef = useRef<number>(0);
-  // NFCカード置きっぱなし対策: 同一カードIDのチェックイン後のクールダウン（30秒）
-  const NFC_COOLDOWN_MS = 30_000;
+  // NFCカード置きっぱなし・QRコードのかざしっぱなし対策: 同一コードのチェックイン後のクールダウン（30秒）
+  const SAME_CODE_COOLDOWN_MS = 30_000;
   const [unregisteredNfcId, setUnregisteredNfcId] = useState<string | null>(null);
   const [showNfcRegisterModal, setShowNfcRegisterModal] = useState(false);
   const [nfcMemberSearchQuery, setNfcMemberSearchQuery] = useState("");
@@ -250,7 +251,7 @@ export default function ScanPage() {
             // 同一NFCカードのクールダウン判定（ref を使って最新値を参照）
             // カードを置きっぱなしにしてもチェックイン直後にチェックアウトされないよう、
             // 30秒間は同じカードIDの再処理をブロックする
-            if (idm === lastScannedCodeRef.current && now - lastScannedTimeRef.current < NFC_COOLDOWN_MS) {
+            if (idm === lastScannedCodeRef.current && now - lastScannedTimeRef.current < SAME_CODE_COOLDOWN_MS) {
               await new Promise(resolve => setTimeout(resolve, 500));
               continue;
             }
@@ -290,6 +291,15 @@ export default function ScanPage() {
   useEffect(() => { showConfirmDialogRef.current = showConfirmDialog; }, [showConfirmDialog]);
 
 
+  // アンマウント時に結果メッセージのフェードタイマーを止める
+  useEffect(() => {
+    return () => {
+      if (fadeIntervalRef.current) {
+        clearInterval(fadeIntervalRef.current);
+      }
+    };
+  }, []);
+
   useEffect(() => {
     return () => {
       if (html5QrCode?.isScanning) {
@@ -323,14 +333,14 @@ export default function ScanPage() {
           qrbox: { width: 250, height: 250 },
         },
         async (decodedText) => {
-          // メッセージ処理中はスキャンを無視（refを使って同期的にチェック）
+          // チェックインのリクエスト処理中はスキャンを無視（refを使って同期的にチェック）
           if (processingRef.current) {
             return;
           }
 
-          // 同じQRコードを3秒以内に連続スキャンしないようにする（refで最新値を同期判定）
+          // 同じQRコードを30秒以内に連続スキャンしないようにする（refで最新値を同期判定）
           const now = Date.now();
-          if (decodedText === lastScannedCodeRef.current && now - lastScannedTimeRef.current < 3000) {
+          if (decodedText === lastScannedCodeRef.current && now - lastScannedTimeRef.current < SAME_CODE_COOLDOWN_MS) {
             return;
           }
 
@@ -614,13 +624,38 @@ export default function ScanPage() {
     setShowConfirmDialog(false);
   };
 
+  // 結果メッセージのフェードアウト
+  // 表示中に次の結果が来た場合は前のフェードを打ち切り、新しい結果を最初から表示し直す
+  const startMessageFade = (fadeDuration: number) => {
+    if (fadeIntervalRef.current) {
+      clearInterval(fadeIntervalRef.current);
+    }
+    setMessageOpacity(1);
+
+    const fadeStart = Date.now();
+    const fadeInterval = setInterval(() => {
+      const elapsed = Date.now() - fadeStart;
+      const opacity = Math.max(0, 1 - elapsed / fadeDuration);
+      setMessageOpacity(opacity);
+
+      if (opacity === 0) {
+        clearInterval(fadeInterval);
+        fadeIntervalRef.current = null;
+        setResult(null);
+        setError(null);
+        setMessageOpacity(1);
+      }
+    }, 50);
+    fadeIntervalRef.current = fadeInterval;
+  };
+
   const handleConfirmCheckIn = async () => {
     if (!selectedMember) return;
 
     // ダイアログを閉じる
     setShowConfirmDialog(false);
 
-    // メッセージ処理開始
+    // リクエスト処理開始（結果表示中も次のチェックインを受け付けるため、ロックはリクエスト中のみ）
     processingRef.current = true;
     setSearchQuery("");
     setSearchResults([]);
@@ -646,91 +681,31 @@ export default function ScanPage() {
             action: 'already_checked_in',
           });
           setError(null);
-          setMessageOpacity(1);
-
-          const fadeStart = Date.now();
-          const fadeDuration = 3000;
-          const fadeInterval = setInterval(() => {
-            const elapsed = Date.now() - fadeStart;
-            const opacity = Math.max(0, 1 - elapsed / fadeDuration);
-            setMessageOpacity(opacity);
-
-            if (opacity === 0) {
-              clearInterval(fadeInterval);
-              setResult(null);
-              setMessageOpacity(1);
-              processingRef.current = false;
-            }
-          }, 50);
-
+          startMessageFade(3000);
           return;
         }
 
         playErrorSound();
         setError(data.error || "チェックインに失敗しました");
         setResult(null);
-        setMessageOpacity(1);
-
-        const fadeStart = Date.now();
-        const fadeDuration = 3000;
-        const fadeInterval = setInterval(() => {
-          const elapsed = Date.now() - fadeStart;
-          const opacity = Math.max(0, 1 - elapsed / fadeDuration);
-          setMessageOpacity(opacity);
-
-          if (opacity === 0) {
-            clearInterval(fadeInterval);
-            setError(null);
-            setMessageOpacity(1);
-            processingRef.current = false;
-          }
-        }, 50);
-
+        startMessageFade(3000);
         return;
       }
 
       playSuccessSound();
       setResult(data.checkIn);
       setError(null);
-      setMessageOpacity(1);
       fetchTodayCheckIns();
-
-      const fadeStart = Date.now();
-      const fadeDuration = 3000;
-      const fadeInterval = setInterval(() => {
-        const elapsed = Date.now() - fadeStart;
-        const opacity = Math.max(0, 1 - elapsed / fadeDuration);
-        setMessageOpacity(opacity);
-
-        if (opacity === 0) {
-          clearInterval(fadeInterval);
-          setResult(null);
-          setMessageOpacity(1);
-          processingRef.current = false;
-        }
-      }, 50);
+      startMessageFade(3000);
     } catch (err) {
       playErrorSound();
       setError(
         err instanceof Error ? err.message : "チェックインに失敗しました"
       );
       setResult(null);
-      setMessageOpacity(1);
-
-      const fadeStart = Date.now();
-      const fadeDuration = 2000;
-      const fadeInterval = setInterval(() => {
-        const elapsed = Date.now() - fadeStart;
-        const opacity = Math.max(0, 1 - elapsed / fadeDuration);
-        setMessageOpacity(opacity);
-
-        if (opacity === 0) {
-          clearInterval(fadeInterval);
-          setError(null);
-          setMessageOpacity(1);
-          processingRef.current = false;
-        }
-      }, 50);
+      startMessageFade(2000);
+    } finally {
+      processingRef.current = false;
     }
   };
 
@@ -791,7 +766,8 @@ export default function ScanPage() {
   };
 
   const handleCheckIn = async (qrCode?: string, nfcId?: string) => {
-    // メッセージ処理開始（refを使って即座に反映）
+    // リクエスト処理開始（refを使って即座に反映）
+    // 結果表示中も次のチェックインを受け付けるため、ロックはリクエスト中のみ
     processingRef.current = true;
 
     try {
@@ -811,7 +787,6 @@ export default function ScanPage() {
           playErrorSound();
           setUnregisteredNfcId(data.unregisteredNfcId);
           setShowNfcRegisterModal(true);
-          processingRef.current = false;
           return;
         }
 
@@ -823,23 +798,9 @@ export default function ScanPage() {
             action: 'already_checked_in',
           });
           setError(null);
-          setMessageOpacity(1);
 
           // フェードアウトアニメーション
-          const fadeStart = Date.now();
-          const fadeDuration = successDisplaySeconds * 1000;
-          const fadeInterval = setInterval(() => {
-            const elapsed = Date.now() - fadeStart;
-            const opacity = Math.max(0, 1 - elapsed / fadeDuration);
-            setMessageOpacity(opacity);
-
-            if (opacity === 0) {
-              clearInterval(fadeInterval);
-              setResult(null);
-              setMessageOpacity(1);
-              processingRef.current = false;
-            }
-          }, 50);
+          startMessageFade(successDisplaySeconds * 1000);
 
           return;
         }
@@ -865,23 +826,9 @@ export default function ScanPage() {
 
         setError(errorMessage);
         setResult(null);
-        setMessageOpacity(1);
 
         // フェードアウトアニメーション
-        const fadeStart = Date.now();
-        const fadeDuration = successDisplaySeconds * 1000;
-        const fadeInterval = setInterval(() => {
-          const elapsed = Date.now() - fadeStart;
-          const opacity = Math.max(0, 1 - elapsed / fadeDuration);
-          setMessageOpacity(opacity);
-
-          if (opacity === 0) {
-            clearInterval(fadeInterval);
-            setError(null);
-            setMessageOpacity(1);
-            processingRef.current = false;
-          }
-        }, 50);
+        startMessageFade(successDisplaySeconds * 1000);
 
         return;
       }
@@ -891,26 +838,12 @@ export default function ScanPage() {
 
       setResult({ ...data.checkIn, action: data.action });
       setError(null);
-      setMessageOpacity(1);
 
       // チェックイン一覧を即座に更新
       fetchTodayCheckIns();
 
       // フェードアウトアニメーション
-      const fadeStart = Date.now();
-      const fadeDuration = successDisplaySeconds * 1000;
-      const fadeInterval = setInterval(() => {
-        const elapsed = Date.now() - fadeStart;
-        const opacity = Math.max(0, 1 - elapsed / fadeDuration);
-        setMessageOpacity(opacity);
-
-        if (opacity === 0) {
-          clearInterval(fadeInterval);
-          setResult(null);
-          setMessageOpacity(1);
-          processingRef.current = false;
-        }
-      }, 50);
+      startMessageFade(successDisplaySeconds * 1000);
     } catch (err) {
       // エラー音を鳴らす
       playErrorSound();
@@ -919,23 +852,11 @@ export default function ScanPage() {
         err instanceof Error ? err.message : "チェックインに失敗しました"
       );
       setResult(null);
-      setMessageOpacity(1);
 
       // フェードアウトアニメーション（2秒かけて透明に）
-      const fadeStart = Date.now();
-      const fadeDuration = 2000;
-      const fadeInterval = setInterval(() => {
-        const elapsed = Date.now() - fadeStart;
-        const opacity = Math.max(0, 1 - elapsed / fadeDuration);
-        setMessageOpacity(opacity);
-
-        if (opacity === 0) {
-          clearInterval(fadeInterval);
-          setError(null);
-          setMessageOpacity(1);
-          processingRef.current = false;
-        }
-      }, 50);
+      startMessageFade(2000);
+    } finally {
+      processingRef.current = false;
     }
   };
 
