@@ -615,6 +615,8 @@ export default function ScanPage() {
   };
 
   const handleMemberSelect = (member: any) => {
+    // 前の人の結果表示が確認ダイアログに重ならないよう消す
+    clearMessage();
     setSelectedMember(member);
     setShowConfirmDialog(true);
   };
@@ -647,6 +649,17 @@ export default function ScanPage() {
       }
     }, 50);
     fadeIntervalRef.current = fadeInterval;
+  };
+
+  // 結果メッセージを即座に消す（登録モーダルや確認ダイアログを表示するとき用）
+  const clearMessage = () => {
+    if (fadeIntervalRef.current) {
+      clearInterval(fadeIntervalRef.current);
+      fadeIntervalRef.current = null;
+    }
+    setResult(null);
+    setError(null);
+    setMessageOpacity(1);
   };
 
   const handleConfirmCheckIn = async () => {
@@ -785,6 +798,8 @@ export default function ScanPage() {
         // 未登録のNFCカードの場合は、メンバー紐付けモーダルを表示する
         if (response.status === 404 && data.unregisteredNfcId) {
           playErrorSound();
+          // 前の人の結果表示が登録モーダルに重ならないよう消す
+          clearMessage();
           setUnregisteredNfcId(data.unregisteredNfcId);
           setShowNfcRegisterModal(true);
           return;
