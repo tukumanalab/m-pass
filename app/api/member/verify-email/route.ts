@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
     findPendingEmailChangeByToken,
     deletePendingEmailChange,
+    markPendingEmailChangeUsed,
     updateMemberProfile,
     getMemberById,
     deleteExpiredPendingEmailChanges,
@@ -31,6 +32,17 @@ export async function POST(request: NextRequest) {
                 { error: 'このリンクは無効または期限切れです' },
                 { status: 400 }
             );
+        }
+
+        // 使用済みのリンクをもう一度開いた場合（メールソフトのリンク検査、二度押しなど）は
+        // エラーにせず変更済みとして返す。使用済みリンクでのログインは許さないため、
+        // セッションは発行しない。
+        if (pendingChange.used_at) {
+            return NextResponse.json({
+                success: true,
+                alreadyVerified: true,
+                message: 'メールアドレスは既に変更済みです',
+            });
         }
 
         // 有効期限チェック
@@ -66,8 +78,8 @@ export async function POST(request: NextRequest) {
             memberId: pendingChange.member_id,
         });
 
-        // 申請を削除
-        deletePendingEmailChange(pendingChange.id);
+        // 申請を使用済みにする
+        markPendingEmailChangeUsed(pendingChange.id);
 
         return NextResponse.json({
             success: true,

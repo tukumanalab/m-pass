@@ -58,6 +58,17 @@ export async function POST(request: NextRequest) {
         const member = findMemberByVerificationToken(token) as any;
 
         if (member) {
+            // 確認済みのリンクをもう一度開いた場合（メールソフトのリンク検査、二度押しなど）は
+            // エラーにせず確認済みとして返す。使用済みリンクでのログインは許さないため、
+            // セッションは発行しない。
+            if (member.email_verified === 1) {
+                return NextResponse.json({
+                    success: true,
+                    alreadyVerified: true,
+                    message: 'このメールアドレスは既に確認済みです。',
+                });
+            }
+
             // 有効期限をチェック
             if (member.verification_expires_at) {
                 const expiresAt = new Date(member.verification_expires_at + (member.verification_expires_at.endsWith('Z') ? '' : 'Z'));
@@ -102,7 +113,7 @@ export async function POST(request: NextRequest) {
 
         if (!pendingMember) {
             return NextResponse.json({
-                error: '無効なトークンです。リンクが正しいか確認してください。'
+                error: 'このリンクは無効です。確認メールを再送した場合は、最新のメールのリンクを開いてください。'
             }, { status: 404 });
         }
 
