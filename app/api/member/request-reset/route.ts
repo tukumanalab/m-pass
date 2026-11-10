@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { findAllMembersByEmail, createPasswordResetToken, deleteExpiredPasswordResetTokens } from '@/lib/database';
 import { sendPasswordResetEmail, sendPasswordResetEmailMultiple } from '@/lib/mailer';
 import crypto from 'crypto';
+import { checkRateLimits, HOUR } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
     try {
@@ -23,6 +24,13 @@ export async function POST(request: NextRequest) {
                 { status: 400 }
             );
         }
+
+        // 登録有無の総当たり確認や、特定アドレスへの大量送信を防ぐ
+        const limited = await checkRateLimits([
+            { scope: 'request-reset', limit: 10, windowMs: HOUR },
+            { scope: 'request-reset', limit: 3, windowMs: HOUR, subject: email },
+        ]);
+        if (limited) return limited;
 
         // メールアドレスで全メンバーを検索
         const members = findAllMembersByEmail(email) as any[];

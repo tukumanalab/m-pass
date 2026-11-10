@@ -13,6 +13,8 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const query = searchParams.get('q') || '';
+    // メールアドレスは会員管理画面からの明示的な要求時のみ返す（スキャン画面などには渡さない）
+    const includeEmail = searchParams.get('includeEmail') === '1';
 
     let members;
 
@@ -35,8 +37,9 @@ export async function GET(request: NextRequest) {
     }
 
     // 各メンバーにNFCカード情報を付与
-    const membersWithNfc = (members as any[]).map(m => ({
+    const membersWithNfc = (members as any[]).map(({ email, ...m }) => ({
       ...m,
+      ...(includeEmail ? { email } : {}),
       nfc_cards: getMemberNfcCards(m.id)
     }));
 

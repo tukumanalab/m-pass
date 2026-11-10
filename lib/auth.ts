@@ -4,9 +4,17 @@ import { SignJWT, jwtVerify } from 'jose';
 import { logger } from './logger';
 
 // 管理者トークンの署名鍵（ADMIN_JWT_SECRET 未設定時は管理者パスワードのハッシュを鍵として使う）
-const ADMIN_TOKEN_SECRET = new TextEncoder().encode(
-  process.env.ADMIN_JWT_SECRET || process.env.ADMIN_PASSWORD_HASH || 'change-this-admin-secret-in-production'
-);
+// どちらも未設定の本番環境では、既定値で署名しないようエラーにする
+let adminTokenSecret: Uint8Array | null = null;
+function getAdminTokenSecret(): Uint8Array {
+  if (adminTokenSecret) return adminTokenSecret;
+  const secret = process.env.ADMIN_JWT_SECRET || process.env.ADMIN_PASSWORD_HASH;
+  if (!secret && process.env.NODE_ENV === 'production') {
+    throw new Error('ADMIN_JWT_SECRET または ADMIN_PASSWORD_HASH が設定されていません');
+  }
+  adminTokenSecret = new TextEncoder().encode(secret || 'dev-only-admin-secret');
+  return adminTokenSecret;
+}
 export const ADMIN_TOKEN_MAX_AGE = 60 * 60 * 24; // 24時間
 
 /**
@@ -17,7 +25,7 @@ export async function createAdminToken(): Promise<string> {
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime(`${ADMIN_TOKEN_MAX_AGE}s`)
-    .sign(ADMIN_TOKEN_SECRET);
+    .sign(getAdminTokenSecret());
 }
 
 /**
@@ -25,7 +33,7 @@ export async function createAdminToken(): Promise<string> {
  */
 async function verifyAdminToken(token: string): Promise<boolean> {
   try {
-    const { payload } = await jwtVerify(token, ADMIN_TOKEN_SECRET);
+    const { payload } = await jwtVerify(token, getAdminTokenSecret());
     return payload.role === 'admin';
   } catch {
     return false;
@@ -138,14 +146,16 @@ function matchesCIDR(ip: string, network: string, maskBits: number): boolean {
 /**
  * リクエストからクライアントIPアドレスを取得
  */
-async function getClientIP(): Promise<string> {
+export async function getClientIP(options: { log?: boolean } = {}): Promise<string> {
   const headersList = await headers();
+  // 公開APIのレート制限からも呼ばれるため、ログ出力は呼び出し側で抑止できるようにする
+  const log = (message: string) => { if (options.log !== false) logToConsole(message); };
   
   // nginx が接続元アドレスを設定する X-Real-IP を優先する
   // （X-Forwarded-For の先頭はクライアントが自由に書き換えられるため）
   const realIP = headersList.get('x-real-ip');
   if (realIP) {
-    logToConsole(`[IP DETECT] From X-Real-IP: ${realIP}`);
+    log(`[IP DETECT] From X-Real-IP: ${realIP}`);
     return realIP;
   }
 
@@ -154,12 +164,12 @@ async function getClientIP(): Promise<string> {
     // カンマ区切りの最後のIP（直近のプロキシが付加したもの）を使用
     const ips = forwarded.split(',').map(s => s.trim()).filter(Boolean);
     const ip = ips[ips.length - 1];
-    logToConsole(`[IP DETECT] From X-Forwarded-For: ${ip}`);
+    log(`[IP DETECT] From X-Forwarded-For: ${ip}`);
     return ip;
   }
   
   // フォールバック（開発環境用）
-  logToConsole(`[IP DETECT] Using fallback: 127.0.0.1`);
+  log(`[IP DETECT] Using fallback: 127.0.0.1`);
   return '127.0.0.1';
 }
 

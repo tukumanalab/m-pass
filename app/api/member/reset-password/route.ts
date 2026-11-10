@@ -38,7 +38,6 @@ export async function POST(request: NextRequest) {
         const now = new Date();
 
         console.log('Password reset token check:', {
-            token: token.substring(0, 10) + '...',
             expiresAt: expiresAt.toISOString(),
             now: now.toISOString(),
             expired: now > expiresAt

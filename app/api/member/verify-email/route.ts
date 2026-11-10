@@ -64,8 +64,6 @@ export async function POST(request: NextRequest) {
         // セッションを更新
         await createMemberSession({
             memberId: pendingChange.member_id,
-            email: pendingChange.new_email,
-            name: member.name,
         });
 
         // 申請を削除

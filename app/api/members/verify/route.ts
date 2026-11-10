@@ -74,8 +74,6 @@ export async function POST(request: NextRequest) {
             // ログインセッションを発行
             await createMemberSession({
                 memberId: member.id,
-                email: member.email,
-                name: member.name,
             });
 
             // QRコード画像をBase64データURLとして生成
@@ -93,7 +91,6 @@ export async function POST(request: NextRequest) {
                     affiliation: member.affiliation,
                     affiliationDetail: member.affiliation_detail,
                     organizationMemberId: member.organization_member_id,
-                    email: member.email,
                     memberId: member.member_id,
                     qrCodeUrl: qrCodeDataUrl,
                 },
@@ -136,8 +133,6 @@ export async function POST(request: NextRequest) {
         // ログインセッションを発行
         await createMemberSession({
             memberId: memberDbId as number,
-            email: pendingMember.email,
-            name: pendingMember.name,
         });
 
         if (pendingMember.how_did_you_know) {
@@ -175,7 +170,6 @@ export async function POST(request: NextRequest) {
                 affiliation: pendingMember.affiliation,
                 affiliationDetail: pendingMember.affiliation_detail,
                 organizationMemberId: pendingMember.organization_member_id,
-                email: pendingMember.email,
                 memberId,
                 qrCodeUrl: qrCodeDataUrl,
             },

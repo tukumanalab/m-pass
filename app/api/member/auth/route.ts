@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { findMemberByMemberId, deleteUncheckedInExpiredMembers } from '@/lib/database';
 import { createMemberSession } from '@/lib/member-auth';
 import bcrypt from 'bcrypt';
+import { checkRateLimits, MINUTE } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
     try {
@@ -18,6 +19,13 @@ export async function POST(request: NextRequest) {
                 { status: 400 }
             );
         }
+
+        // パスワードの総当たりを防ぐ
+        const limited = await checkRateLimits([
+            { scope: 'member-auth', limit: 20, windowMs: 15 * MINUTE },
+            { scope: 'member-auth', limit: 10, windowMs: 15 * MINUTE, subject: String(memberId) },
+        ]);
+        if (limited) return limited;
 
         // メンバーを検索
         const member = findMemberByMemberId(memberId.trim()) as any;
@@ -42,8 +50,6 @@ export async function POST(request: NextRequest) {
         // セッションを作成
         await createMemberSession({
             memberId: member.id,
-            email: member.email,
-            name: member.name,
         });
 
         return NextResponse.json({

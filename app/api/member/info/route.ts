@@ -171,8 +171,6 @@ export async function PUT(request: NextRequest) {
 
             await createMemberSession({
                 memberId: session.memberId,
-                email: member.email, // メールアドレスは変更しない
-                name,
             });
 
             const updatedMember = getMemberById(session.memberId) as any;
@@ -213,8 +211,6 @@ export async function PUT(request: NextRequest) {
 
         await createMemberSession({
             memberId: session.memberId,
-            email: member.email ?? '',
-            name,
         });
 
         const updatedMember = getMemberById(session.memberId) as any;
