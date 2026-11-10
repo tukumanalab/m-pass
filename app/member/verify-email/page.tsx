@@ -10,9 +10,9 @@ export default function VerifyEmailPage() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
 
-  const [status, setStatus] = useState<"loading" | "success" | "error">(
-    "loading"
-  );
+  const [status, setStatus] = useState<
+    "loading" | "success" | "already" | "error"
+  >("loading");
   const [message, setMessage] = useState<string>("");
 
   useEffect(() => {
@@ -36,6 +36,12 @@ export default function VerifyEmailPage() {
 
         if (!response.ok) {
           throw new Error(data.error || "メールアドレスの確認に失敗しました");
+        }
+
+        // 使用済みのリンクを再度開いた場合はセッションが発行されないので、案内を表示する
+        if (data.alreadyVerified) {
+          setStatus("already");
+          return;
         }
 
         setStatus("success");
@@ -98,6 +104,38 @@ export default function VerifyEmailPage() {
               <p className="text-sm text-gray-500">
                 自動的にマイページに移動します...
               </p>
+            </>
+          )}
+
+          {status === "already" && (
+            <>
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg
+                  className="w-8 h-8 text-green-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+              </div>
+              <h2 className="text-xl font-bold text-gray-900 mb-2">
+                変更済みです
+              </h2>
+              <p className="text-gray-600 mb-6">
+                このメールアドレスへの変更は既に完了しています。
+              </p>
+              <button
+                onClick={() => router.push("/member/dashboard")}
+                className="px-6 py-2 rounded-lg bg-gradient-to-r from-primary-500 to-primary-600 text-white font-medium shadow-md hover:from-primary-600 hover:to-primary-700 transition-all"
+              >
+                マイページへ
+              </button>
             </>
           )}
 

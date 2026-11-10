@@ -7,6 +7,7 @@ import { apiUrl } from "@/lib/api";
 function VerifyContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [alreadyVerified, setAlreadyVerified] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [memberName, setMemberName] = useState<string | null>(null);
@@ -38,13 +39,22 @@ function VerifyContent() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "登録に失敗しました");
+        throw new Error(data.error || "メールアドレスの確認に失敗しました");
+      }
+
+      // 確認済みのリンクを再度開いた場合はセッションが発行されないので、案内を表示する
+      if (data.alreadyVerified) {
+        setAlreadyVerified(true);
+        setLoading(false);
+        return;
       }
 
       // マイページへリダイレクト
       router.push("/member/dashboard?verified=true");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "登録に失敗しました");
+      setError(
+        err instanceof Error ? err.message : "メールアドレスの確認に失敗しました"
+      );
       setLoading(false);
     }
   };
@@ -233,14 +243,53 @@ function VerifyContent() {
             </svg>
           </div>
           <h1 className="text-3xl font-bold text-red-600 mb-4">
-            登録に失敗しました
+            メールアドレスを確認できませんでした
           </h1>
-          <p className="text-gray-600 mb-8">{error}</p>
+          <p className="text-gray-600 mb-2">{error}</p>
+          <p className="text-sm text-gray-500 mb-8">
+            メンバー登録は完了しています。確認メールはマイページから再送できます。
+          </p>
           <button
-            onClick={() => router.push("/register")}
+            onClick={() => router.push("/member/dashboard")}
             className="bg-gradient-to-r from-primary-500 to-primary-600 text-white py-3 px-6 rounded-xl hover:from-primary-600 hover:to-primary-700 transition-all shadow-md hover:shadow-lg"
           >
-            登録ページに戻る
+            マイページへ
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (alreadyVerified) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-12">
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-8 text-center border border-primary-100">
+          <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-primary-500 to-primary-600 rounded-2xl flex items-center justify-center">
+            <svg
+              className="w-12 h-12 text-white"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 13l4 4L19 7"
+              />
+            </svg>
+          </div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-4">
+            メールアドレスは確認済みです
+          </h1>
+          <p className="text-gray-600 mb-8">
+            このメールアドレスの確認は既に完了しています。
+          </p>
+          <button
+            onClick={() => router.push("/member/dashboard")}
+            className="bg-gradient-to-r from-primary-500 to-primary-600 text-white py-3 px-6 rounded-xl hover:from-primary-600 hover:to-primary-700 transition-all shadow-md hover:shadow-lg"
+          >
+            マイページへ
           </button>
         </div>
       </div>

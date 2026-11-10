@@ -112,6 +112,13 @@ export function initDatabase() {
     )
   `);
 
+  // 確認リンクの使用日時カラムを追加（使用済みリンクを再度開いたときの判定用）
+  try {
+    db.exec(`ALTER TABLE pending_email_changes ADD COLUMN used_at DATETIME`);
+  } catch (e) {
+    // カラムが既に存在する場合はエラーを無視
+  }
+
   // パスワードリセットトークンテーブル
   db.exec(`
     CREATE TABLE IF NOT EXISTS password_reset_tokens (
@@ -329,10 +336,12 @@ export function findMemberByVerificationToken(token: string) {
 }
 
 // メールアドレスを認証済みに更新
+// verification_token は消さずに残す。確認リンクは、メールソフトのリンク検査や
+// 二度押しなどで複数回開かれることがあり、2回目以降を「確認済み」と判定するために使う。
 export function markEmailAsVerified(memberId: number) {
   const stmt = db.prepare(`
     UPDATE members
-    SET email_verified = 1, verification_token = NULL, verification_expires_at = NULL
+    SET email_verified = 1, verification_expires_at = NULL
     WHERE id = ?
   `);
   return stmt.run(memberId).changes;
@@ -953,10 +962,22 @@ export function deletePendingEmailChange(id: number) {
   return result.changes;
 }
 
-// 期限切れのメールアドレス変更申請を削除
+// メールアドレス変更申請を使用済みにする
+// 行は消さずに残す。確認リンクは、メールソフトのリンク検査や二度押しなどで
+// 複数回開かれることがあり、2回目以降を「変更済み」と判定するために使う。
+export function markPendingEmailChangeUsed(id: number) {
+  const stmt = db.prepare(`
+    UPDATE pending_email_changes SET used_at = CURRENT_TIMESTAMP WHERE id = ?
+  `);
+  return stmt.run(id).changes;
+}
+
+// 期限切れのメールアドレス変更申請を削除（使用済みの申請は使用から7日後に削除）
 export function deleteExpiredPendingEmailChanges() {
   const stmt = db.prepare(`
-    DELETE FROM pending_email_changes WHERE expires_at < CURRENT_TIMESTAMP
+    DELETE FROM pending_email_changes
+    WHERE (used_at IS NULL AND expires_at < CURRENT_TIMESTAMP)
+       OR used_at < datetime('now', '-7 days')
   `);
   const result = stmt.run();
   return result.changes;
