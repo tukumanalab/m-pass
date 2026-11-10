@@ -4,6 +4,7 @@ import { createMemberSession } from '@/lib/member-auth';
 import { sendVerificationEmail } from '@/lib/mailer';
 import { logger } from '@/lib/logger';
 import bcrypt from 'bcrypt';
+import { checkRateLimits, HOUR } from '@/lib/rate-limit';
 import crypto from 'crypto';
 
 // 同じメールアドレスで登録可能な最大人数
@@ -48,6 +49,12 @@ export async function POST(request: NextRequest) {
 
         const body = await request.json();
         const { name, affiliation, affiliationDetail, email, password, howDidYouKnow, organizationMemberId } = body;
+
+        // 登録済みかどうかの総当たり確認を防ぐ（会場の共用回線を考慮して多めの上限）
+        const limited = await checkRateLimits([
+            { scope: 'register', limit: 30, windowMs: HOUR },
+        ]);
+        if (limited) return limited;
 
         // バリデーション
         if (!name) {
@@ -138,18 +145,16 @@ export async function POST(request: NextRequest) {
         // メンバーログインセッションを即時生成
         await createMemberSession({
             memberId: Number(memberDbId),
-            email,
-            name,
         });
 
         // 確認メールを非同期で送信（エラーでもユーザー登録は完了させる）
         sendVerificationEmail(email, name, token)
             .then(() => {
-                logger.info('Registration verification email sent', { email, name });
+                logger.info('Registration verification email sent', { memberId: Number(memberDbId) });
             })
             .catch((mailError) => {
-                logger.error('Registration: Email sending error (non-critical)', { email, name, error: mailError });
-                console.error('Email sending error:', mailError);
+                logger.error('Registration: Email sending error (non-critical)', { memberId: Number(memberDbId), error: String(mailError) });
+                console.error('Email sending error:', String(mailError));
             });
 
         return NextResponse.json({

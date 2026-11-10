@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { apiUrl } from "@/lib/api";
+import { maskEmail } from "@/lib/mask";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useWebUSBFeliCa } from "@/app/hooks/useWebUSBFeliCa";
@@ -81,6 +82,16 @@ export default function AdminMembersPage() {
     qrCodeUrl: string;
     cardSvg: string | null;
   } | null>(null);
+  // メールアドレスを全体表示している会員のID
+  const [revealedEmailIds, setRevealedEmailIds] = useState<Set<number>>(new Set());
+  const toggleEmailReveal = (id: number) => {
+    setRevealedEmailIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [csvUploading, setCsvUploading] = useState(false);
   const [failedRows, setFailedRows] = useState<
@@ -191,7 +202,7 @@ export default function AdminMembersPage() {
     try {
       setLoading(true);
       const response = await fetch(
-        apiUrl(`/api/admin/members/search?q=${encodeURIComponent(query)}`)
+        apiUrl(`/api/admin/members/search?q=${encodeURIComponent(query)}&includeEmail=1`)
       );
       const data = await response.json();
 
@@ -1130,9 +1141,15 @@ export default function AdminMembersPage() {
                                 ` - ${member.affiliation_detail}`}
                             </p>
                             {member.email ? (
-                              <p className="text-sm text-blue-600 mt-1">
-                                {member.email}
-                              </p>
+                              // 覗き見防止のため通常はマスク表示し、クリックで全体を表示する
+                              <button
+                                type="button"
+                                className="text-sm text-blue-600 mt-1 hover:underline"
+                                title={revealedEmailIds.has(member.id) ? "クリックで隠す" : "クリックで表示"}
+                                onClick={() => toggleEmailReveal(member.id)}
+                              >
+                                {revealedEmailIds.has(member.id) ? member.email : maskEmail(member.email)}
+                              </button>
                             ) : (
                               <p className="text-sm text-gray-400 mt-1">
                                 メール未登録

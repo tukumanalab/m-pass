@@ -1,4 +1,5 @@
 import { Resend } from 'resend';
+import { maskEmail } from './mask';
 
 // Resend設定を環境変数から取得
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
@@ -152,7 +153,7 @@ export async function sendVerificationEmail(
 
     try {
         await sendMail(mailOptions);
-        console.log(`Verification email sent to ${to}`);
+        console.log(`Verification email sent to ${maskEmail(to)}`);
     } catch (error) {
         console.error('Error sending verification email:', error);
         throw new Error('メールの送信に失敗しました');
@@ -214,7 +215,7 @@ export async function sendPasswordResetEmail(
 
     try {
         await sendMail(mailOptions);
-        console.log(`Password reset email sent to ${to}`);
+        console.log(`Password reset email sent to ${maskEmail(to)}`);
     } catch (error) {
         console.error('Error sending password reset email:', error);
         throw new Error('メールの送信に失敗しました');
@@ -299,7 +300,7 @@ export async function sendPasswordResetEmailMultiple(
 
     try {
         await sendMail(mailOptions);
-        console.log(`Password reset email (multiple members) sent to ${to}`);
+        console.log(`Password reset email (multiple members) sent to ${maskEmail(to)}`);
     } catch (error) {
         console.error('Error sending password reset email:', error);
         throw new Error('メールの送信に失敗しました');
@@ -382,7 +383,7 @@ export async function sendRegistrationCompleteEmail(
 
     try {
         await sendMail(mailOptions);
-        console.log(`Registration complete email sent to ${to}`);
+        console.log(`Registration complete email sent to ${maskEmail(to)}`);
     } catch (error) {
         console.error('Error sending registration complete email:', error);
         // 登録完了メールの送信失敗は致命的ではないため、エラーをログに記録するのみ
@@ -444,7 +445,7 @@ export async function sendEmailChangeVerificationEmail(
 
     try {
         await sendMail(mailOptions);
-        console.log(`Email change verification email sent to ${to}`);
+        console.log(`Email change verification email sent to ${maskEmail(to)}`);
     } catch (error) {
         console.error('Error sending email change verification email:', error);
         throw new Error('メールの送信に失敗しました');
@@ -461,7 +462,7 @@ export async function sendMyPageAnnouncementEmail(
 ): Promise<void> {
     // Resend設定がない場合はスキップ
     if (!isMailConfigured()) {
-        console.log(`Skipping MyPage announcement email to ${to} (Resend not configured)`);
+        console.log(`Skipping MyPage announcement email to ${maskEmail(to)} (Resend not configured)`);
         return;
     }
 
@@ -555,7 +556,7 @@ export async function sendMyPageAnnouncementEmail(
 
     try {
         await sendMail(mailOptions);
-        console.log(`MyPage announcement email sent to ${to}`);
+        console.log(`MyPage announcement email sent to ${maskEmail(to)}`);
     } catch (error) {
         console.error('Error sending MyPage announcement email:', error);
         // マイページ案内メールの送信失敗は致命的ではないため、エラーをログに記録するのみ
@@ -612,5 +613,5 @@ export async function sendTestEmail(to: string): Promise<void> {
     };
 
     await sendMail(mailOptions);
-    console.log(`Test email sent to ${to}`);
+    console.log(`Test email sent to ${maskEmail(to)}`);
 }

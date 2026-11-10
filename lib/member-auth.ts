@@ -1,31 +1,48 @@
 import { cookies } from 'next/headers';
 import { SignJWT, jwtVerify, JWTPayload } from 'jose';
+import crypto from 'crypto';
 
-const MEMBER_SECRET_KEY = new TextEncoder().encode(
-    process.env.MEMBER_JWT_SECRET || 'your-member-secret-key-change-this-in-production'
-);
+let memberSecretKey: Uint8Array | null = null;
+
+// 会員セッションの署名鍵
+// MEMBER_JWT_SECRET が未設定なら、管理者用の秘密値から会員用の鍵を派生させる。
+// どちらも無い本番環境では、誰でも知っている既定値で署名しないようエラーにする。
+function getMemberSecretKey(): Uint8Array {
+    if (memberSecretKey) return memberSecretKey;
+    const explicit = process.env.MEMBER_JWT_SECRET;
+    const base = process.env.ADMIN_JWT_SECRET || process.env.ADMIN_PASSWORD_HASH;
+    let secret: string;
+    if (explicit) {
+        secret = explicit;
+    } else if (base) {
+        secret = crypto.createHmac('sha256', base).update('m-pass-member-session').digest('hex');
+    } else if (process.env.NODE_ENV === 'production') {
+        throw new Error('MEMBER_JWT_SECRET（または ADMIN_JWT_SECRET / ADMIN_PASSWORD_HASH）が設定されていません');
+    } else {
+        secret = 'dev-only-member-secret';
+    }
+    memberSecretKey = new TextEncoder().encode(secret);
+    return memberSecretKey;
+}
 
 const MEMBER_COOKIE_NAME = 'member_session';
 
+// JWT は署名されているだけで中身は誰でも読めるため、個人情報（メールアドレス・氏名）は入れない
 export interface MemberSession {
     memberId: number;
-    email: string;
-    name: string;
 }
 
 interface MemberJWTPayload extends JWTPayload {
     memberId: number;
-    email: string;
-    name: string;
 }
 
 // メンバーセッションを作成
 export async function createMemberSession(session: MemberSession) {
-    const token = await new SignJWT(session as MemberJWTPayload)
+    const token = await new SignJWT({ memberId: session.memberId } as MemberJWTPayload)
         .setProtectedHeader({ alg: 'HS256' })
         .setIssuedAt()
         .setExpirationTime('7d') // 7日間有効
-        .sign(MEMBER_SECRET_KEY);
+        .sign(getMemberSecretKey());
 
     const cookieStore = await cookies();
     cookieStore.set(MEMBER_COOKIE_NAME, token, {
@@ -47,12 +64,10 @@ export async function verifyMemberSession(): Promise<MemberSession | null> {
     }
 
     try {
-        const verified = await jwtVerify(token.value, MEMBER_SECRET_KEY);
+        const verified = await jwtVerify(token.value, getMemberSecretKey());
         const payload = verified.payload as MemberJWTPayload;
         return {
             memberId: payload.memberId,
-            email: payload.email,
-            name: payload.name,
         };
     } catch (error) {
         return null;

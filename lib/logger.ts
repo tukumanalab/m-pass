@@ -1,4 +1,5 @@
 import { createLog, deleteOldLogs } from './database';
+import { maskEmailsInText } from './mask';
 
 type LogLevel = 'INFO' | 'WARN' | 'ERROR';
 
@@ -6,7 +7,9 @@ class Logger {
   private log(level: LogLevel, message: string, meta?: any) {
     // コンソールに出力
     const timestamp = new Date().toISOString();
-    const metaStr = meta ? JSON.stringify(meta) : '';
+    // メールアドレスはコンソール・DBのどちらにも平文で残さない
+    message = maskEmailsInText(message);
+    const metaStr = meta ? maskEmailsInText(JSON.stringify(meta)) : '';
     const consoleMsg = `[${timestamp}] [${level}] ${message} ${metaStr}`;
 
     switch (level) {
@@ -23,7 +26,7 @@ class Logger {
 
     // データベースに保存
     try {
-      createLog(level, message, meta);
+      createLog(level, message, metaStr ? JSON.parse(metaStr) : undefined);
 
       // 1%の確率で古いログを削除（30日以上前）
       if (Math.random() < 0.01) {

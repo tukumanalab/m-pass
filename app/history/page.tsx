@@ -20,7 +20,6 @@ interface Member {
   name: string;
   affiliation: string;
   affiliation_detail: string;
-  email: string;
   created_at: string;
 }
 
@@ -1237,10 +1236,6 @@ export default function HistoryPage() {
                       <div>
                         <p className="text-sm text-gray-500">所属詳細</p>
                         <p className="text-gray-900">{selectedMember.affiliation_detail || "-"}</p>
-                      </div>
-                      <div className="col-span-1 md:col-span-2">
-                        <p className="text-sm text-gray-500">メールアドレス</p>
-                        <p className="text-gray-900">{selectedMember.email || "未登録"}</p>
                       </div>
                     </div>
                   </div>

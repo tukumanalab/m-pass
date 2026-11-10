@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
+import { maskEmailsInText } from './mask';
 
 // DB_PATHが指定されていない場合はmembers.db、指定されている場合はDB_PATHを使用
 const dbPath = process.env.DB_PATH || path.join(process.cwd(), 'members.db');
@@ -12,6 +13,16 @@ if (!fs.existsSync(dbDir)) {
 }
 
 const db = new Database(dbPath);
+
+// DBファイルは会員の個人情報を含むため、所有者のみ読み書きできるようにする
+// （本番サーバーは他のアプリと共有しているため）
+for (const file of [dbPath, `${dbPath}-journal`, `${dbPath}-wal`, `${dbPath}-shm`]) {
+  try {
+    if (fs.existsSync(file)) fs.chmodSync(file, 0o600);
+  } catch (e) {
+    console.warn(`Failed to restrict permissions of ${path.basename(file)}:`, e);
+  }
+}
 
 // 外部キー制約を有効化
 db.pragma('foreign_keys = ON');
@@ -277,6 +288,9 @@ export function initDatabase() {
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_logs_created_at ON logs(created_at)
   `);
+
+  // 過去のログに平文で残っているメールアドレスをマスクする（マスク済みの値は再マッチしないため何度実行しても同じ結果）
+  maskEmailsInExistingLogs();
 
   // NFCカードテーブル
   db.exec(`
@@ -992,6 +1006,23 @@ export function createLog(level: string, message: string, meta?: any) {
   `);
   const metaStr = meta ? JSON.stringify(meta) : null;
   return stmt.run(level, message, metaStr).lastInsertRowid;
+}
+
+// 既存ログ内のメールアドレスをマスク
+function maskEmailsInExistingLogs() {
+  const rows = db.prepare(`SELECT id, message, meta FROM logs WHERE message LIKE '%@%' OR meta LIKE '%@%'`).all() as Array<{ id: number; message: string; meta: string | null }>;
+  if (rows.length === 0) return;
+  const update = db.prepare(`UPDATE logs SET message = ?, meta = ? WHERE id = ?`);
+  const tx = db.transaction(() => {
+    for (const row of rows) {
+      const message = maskEmailsInText(row.message);
+      const meta = row.meta === null ? null : maskEmailsInText(row.meta);
+      if (message !== row.message || meta !== row.meta) {
+        update.run(message, meta, row.id);
+      }
+    }
+  });
+  tx();
 }
 
 // ログの取得

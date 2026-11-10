@@ -82,7 +82,6 @@ export async function POST(request: NextRequest) {
                   memberId: member.id,
                   memberName: member.name,
                   affiliation: member.affiliation,
-                  email: member.email,
                 },
               },
               { status: 429 }
@@ -131,7 +130,6 @@ export async function POST(request: NextRequest) {
                   memberId: member.id,
                   memberName: member.name,
                   affiliation: member.affiliation,
-                  email: member.email,
                 },
               },
               { status: 429 }
@@ -167,7 +165,7 @@ export async function POST(request: NextRequest) {
         );
         // 送信済みフラグを更新
         markMyPageNotificationSent(member.id);
-        console.log(`[MyPage Announcement] Email successfully sent to member ${member.member_id} (${member.email})`);
+        console.log(`[MyPage Announcement] Email successfully sent to member ${member.member_id}`);
       } catch (error) {
         console.error(`[MyPage Announcement] Failed to send email to member ${member.member_id}:`, error);
         // メール送信エラーはログに記録するのみで、チェックインは成功とする
@@ -183,7 +181,6 @@ export async function POST(request: NextRequest) {
         memberId: member.id,
         memberName: member.name,
         affiliation: member.affiliation,
-        email: member.email,
         stayDurationMinutes,
       },
     });
