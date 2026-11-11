@@ -26,14 +26,18 @@ export async function GET(request: NextRequest) {
         ORDER BY created_at DESC
       `).all();
     } else {
-      // 名前、所属、メールアドレス、メンバーID、NFC ID、組織内IDで部分一致検索
+      const trimmedQuery = query.trim();
+      const normalizedQuery = trimmedQuery.replace(/[\s\u3000]+/g, '');
+      const pattern = `%${trimmedQuery}%`;
+      const normalizedPattern = normalizedQuery ? `%${normalizedQuery}%` : pattern;
+      // 名前（半角・全角スペース有無を吸収）、所属、メールアドレス、メンバーID、NFC ID、組織内IDで部分一致検索
       members = db.prepare(`
         SELECT DISTINCT m.id, m.member_id, m.name, m.affiliation, m.affiliation_detail, m.organization_member_id, m.email, m.created_at, m.mypage_notification_sent_at, m.card_printed_at
         FROM members m
         LEFT JOIN member_nfc_cards c ON m.id = c.member_id
-        WHERE m.name LIKE ? OR m.affiliation LIKE ? OR m.affiliation_detail LIKE ? OR m.email LIKE ? OR m.member_id LIKE ? OR c.nfc_id LIKE ? OR m.organization_member_id LIKE ?
+        WHERE m.name LIKE ? OR REPLACE(REPLACE(m.name, ' ', ''), '　', '') LIKE ? OR m.affiliation LIKE ? OR m.affiliation_detail LIKE ? OR m.email LIKE ? OR m.member_id LIKE ? OR c.nfc_id LIKE ? OR m.organization_member_id LIKE ?
         ORDER BY m.created_at DESC
-      `).all(`%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`);
+      `).all(pattern, normalizedPattern, pattern, pattern, pattern, pattern, pattern, pattern);
     }
 
     // 各メンバーにNFCカード情報を付与
