@@ -20,14 +20,21 @@ const affiliationOptions = [
 const passwordRegex = /^[A-Za-z\d@$!%*?&_.\-+=^#~,;:/<>{}[\]|()`'"\\]{8,}$/;
 interface MemberResponse {
   name: string;
-  email: string;
+  // 現在のメールアドレスはサーバーから伏せ字でのみ受け取る
+  maskedEmail: string;
+  hasEmail: boolean;
   affiliation: string;
   affiliationDetail: string | null;
   emailChangeRequested?: boolean;
   pendingEmail?: string;
 }
 
-type MemberFormValues = MemberResponse & {
+type MemberFormValues = {
+  name: string;
+  // 新しいメールアドレス（空なら変更しない）
+  email: string;
+  affiliation: string;
+  affiliationDetail: string | null;
   password: string;
   passwordConfirm: string;
 };
@@ -43,6 +50,7 @@ export default function MemberEditPage() {
     passwordConfirm: "",
   });
   const [noEmail, setNoEmail] = useState(false); // 取得時点でメール未登録か
+  const [maskedEmail, setMaskedEmail] = useState(""); // 現在のメールアドレス（伏せ字）
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -84,10 +92,11 @@ export default function MemberEditPage() {
         }
 
         const data = (await response.json()) as MemberResponse & { cards?: any[] };
-        setNoEmail(!data.email);
+        setNoEmail(!data.hasEmail);
+        setMaskedEmail(data.maskedEmail);
         setFormValues({
           name: data.name,
-          email: data.email ?? "",
+          email: "",
           affiliation: data.affiliation,
           affiliationDetail: data.affiliationDetail ?? "",
           password: "",
@@ -253,7 +262,7 @@ export default function MemberEditPage() {
         // フォームは元のメールアドレスのままにする
         setFormValues({
           name: updated.name,
-          email: updated.email,
+          email: "",
           affiliation: updated.affiliation,
           affiliationDetail: updated.affiliationDetail ?? "",
           password: "",
@@ -263,7 +272,7 @@ export default function MemberEditPage() {
         // メールアドレス変更がない場合は通常の更新
         setFormValues({
           name: updated.name,
-          email: updated.email,
+          email: "",
           affiliation: updated.affiliation,
           affiliationDetail: updated.affiliationDetail ?? "",
           password: "",
@@ -271,6 +280,8 @@ export default function MemberEditPage() {
         });
         setSuccess("メンバー情報を更新しました");
       }
+      setNoEmail(!updated.hasEmail);
+      setMaskedEmail(updated.maskedEmail);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "メンバー情報の更新に失敗しました"
@@ -346,13 +357,24 @@ export default function MemberEditPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 メールアドレス
               </label>
+              {!noEmail && (
+                <p className="mb-1 text-sm text-gray-600">
+                  現在: <span className="font-medium">{maskedEmail}</span>
+                </p>
+              )}
               <input
                 type="email"
                 value={formValues.email}
                 onChange={handleChange("email")}
+                placeholder={noEmail ? "" : "変更する場合のみ新しいアドレスを入力"}
+                autoComplete="off"
                 className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                required={!noEmail}
               />
+              {!noEmail && (
+                <p className="mt-1 text-xs text-gray-500">
+                  セキュリティのため、現在のアドレスは一部を伏せて表示しています。空欄のままなら変更されません。
+                </p>
+              )}
               {noEmail && (
                 <p className="mt-1 text-xs text-gray-500">
                   メールアドレスを登録するとパスワードリセットが使えます

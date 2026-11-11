@@ -10,6 +10,13 @@ import {
 import { sendEmailChangeVerificationEmail } from '@/lib/mailer';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
+import { maskEmail } from '@/lib/mask';
+import { checkRateLimits, HOUR } from '@/lib/rate-limit';
+
+// パスワードが漏れてマイページに入られても、メールアドレスそのものは取り出せないよう伏せ字で返す
+function emailFields(email: string | null | undefined) {
+    return { maskedEmail: maskEmail(email), hasEmail: !!email };
+}
 
 export async function GET() {
     try {
@@ -37,7 +44,7 @@ export async function GET() {
         return NextResponse.json({
             id: member.id,
             name: member.name,
-            email: member.email,
+            ...emailFields(member.email),
             affiliation: member.affiliation,
             affiliationDetail: member.affiliation_detail,
             memberId: member.member_id,
@@ -96,15 +103,8 @@ export async function PUT(request: NextRequest) {
             );
         }
 
-        // メール未登録のメンバーのみ、メールアドレス未入力での保存を許可する
-        const hasNoEmail = !member.email;
+        // 画面には現在のアドレスを出さないため、メール欄が空なら「変更しない」と扱う
         const email = (inputEmail ?? '').trim();
-        if (!email && !hasNoEmail) {
-            return NextResponse.json(
-                { error: '名前、所属、メールアドレスは必須です' },
-                { status: 400 }
-            );
-        }
 
         if (email) {
             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -116,10 +116,18 @@ export async function PUT(request: NextRequest) {
             }
         }
 
-        // メールアドレスが変更される場合は確認メールを送信（未入力の場合は変更なし）
-        const emailChanged = email !== '' && email !== member.email;
+        // メールアドレスが入力された場合は確認メールを送信（未入力の場合は変更なし）
+        // 現在と同じアドレスでも同じ扱いにする。応答が変わると、推測したアドレスが
+        // 現在の登録アドレスと一致するかを確かめられてしまうため。
+        const emailChanged = email !== '';
         
         if (emailChanged) {
+            // 任意のアドレスへ確認メールを送れるため、送信回数を制限する
+            const limited = await checkRateLimits([
+                { scope: 'member-email-change', limit: 5, windowMs: HOUR, subject: String(session.memberId) },
+            ]);
+            if (limited) return limited;
+
             // 既存の保留中のメールアドレス変更申請を削除
             deletePendingEmailChangeByMemberId(session.memberId);
 
@@ -178,7 +186,7 @@ export async function PUT(request: NextRequest) {
             return NextResponse.json({
                 id: updatedMember.id,
                 name: updatedMember.name,
-                email: updatedMember.email,
+                ...emailFields(updatedMember.email),
                 affiliation: updatedMember.affiliation,
                 affiliationDetail: updatedMember.affiliation_detail,
                 memberId: updatedMember.member_id,
@@ -218,7 +226,7 @@ export async function PUT(request: NextRequest) {
         return NextResponse.json({
             id: updatedMember.id,
             name: updatedMember.name,
-            email: updatedMember.email,
+            ...emailFields(updatedMember.email),
             affiliation: updatedMember.affiliation,
             affiliationDetail: updatedMember.affiliation_detail,
             memberId: updatedMember.member_id,

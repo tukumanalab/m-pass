@@ -57,7 +57,6 @@ export async function POST(request: NextRequest) {
             member: {
                 id: member.id,
                 name: member.name,
-                email: member.email,
                 affiliation: member.affiliation,
                 affiliationDetail: member.affiliation_detail,
             },
