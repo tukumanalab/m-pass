@@ -8,7 +8,9 @@ import { apiUrl } from "@/lib/api";
 interface MemberInfo {
   id: number;
   name: string;
-  email: string;
+  // メールアドレスはサーバーから伏せ字でのみ受け取る
+  maskedEmail: string;
+  hasEmail: boolean;
   affiliation: string;
   affiliationDetail: string | null;
   memberId: string;
@@ -271,7 +273,7 @@ function DashboardContent() {
         )}
 
         {/* メール未確認警告バナー */}
-        {memberInfo && memberInfo.emailVerified === false && memberInfo.email && (
+        {memberInfo && memberInfo.emailVerified === false && memberInfo.hasEmail && (
           <div className="bg-amber-50 border-2 border-amber-300/80 rounded-2xl shadow-md p-5 mb-6 text-amber-900 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center flex-shrink-0 text-white shadow-sm mt-0.5">
@@ -282,7 +284,7 @@ function DashboardContent() {
               <div>
                 <h3 className="font-bold text-amber-900 text-lg">メールアドレスの確認が完了していません</h3>
                 <p className="text-sm text-amber-800 mt-0.5">
-                  メールアドレス（<span className="font-semibold">{memberInfo.email}</span>）宛てに確認メールを送信しています。
+                  メールアドレス（<span className="font-semibold">{memberInfo.maskedEmail}</span>）宛てに確認メールを送信しています。
                 </p>
                 {resendMessage && (
                   <p className="text-sm font-medium text-emerald-700 mt-2 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg inline-block">
@@ -348,7 +350,7 @@ function DashboardContent() {
             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
               <span className="text-gray-600">メールアドレス</span>
               <span className="font-medium text-gray-900">
-                {memberInfo?.email || "未登録"}
+                {memberInfo?.hasEmail ? memberInfo.maskedEmail : "未登録"}
               </span>
             </div>
           </div>
