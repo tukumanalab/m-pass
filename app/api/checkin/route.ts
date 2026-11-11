@@ -26,9 +26,11 @@ export async function POST(request: NextRequest) {
     if (memberId) {
       member = getMemberById(memberId);
     }
-    // qrCodeが指定されている場合は、member_idから検索
+    // qrCodeが指定されている場合は、member_idから検索（前後空白除去・4桁IDの大文字小文字吸収）
     else if (qrCode) {
-      member = findMemberByMemberId(qrCode) as any;
+      const trimmedQr = typeof qrCode === 'string' ? qrCode.trim() : String(qrCode).trim();
+      const normalizedQr = trimmedQr.length === 4 ? trimmedQr.toLowerCase() : trimmedQr;
+      member = (findMemberByMemberId(normalizedQr) || findMemberByMemberId(trimmedQr)) as any;
     }
     // nfcIdが指定されている場合は、NFC IDから検索
     else if (nfcId) {

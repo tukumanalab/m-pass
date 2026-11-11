@@ -87,6 +87,18 @@ export function initDatabase() {
     // カラムが既に存在する場合はエラーを無視
   }
 
+  // 既存・一括登録メンバーで verification_token が未設定かつ email_verified = 0 (または NULL) のレコードを email_verified = 1 に補正
+  try {
+    db.exec(`
+      UPDATE members
+      SET email_verified = 1
+      WHERE (email_verified IS NULL OR email_verified = 0)
+        AND (verification_token IS NULL OR verification_token = '')
+    `);
+  } catch (e) {
+    console.error('Migration error for email_verified:', e);
+  }
+
   // 仮登録メンバーテーブル
   db.exec(`
     CREATE TABLE IF NOT EXISTS pending_members (
@@ -371,12 +383,20 @@ export function updateVerificationToken(memberId: number, token: string, expires
   return stmt.run(token, expiresAt, memberId).changes;
 }
 
-// member_idからメンバーを検索
+// member_idからメンバーを検索（前後空白や大文字小文字の違いも吸収）
 export function findMemberByMemberId(memberId: string) {
-  const stmt = db.prepare(`
+  const trimmed = memberId.trim();
+  const exactStmt = db.prepare(`
     SELECT * FROM members WHERE member_id = ?
   `);
-  return stmt.get(memberId);
+  const exactMatch = exactStmt.get(trimmed);
+  if (exactMatch) {
+    return exactMatch;
+  }
+  const lowerStmt = db.prepare(`
+    SELECT * FROM members WHERE LOWER(member_id) = LOWER(?)
+  `);
+  return lowerStmt.get(trimmed);
 }
 
 // member_idの存在チェック（重複チェック用）
@@ -625,14 +645,16 @@ function buildCheckInHistoryConditions(affiliation?: string, startDate?: string,
   }
 
   if (search) {
+    const normalizedSearch = search.replace(/[\s\u3000]+/g, '');
+    const pattern = `%${search}%`;
+    const normalizedPattern = normalizedSearch ? `%${normalizedSearch}%` : pattern;
     // NFC IDはJOINすると行が重複するためEXISTSで判定
     conditions.push(`(
-      m.name LIKE ? OR m.affiliation LIKE ? OR c.affiliation LIKE ? OR m.affiliation_detail LIKE ?
+      m.name LIKE ? OR REPLACE(REPLACE(m.name, ' ', ''), '　', '') LIKE ? OR m.affiliation LIKE ? OR c.affiliation LIKE ? OR m.affiliation_detail LIKE ?
       OR m.email LIKE ? OR c.member_id_str LIKE ? OR m.organization_member_id LIKE ?
       OR EXISTS (SELECT 1 FROM member_nfc_cards n WHERE n.member_id = m.id AND n.nfc_id LIKE ?)
     )`);
-    const pattern = `%${search}%`;
-    params.push(pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern);
+    params.push(pattern, normalizedPattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern);
   }
 
   return { conditions, params };
@@ -814,12 +836,14 @@ export function deleteExpiredPendingMembers() {
   return result.changes;
 }
 
-// 登録から24時間以内にチェックインされなかったメンバーを削除
+// 登録から24時間以内にチェックインされなかったメンバーを削除（自己登録でverification_tokenが発行された未検証アカウントのみ対象）
 export function deleteUncheckedInExpiredMembers() {
   try {
     const expiredMembers = db.prepare(`
       SELECT id, member_id FROM members
       WHERE (email_verified IS NULL OR email_verified = 0)
+        AND verification_token IS NOT NULL
+        AND verification_token != ''
         AND datetime(replace(replace(created_at, '/', '-'), 'T', ' ')) <= datetime('now', '-24 hours')
         AND NOT EXISTS (
           SELECT 1 FROM checkins
