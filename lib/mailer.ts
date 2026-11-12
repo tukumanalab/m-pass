@@ -615,3 +615,68 @@ export async function sendTestEmail(to: string): Promise<void> {
     await sendMail(mailOptions);
     console.log(`Test email sent to ${maskEmail(to)}`);
 }
+
+function escapeHtml(s: string): string {
+    return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+}
+
+/**
+ * 登録中のアドレスに、パスワード変更・メールアドレス変更の申請があったことを知らせる
+ * （パスワードを知った第三者による乗っ取りに本人が気づけるようにする）
+ */
+export async function sendAccountChangeNoticeEmail(
+    to: string,
+    name: string,
+    changes: { password?: boolean; newEmail?: string }
+): Promise<void> {
+    const items: string[] = [];
+    if (changes.password) items.push('パスワードが変更されました。');
+    if (changes.newEmail) {
+        items.push(`メールアドレスを ${maskEmail(changes.newEmail)} に変更する申請がありました（新しいアドレスで確認が済むと変更されます）。`);
+    }
+    if (items.length === 0) return;
+
+    const loginUrl = `${APP_URL}/member/login`;
+    const resetUrl = `${APP_URL}/member/request-reset`;
+    const warning = [
+        'この操作に心当たりがない場合は、第三者があなたのアカウントにログインしている可能性があります。',
+        'すぐにパスワードを再設定し、管理者にご連絡ください。',
+    ];
+
+    const text = [
+        `${name} 様`,
+        '',
+        'マイページで次の変更が行われました。',
+        '',
+        ...items.map((i) => `・${i}`),
+        '',
+        'ご本人による操作であれば、このメールへの対応は不要です。',
+        '',
+        ...warning,
+        `パスワードの再設定: ${resetUrl}`,
+        `ログイン: ${loginUrl}`,
+        '',
+        getTextEmailFooter(),
+    ].join('\n');
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #333;">アカウント情報の変更のお知らせ</h2>
+        <p>${escapeHtml(name)} 様</p>
+        <p>マイページで次の変更が行われました。</p>
+        <ul>${items.map((i) => `<li>${escapeHtml(i)}</li>`).join('')}</ul>
+        <p>ご本人による操作であれば、このメールへの対応は不要です。</p>
+        <p style="color: #b91c1c;">${warning.map(escapeHtml).join('<br>')}</p>
+        <p><a href="${resetUrl}" style="color: #4F46E5;">パスワードを再設定する</a></p>
+        ${getEmailFooter()}
+      </div>
+    `;
+
+    try {
+        await sendMail({ to, subject: 'アカウント情報の変更のお知らせ', text, html });
+        console.log(`Account change notice sent to ${maskEmail(to)}`);
+    } catch (error) {
+        console.error('Error sending account change notice:', error);
+        throw new Error('メールの送信に失敗しました');
+    }
+}

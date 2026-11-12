@@ -7,11 +7,12 @@ import {
     deletePendingEmailChangeByMemberId,
     getMemberNfcCards,
 } from '@/lib/database';
-import { sendEmailChangeVerificationEmail } from '@/lib/mailer';
+import { sendEmailChangeVerificationEmail, sendAccountChangeNoticeEmail } from '@/lib/mailer';
+import { logger } from '@/lib/logger';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import { maskEmail } from '@/lib/mask';
-import { checkRateLimits, HOUR } from '@/lib/rate-limit';
+import { checkRateLimits, HOUR, MINUTE } from '@/lib/rate-limit';
 
 // パスワードが漏れてマイページに入られても、メールアドレスそのものは取り出せないよう伏せ字で返す
 function emailFields(email: string | null | undefined) {
@@ -79,12 +80,14 @@ export async function PUT(request: NextRequest) {
             affiliation,
             affiliationDetail = null,
             password,
+            currentPassword,
         } = body as {
             name?: string;
             email?: string;
             affiliation?: string;
             affiliationDetail?: string | null;
             password?: string;
+            currentPassword?: string;
         };
 
         if (!name || !affiliation) {
@@ -116,11 +119,42 @@ export async function PUT(request: NextRequest) {
             }
         }
 
+        if (password && !/^[A-Za-z\d@$!%*?&_.\-+=^#~,;:/<>{}[\]|()`'"\\]{8,}$/.test(password)) {
+            return NextResponse.json(
+                { error: 'パスワードは英数記号を含む8文字以上である必要があります' },
+                { status: 400 }
+            );
+        }
+
         // メールアドレスが入力された場合は確認メールを送信（未入力の場合は変更なし）
         // 現在と同じアドレスでも同じ扱いにする。応答が変わると、推測したアドレスが
         // 現在の登録アドレスと一致するかを確かめられてしまうため。
         const emailChanged = email !== '';
-        
+        const passwordChanged = !!password;
+
+        // メールアドレス・パスワードの変更には現在のパスワードを求める。
+        // ログイン状態のまま放置された端末や盗まれたセッションから乗っ取られるのを防ぐ。
+        if (emailChanged || passwordChanged) {
+            if (!currentPassword) {
+                return NextResponse.json(
+                    { error: 'メールアドレスやパスワードを変更するには、現在のパスワードを入力してください' },
+                    { status: 400 }
+                );
+            }
+            const limited = await checkRateLimits([
+                { scope: 'member-current-password', limit: 10, windowMs: 15 * MINUTE, subject: String(session.memberId) },
+            ]);
+            if (limited) return limited;
+
+            const ok = await bcrypt.compare(currentPassword, member.password_hash);
+            if (!ok) {
+                return NextResponse.json(
+                    { error: '現在のパスワードが正しくありません' },
+                    { status: 403 }
+                );
+            }
+        }
+
         if (emailChanged) {
             // 任意のアドレスへ確認メールを送れるため、送信回数を制限する
             const limited = await checkRateLimits([
@@ -155,60 +189,11 @@ export async function PUT(request: NextRequest) {
                     { status: 500 }
                 );
             }
-
-            // メールアドレス以外の情報を更新
-            let passwordHash: string | undefined;
-            if (password) {
-                if (!/^[A-Za-z\d@$!%*?&_.\-+=^#~,;:/<>{}[\]|()`'"\\]{8,}$/.test(password)) {
-                    return NextResponse.json(
-                        { error: 'パスワードは英数記号を含む8文字以上である必要があります' },
-                        { status: 400 }
-                    );
-                }
-
-                passwordHash = await bcrypt.hash(password, 10);
-            }
-
-            updateMemberProfile(session.memberId, {
-                name,
-                email: member.email, // メールアドレスは変更しない
-                affiliation,
-                affiliationDetail,
-                passwordHash,
-            });
-
-            await createMemberSession({
-                memberId: session.memberId,
-            });
-
-            const updatedMember = getMemberById(session.memberId) as any;
-
-            return NextResponse.json({
-                id: updatedMember.id,
-                name: updatedMember.name,
-                ...emailFields(updatedMember.email),
-                affiliation: updatedMember.affiliation,
-                affiliationDetail: updatedMember.affiliation_detail,
-                memberId: updatedMember.member_id,
-                createdAt: updatedMember.created_at,
-                emailChangeRequested: true,
-                pendingEmail: email,
-            });
         }
 
-        // メールアドレスが変更されない場合は通常の更新
-        let passwordHash: string | undefined;
-        if (password) {
-            if (!/^[A-Za-z\d@$!%*?&_.\-+=^#~,;:/<>{}[\]|()`'"\\]{8,}$/.test(password)) {
-                return NextResponse.json(
-                    { error: 'パスワードは英数記号を含む8文字以上である必要があります' },
-                    { status: 400 }
-                );
-            }
+        const passwordHash = passwordChanged ? await bcrypt.hash(password!, 10) : undefined;
 
-            passwordHash = await bcrypt.hash(password, 10);
-        }
-
+        // メールアドレスはここでは変更しない（新しいアドレスで確認が済んだ時点で変更する）
         updateMemberProfile(session.memberId, {
             name,
             email: member.email ?? '',
@@ -216,6 +201,16 @@ export async function PUT(request: NextRequest) {
             affiliationDetail,
             passwordHash,
         });
+
+        // 登録中のアドレスに変更を知らせ、本人以外の操作なら気づけるようにする
+        if (member.email && (emailChanged || passwordChanged)) {
+            sendAccountChangeNoticeEmail(member.email, name, {
+                password: passwordChanged,
+                newEmail: emailChanged ? email : undefined,
+            }).catch((mailError) => {
+                logger.error('Failed to send account change notice', { memberId: session.memberId, error: String(mailError) });
+            });
+        }
 
         await createMemberSession({
             memberId: session.memberId,
@@ -231,6 +226,7 @@ export async function PUT(request: NextRequest) {
             affiliationDetail: updatedMember.affiliation_detail,
             memberId: updatedMember.member_id,
             createdAt: updatedMember.created_at,
+            ...(emailChanged ? { emailChangeRequested: true, pendingEmail: email } : {}),
         });
     } catch (error) {
         console.error('Update member info error:', error);

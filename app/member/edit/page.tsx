@@ -37,6 +37,8 @@ type MemberFormValues = {
   affiliationDetail: string | null;
   password: string;
   passwordConfirm: string;
+  // メールアドレス・パスワードを変更するときの本人確認用
+  currentPassword: string;
 };
 
 export default function MemberEditPage() {
@@ -48,6 +50,7 @@ export default function MemberEditPage() {
     affiliationDetail: "",
     password: "",
     passwordConfirm: "",
+    currentPassword: "",
   });
   const [noEmail, setNoEmail] = useState(false); // 取得時点でメール未登録か
   const [maskedEmail, setMaskedEmail] = useState(""); // 現在のメールアドレス（伏せ字）
@@ -101,6 +104,7 @@ export default function MemberEditPage() {
           affiliationDetail: data.affiliationDetail ?? "",
           password: "",
           passwordConfirm: "",
+          currentPassword: "",
         });
         setCards(data.cards ?? []);
       } catch (err) {
@@ -218,6 +222,13 @@ export default function MemberEditPage() {
         }
       }
 
+      const needsCurrentPassword = !!formValues.email.trim() || !!formValues.password;
+      if (needsCurrentPassword && !formValues.currentPassword) {
+        throw new Error(
+          "メールアドレスやパスワードを変更するには、現在のパスワードを入力してください"
+        );
+      }
+
       const payload: Record<string, unknown> = {
         name: formValues.name.trim(),
         email: formValues.email.trim(),
@@ -230,6 +241,10 @@ export default function MemberEditPage() {
 
       if (formValues.password) {
         payload.password = formValues.password;
+      }
+
+      if (needsCurrentPassword) {
+        payload.currentPassword = formValues.currentPassword;
       }
 
       const response = await fetch(apiUrl("/api/member/info"), {
@@ -267,6 +282,7 @@ export default function MemberEditPage() {
           affiliationDetail: updated.affiliationDetail ?? "",
           password: "",
           passwordConfirm: "",
+          currentPassword: "",
         });
       } else {
         // メールアドレス変更がない場合は通常の更新
@@ -277,6 +293,7 @@ export default function MemberEditPage() {
           affiliationDetail: updated.affiliationDetail ?? "",
           password: "",
           passwordConfirm: "",
+          currentPassword: "",
         });
         setSuccess("メンバー情報を更新しました");
       }
@@ -448,6 +465,25 @@ export default function MemberEditPage() {
                 placeholder="変更しない場合は空欄のまま"
               />
             </div>
+
+            {(formValues.email.trim() !== "" || formValues.password !== "") && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  現在のパスワード <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="password"
+                  autoComplete="current-password"
+                  value={formValues.currentPassword}
+                  onChange={handleChange("currentPassword")}
+                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  required
+                />
+                <p className="mt-1 text-xs text-gray-600">
+                  本人確認のため、メールアドレスやパスワードを変更するときは現在のパスワードが必要です。変更すると、登録中のメールアドレスにお知らせが届きます。
+                </p>
+              </div>
+            )}
 
             {/* NFCカード管理セクション */}
             <div className="border-t border-gray-200 pt-4 mt-4">
