@@ -31,16 +31,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: 'ファイルサイズは5MB以下にしてください' }, { status: 400 });
     }
 
-    // ファイル形式チェック
-    const allowedTypes = ['audio/mpeg', 'audio/wav', 'audio/ogg'];
-    if (!allowedTypes.includes(file.type)) {
+    // ファイル形式チェックおよびMIMEタイプからの拡張子決定（file.name偽装防止）
+    const mimeToExt: Record<string, string> = {
+      'audio/mpeg': 'mp3',
+      'audio/wav': 'wav',
+      'audio/ogg': 'ogg',
+    };
+    const ext = mimeToExt[file.type];
+    if (!ext) {
       return NextResponse.json({ success: false, message: 'MP3, WAV, OGG形式のみ対応しています' }, { status: 400 });
     }
 
-    // 拡張子を取得
-    const ext = file.name.split('.').pop() || 'mp3';
     const filename = `${type}.${ext}`;
-    const filepath = path.join(AUDIO_DIR, filename);
+    const filepath = path.resolve(AUDIO_DIR, filename);
 
     // ディレクトリが存在しない場合は作成
     const { mkdir } = await import('fs/promises');

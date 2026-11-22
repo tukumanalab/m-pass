@@ -10,8 +10,10 @@ export async function GET(request: NextRequest) {
   }
 
   const searchParams = request.nextUrl.searchParams;
-  const page = parseInt(searchParams.get('page') || '1', 10);
-  const limit = parseInt(searchParams.get('limit') || '50', 10);
+  const parsedPage = parseInt(searchParams.get('page') || '1', 10);
+  const parsedLimit = parseInt(searchParams.get('limit') || '50', 10);
+  const page = Math.max(1, Number.isNaN(parsedPage) ? 1 : parsedPage);
+  const limit = Math.min(500, Math.max(1, Number.isNaN(parsedLimit) ? 50 : parsedLimit));
   const level = searchParams.get('level') || undefined;
 
   const offset = (page - 1) * limit;

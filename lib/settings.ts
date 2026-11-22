@@ -117,7 +117,7 @@ export function saveSettings(settings: SiteSettings): void {
       successDisplaySeconds: settings.successDisplaySeconds,
       checkOutIntervalMinutes: settings.checkOutIntervalMinutes,
     };
-    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settingsToSave, null, 2), 'utf-8');
+    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settingsToSave, null, 2), { encoding: 'utf-8', mode: 0o600 });
   } catch (error) {
     console.error('Failed to save settings:', error);
     throw error;

@@ -1,23 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { findPasswordResetByToken, deletePasswordResetToken, updateMemberPassword, getMemberById } from '@/lib/database';
 import bcrypt from 'bcrypt';
+import { checkRateLimits, MINUTE } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
     try {
+        const limited = await checkRateLimits([
+            { scope: 'reset-password', limit: 10, windowMs: 15 * MINUTE },
+        ]);
+        if (limited) return limited;
+
         const body = await request.json();
         const { token, password } = body;
 
-        if (!token || !password) {
+        if (!token || !password || typeof token !== 'string' || typeof password !== 'string') {
             return NextResponse.json(
                 { error: 'トークンとパスワードが必要です' },
                 { status: 400 }
             );
         }
 
-        // パスワードの強度チェック（最小6文字）
-        if (password.length < 6) {
+        // パスワードの強度チェック（英数記号8文字以上、登録・プロフィール変更と統一）
+        const passwordRegex = /^[A-Za-z\d@$!%*?&_.\-+=^#~,;:/<>{}[\]|()`'"\\]{8,}$/;
+        if (!passwordRegex.test(password)) {
             return NextResponse.json(
-                { error: 'パスワードは6文字以上で設定してください' },
+                { error: 'パスワードは英数記号を含む8文字以上で設定してください' },
                 { status: 400 }
             );
         }

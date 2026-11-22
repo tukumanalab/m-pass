@@ -3,6 +3,7 @@ import { spawn } from 'child_process';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
+import { checkRateLimits, MINUTE } from '@/lib/rate-limit';
 
 // GitHub Actions から呼ばれるデプロイ用 Webhook
 // ビルド済み成果物の取得・入れ替え・再起動は deploy/deploy.sh が行う
@@ -11,9 +12,10 @@ const LOG_DIR = path.join(process.cwd(), 'logs');
 const LOG_PATH = path.join(LOG_DIR, 'deploy.log');
 
 function isValidToken(token: string, secret: string): boolean {
-  const a = Buffer.from(token);
-  const b = Buffer.from(secret);
-  return a.length === b.length && crypto.timingSafeEqual(a, b);
+  if (!token || !secret) return false;
+  const a = crypto.createHash('sha256').update(token).digest();
+  const b = crypto.createHash('sha256').update(secret).digest();
+  return crypto.timingSafeEqual(a, b);
 }
 
 export async function POST(request: NextRequest) {
@@ -21,6 +23,11 @@ export async function POST(request: NextRequest) {
   if (!secret) {
     return NextResponse.json({ success: false, error: 'Deploy not configured' }, { status: 503 });
   }
+
+  const limited = await checkRateLimits([
+    { scope: 'deploy-webhook', limit: 15, windowMs: 15 * MINUTE },
+  ]);
+  if (limited) return limited;
 
   const token = request.headers.get('authorization')?.replace(/^Bearer /, '') ?? '';
   if (!isValidToken(token, secret)) {
@@ -40,8 +47,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, error: 'Invalid sha or runId' }, { status: 400 });
   }
 
-  fs.mkdirSync(LOG_DIR, { recursive: true });
-  const logFd = fs.openSync(LOG_PATH, 'a');
+  fs.mkdirSync(LOG_DIR, { recursive: true, mode: 0o700 });
+  const logFd = fs.openSync(LOG_PATH, 'a', 0o600);
 
   // setsid -f で親プロセスから切り離す
   // （pm2 restart はアプリの子プロセスごと終了させるため、デプロイ中に止められないようにする）

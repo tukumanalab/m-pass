@@ -267,6 +267,7 @@ export async function POST(request: NextRequest) {
     }
 
     // UPSERT用のSQL（member_idで既存データを更新、なければ挿入）
+    // 既存メンバー更新時は設定済みの password_hash を上書きリセットしない
     const upsertMember = db.prepare(`
       INSERT INTO members (member_id, name, affiliation, affiliation_detail, organization_member_id, email, password_hash, created_at, mypage_notification_sent_at, email_verified)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
@@ -276,7 +277,6 @@ export async function POST(request: NextRequest) {
         affiliation_detail = excluded.affiliation_detail,
         organization_member_id = excluded.organization_member_id,
         email = excluded.email,
-        password_hash = excluded.password_hash,
         created_at = excluded.created_at,
         mypage_notification_sent_at = excluded.mypage_notification_sent_at,
         email_verified = 1
@@ -319,8 +319,8 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // パスワードハッシュ化
-        const hashedPassword = await bcrypt.hash(password, 10);
+        // パスワードハッシュ化（既存メンバーの場合は更新時に上書きしないため再計算不要）
+        const hashedPassword = existing ? '' : await bcrypt.hash(password, 10);
 
         // created_at: ISO形式の文字列に変換
         const parsedCreatedAt = parseToISOString(row.created_at);

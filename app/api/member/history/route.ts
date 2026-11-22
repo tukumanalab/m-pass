@@ -14,8 +14,10 @@ export async function GET(request: NextRequest) {
         }
 
         const searchParams = request.nextUrl.searchParams;
-        const limit = parseInt(searchParams.get('limit') || '50');
-        const offset = parseInt(searchParams.get('offset') || '0');
+        const parsedLimit = parseInt(searchParams.get('limit') || '50', 10);
+        const parsedOffset = parseInt(searchParams.get('offset') || '0', 10);
+        const limit = Math.min(200, Math.max(1, Number.isNaN(parsedLimit) ? 50 : parsedLimit));
+        const offset = Math.max(0, Number.isNaN(parsedOffset) ? 0 : parsedOffset);
 
         const history = getCheckInHistoryByMemberId(session.memberId, limit, offset);
 

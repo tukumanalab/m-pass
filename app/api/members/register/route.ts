@@ -44,21 +44,21 @@ function generateUniqueMemberId(): string {
 // 即時本登録・即時ログイン（メール確認は非同期）
 export async function POST(request: NextRequest) {
     try {
+        // 登録済みかどうかの総当たり確認やDBクリーンアップ連打を防ぐ（会場の共用回線を考慮して多めの上限）
+        const limited = await checkRateLimits([
+            { scope: 'register', limit: 30, windowMs: HOUR },
+        ]);
+        if (limited) return limited;
+
         // 期限切れ未チェックインアカウントの自動削除
         deleteUncheckedInExpiredMembers();
 
         const body = await request.json();
         const { name, affiliation, affiliationDetail, email, password, howDidYouKnow, organizationMemberId } = body;
 
-        // 登録済みかどうかの総当たり確認を防ぐ（会場の共用回線を考慮して多めの上限）
-        const limited = await checkRateLimits([
-            { scope: 'register', limit: 30, windowMs: HOUR },
-        ]);
-        if (limited) return limited;
-
         // バリデーション
-        if (!name) {
-            return NextResponse.json({ error: '氏名は必須です' }, { status: 400 });
+        if (!name || typeof name !== 'string' || name.trim().length === 0 || name.length > 100) {
+            return NextResponse.json({ error: '氏名は1〜100文字で入力してください' }, { status: 400 });
         }
         if (!affiliation) {
             return NextResponse.json({ error: '所属は必須です' }, { status: 400 });

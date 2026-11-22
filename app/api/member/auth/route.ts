@@ -6,26 +6,26 @@ import { checkRateLimits, MINUTE } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
     try {
-        // 期限切れ未チェックインアカウントの自動削除
-        deleteUncheckedInExpiredMembers();
-
         const body = await request.json();
         const { memberId, password } = body;
 
         // バリデーション
-        if (!memberId || !password) {
+        if (!memberId || !password || typeof memberId !== 'string' || typeof password !== 'string') {
             return NextResponse.json(
                 { error: 'メンバーIDとパスワードを入力してください' },
                 { status: 400 }
             );
         }
 
-        // パスワードの総当たりを防ぐ
+        // パスワードの総当たりを防ぐ（IP制限を先に評価してランダムmemberIdによるバケット消費を抑止）
         const limited = await checkRateLimits([
             { scope: 'member-auth', limit: 20, windowMs: 15 * MINUTE },
-            { scope: 'member-auth', limit: 10, windowMs: 15 * MINUTE, subject: String(memberId) },
+            { scope: 'member-auth', limit: 10, windowMs: 15 * MINUTE, subject: String(memberId).slice(0, 32) },
         ]);
         if (limited) return limited;
+
+        // 期限切れ未チェックインアカウントの自動削除
+        deleteUncheckedInExpiredMembers();
 
         // メンバーを検索
         const member = findMemberByMemberId(memberId.trim()) as any;

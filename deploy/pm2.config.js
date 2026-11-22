@@ -14,6 +14,7 @@ module.exports = {
       max_memory_restart: '1G',
       env: {
         NODE_ENV: 'production',
+        HOSTNAME: '127.0.0.1',
         PORT: 3000,
         BASE_PATH: '/members',
         DB_PATH: `members.db`,

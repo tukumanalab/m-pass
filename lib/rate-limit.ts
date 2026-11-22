@@ -6,6 +6,7 @@ import { getClientIP } from './auth';
 // 再起動するとカウンタはリセットされる。
 
 const buckets = new Map<string, number[]>();
+const MAX_BUCKETS = 10000;
 let lastSweep = Date.now();
 
 /**
@@ -16,11 +17,22 @@ export function consumeRateLimit(key: string, limit: number, windowMs: number): 
   const now = Date.now();
   sweep(now);
   const recent = (buckets.get(key) || []).filter((t) => now - t < windowMs);
+  if (!buckets.has(key) && buckets.size >= MAX_BUCKETS) {
+    forceSweep(now);
+    if (buckets.size >= MAX_BUCKETS) {
+      const oldestKey = buckets.keys().next().value;
+      if (oldestKey !== undefined) {
+        buckets.delete(oldestKey);
+      }
+    }
+  }
   if (recent.length >= limit) {
+    buckets.delete(key);
     buckets.set(key, recent);
     return false;
   }
   recent.push(now);
+  buckets.delete(key);
   buckets.set(key, recent);
   return true;
 }
@@ -28,8 +40,12 @@ export function consumeRateLimit(key: string, limit: number, windowMs: number): 
 // 古いキーを定期的に掃除してメモリを増やし続けないようにする
 function sweep(now: number) {
   const SWEEP_INTERVAL_MS = 10 * 60 * 1000;
-  const MAX_WINDOW_MS = 24 * 60 * 60 * 1000;
   if (now - lastSweep < SWEEP_INTERVAL_MS) return;
+  forceSweep(now);
+}
+
+function forceSweep(now: number) {
+  const MAX_WINDOW_MS = 24 * 60 * 60 * 1000;
   lastSweep = now;
   for (const [key, times] of buckets) {
     if (times.length === 0 || now - times[times.length - 1] > MAX_WINDOW_MS) {

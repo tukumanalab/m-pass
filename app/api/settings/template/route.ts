@@ -51,10 +51,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (Buffer.byteLength(template, 'utf-8') > 2 * 1024 * 1024) {
+      return NextResponse.json(
+        { error: 'テンプレートサイズは2MB以下にしてください' },
+        { status: 400 }
+      );
+    }
+
     // SVGファイルの検証（基本的なチェック）
     if (!template.trim().startsWith('<?xml') && !template.trim().startsWith('<svg')) {
       return NextResponse.json(
         { error: 'SVGフォーマットが無効です' },
+        { status: 400 }
+      );
+    }
+
+    // XSS対策: スクリプトタグ、イベントハンドラ属性、javascript: URI、foreignObjectを拒否
+    if (
+      /<script\b/i.test(template) ||
+      /<foreignObject\b/i.test(template) ||
+      /\bon[a-z]+\s*=/i.test(template) ||
+      /javascript\s*:/i.test(template)
+    ) {
+      return NextResponse.json(
+        { error: 'セキュリティ上許可されない要素またはスクリプトがSVGに含まれています' },
         { status: 400 }
       );
     }

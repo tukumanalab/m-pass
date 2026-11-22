@@ -100,6 +100,8 @@ export async function POST(request: NextRequest) {
 
     // 音声データを復元
     const soundTypes = ['success', 'error'];
+    const allowedAudioExts = ['mp3', 'wav', 'ogg'];
+    const resolvedSoundsDir = path.resolve(soundsDir);
     for (const type of soundTypes) {
       const dataKey = `${type}SoundData`;
       const extKey = `${type}SoundExt`;
@@ -112,10 +114,22 @@ export async function POST(request: NextRequest) {
             const base64Data = matches[2];
             const buffer = Buffer.from(base64Data, 'base64');
 
-            // ファイル名を生成
-            const ext = data[extKey];
+            // ファイル名を生成（拡張子ホワイトリスト検証）
+            const ext = String(data[extKey]).toLowerCase();
+            if (!allowedAudioExts.includes(ext)) {
+              return NextResponse.json(
+                { success: false, message: '許可されていない音声ファイル形式です' },
+                { status: 400 }
+              );
+            }
             const filename = `${type}-sound.${ext}`;
-            const filepath = path.join(soundsDir, filename);
+            const filepath = path.resolve(resolvedSoundsDir, filename);
+            if (!filepath.startsWith(resolvedSoundsDir + path.sep)) {
+              return NextResponse.json(
+                { success: false, message: '不正なファイルパスです' },
+                { status: 400 }
+              );
+            }
 
             await writeFile(filepath, buffer);
           }

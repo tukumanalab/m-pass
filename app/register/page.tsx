@@ -117,10 +117,18 @@ export default function RegisterPage() {
         reader.readAsDataURL(qrImageBlob);
       });
 
+      const escapeXml = (s: string) =>
+        s
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+
       // NAMEとXXXXを置き換え
       let svg = data.template;
-      svg = svg.replace(/NAME/g, name);
-      svg = svg.replace(/XXXX/g, qrCodeId);
+      svg = svg.replace(/NAME/g, () => escapeXml(name));
+      svg = svg.replace(/XXXX/g, () => escapeXml(qrCodeId));
 
       // id="QR"の要素を探してQR画像に置き換え
       const qrElementRegex = /<(\w+)([^>]*?)id=["']QR["']([^>]*?)\/>/g;
@@ -132,13 +140,13 @@ export default function RegisterPage() {
         const qrElement = svgDoc.getElementById("QR");
 
         if (qrElement) {
-          const x = qrElement.getAttribute("x") || "0";
-          const y = qrElement.getAttribute("y") || "0";
-          const width = qrElement.getAttribute("width") || "100";
-          const height = qrElement.getAttribute("height") || "100";
+          const x = escapeXml(qrElement.getAttribute("x") || "0");
+          const y = escapeXml(qrElement.getAttribute("y") || "0");
+          const width = escapeXml(qrElement.getAttribute("width") || "100");
+          const height = escapeXml(qrElement.getAttribute("height") || "100");
 
           const imageElement = `<image id="QR" x="${x}" y="${y}" width="${width}" height="${height}" href="${qrImageBase64}" preserveAspectRatio="xMidYMid meet"/>`;
-          svg = svg.replace(qrElementRegex, imageElement);
+          svg = svg.replace(qrElementRegex, () => imageElement);
         }
       }
 
@@ -161,11 +169,18 @@ export default function RegisterPage() {
         return;
       }
 
+      const safeMemberName = memberName
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+
       printWindow.document.write(`
         <!DOCTYPE html>
         <html>
           <head>
-            <title>カード印刷 - ${memberName}</title>
+            <title>カード印刷 - ${safeMemberName}</title>
             <meta charset="UTF-8">
             <style>
               * {

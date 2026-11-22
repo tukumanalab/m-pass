@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcrypt';
-import { headers } from 'next/headers';
-import { createAdminToken, ADMIN_TOKEN_MAX_AGE } from '@/lib/auth';
+import { createAdminToken, ADMIN_TOKEN_MAX_AGE, isAllowedIP, getClientIP } from '@/lib/auth';
+import { checkRateLimits, MINUTE } from '@/lib/rate-limit';
 
 // ログ出力用のヘルパー関数
 function logToConsole(message: string, isError: boolean = false) {
@@ -12,136 +12,17 @@ function logToConsole(message: string, isError: boolean = false) {
   }
 }
 
-// 環境変数から管理者パスワードを取得（本番環境では必ず設定）
-const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || '$2b$10$eHFkKLHLdUjcLwds5foX..qQ15MU5LY.by7CSpJLIo76BYy4UeK4K'; // デフォルト: "admin123"
+// 開発環境のみで使用するフォールバックハッシュ（本番環境では ADMIN_PASSWORD_HASH の設定を必須とする）
+const DEV_FALLBACK_PASSWORD_HASH = '$2b$10$eHFkKLHLdUjcLwds5foX..qQ15MU5LY.by7CSpJLIo76BYy4UeK4K'; // "admin123"
 
-/**
- * IPアドレスがプライベートネットワーク範囲内かチェック
- */
-function isPrivateIP(ip: string): boolean {
-  // IPv6-mapped IPv4アドレスを標準的なIPv4形式に変換
-  const normalizedIP = ip.replace(/^::ffff:/, '');
-  
-  // IPv4プライベートアドレス範囲
-  const privateRanges = [
-    /^10\./,                    // 10.0.0.0/8
-    /^172\.(1[6-9]|2[0-9]|3[0-1])\./, // 172.16.0.0/12
-    /^192\.168\./,              // 192.168.0.0/16
-    /^127\./,                   // 127.0.0.0/8 (localhost)
-    /^::1$/,                    // IPv6 localhost
-    /^fe80:/,                   // IPv6 link-local
-    /^::ffff:10\./,             // IPv6-mapped IPv4 private
-    /^::ffff:172\.(1[6-9]|2[0-9]|3[0-1])\./, // IPv6-mapped IPv4 private
-    /^::ffff:192\.168\./,       // IPv6-mapped IPv4 private
-    /^::ffff:127\./,            // IPv6-mapped IPv4 localhost
-  ];
-
-  return privateRanges.some(range => range.test(ip)) || privateRanges.some(range => range.test(normalizedIP));
-}
-
-/**
- * IPがCIDR範囲内かチェック（簡易実装）
- */
-function matchesCIDR(ip: string, network: string, maskBits: number): boolean {
-  const ipParts = ip.split('.').map(Number);
-  const netParts = network.split('.').map(Number);
-  
-  if (ipParts.length !== 4 || netParts.length !== 4) {
-    return false;
+function getAdminPasswordHash(): string | null {
+  if (process.env.ADMIN_PASSWORD_HASH) {
+    return process.env.ADMIN_PASSWORD_HASH;
   }
-  
-  // IPアドレスとネットワークアドレスを32ビット整数に変換
-  const ipInt = ipParts.reduce((acc, part) => (acc << 8) + part, 0);
-  const netInt = netParts.reduce((acc, part) => (acc << 8) + part, 0);
-
-  // マスクを生成
-  // maskBitsが0の場合、-1 << 0 は -1 (0xFFFFFFFF) となるため、32ビットの範囲で安全にシフトする
-  const mask = maskBits === 0 ? 0 : (-1 << (32 - maskBits));
-
-  // マスクを適用して比較
-  return (ipInt & mask) === (netInt & mask);
-}
-
-/**
- * IPアドレスが許可されたネットワーク範囲内かチェック
- */
-function isAllowedIP(ip: string): boolean {
-  // 環境変数から許可するIPアドレス範囲を取得
-  const allowedIPs = process.env.ADMIN_ALLOWED_IPS;
-  
-  logToConsole(`[IP CHECK] Checking IP: ${ip}, Allowed config: ${allowedIPs || 'private (default)'}`);
-  
-  if (!allowedIPs) {
-    // 設定がない場合はプライベートIPのみ許可
-    const result = isPrivateIP(ip);
-    logToConsole(`[IP CHECK] Using default (private only), Result: ${result}`);
-    return result;
+  if (process.env.NODE_ENV === 'production') {
+    return null;
   }
-
-  // カンマ区切りで複数のIPまたはCIDRを指定可能
-  const allowedList = allowedIPs.split(',').map(s => s.trim());
-  
-  for (const allowed of allowedList) {
-    if (allowed === '*') {
-      // ワイルドカードですべて許可
-      logToConsole(`[IP CHECK] Wildcard match - ALLOWED`);
-      return true;
-    }
-    
-    if (allowed === 'private') {
-      // プライベートIPを許可
-      if (isPrivateIP(ip)) {
-        logToConsole(`[IP CHECK] Private IP match - ALLOWED`);
-        return true;
-      }
-    } else if (allowed.includes('/')) {
-      // CIDR表記のチェック
-      const [network, bits] = allowed.split('/');
-      const maskBits = parseInt(bits, 10);
-      
-      if (matchesCIDR(ip, network, maskBits)) {
-        logToConsole(`[IP CHECK] CIDR match (${allowed}) - ALLOWED`);
-        return true;
-      }
-    } else {
-      // 完全一致
-      if (ip === allowed) {
-        logToConsole(`[IP CHECK] Exact match (${allowed}) - ALLOWED`);
-        return true;
-      }
-    }
-  }
-  
-  logToConsole(`[IP CHECK] No match found - DENIED`, true);
-  return false;
-}
-
-/**
- * リクエストからクライアントIPアドレスを取得
- */
-async function getClientIP(): Promise<string> {
-  const headersList = await headers();
-  
-  // nginx が接続元アドレスを設定する X-Real-IP を優先する
-  // （X-Forwarded-For の先頭はクライアントが自由に書き換えられるため）
-  const realIP = headersList.get('x-real-ip');
-  if (realIP) {
-    logToConsole(`[IP DETECT] From X-Real-IP: ${realIP}`);
-    return realIP;
-  }
-
-  const forwarded = headersList.get('x-forwarded-for');
-  if (forwarded) {
-    // カンマ区切りの最後のIP（直近のプロキシが付加したもの）を使用
-    const ips = forwarded.split(',').map(s => s.trim()).filter(Boolean);
-    const ip = ips[ips.length - 1];
-    logToConsole(`[IP DETECT] From X-Forwarded-For: ${ip}`);
-    return ip;
-  }
-  
-  // フォールバック（開発環境用）
-  logToConsole(`[IP DETECT] Using fallback: 127.0.0.1`);
-  return '127.0.0.1';
+  return DEV_FALLBACK_PASSWORD_HASH;
 }
 
 export async function POST(request: NextRequest) {
@@ -163,9 +44,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ブルートフォース対策のレート制限（同一IPから15分間に10回まで）
+    const rateLimited = await checkRateLimits([
+      { scope: 'admin-auth:ip', limit: 10, windowMs: 15 * MINUTE },
+    ]);
+    if (rateLimited) {
+      logToConsole(`[ADMIN LOGIN] ⚠️  RATE LIMITED from IP: ${clientIP}`, true);
+      return NextResponse.json(
+        { success: false, message: 'ログイン試行回数が上限に達しました。しばらく時間をおいて再度お試しください。' },
+        { status: 429 }
+      );
+    }
+
+    const adminPasswordHash = getAdminPasswordHash();
+    if (!adminPasswordHash) {
+      logToConsole(`[ADMIN LOGIN] ✗ ADMIN_PASSWORD_HASH is not configured in production`, true);
+      return NextResponse.json(
+        { success: false, message: '管理者認証が設定されていません' },
+        { status: 503 }
+      );
+    }
+
     const { password } = await request.json();
 
-    if (!password) {
+    if (!password || typeof password !== 'string') {
       return NextResponse.json(
         { success: false, message: 'パスワードを入力してください' },
         { status: 400 }
@@ -173,7 +75,7 @@ export async function POST(request: NextRequest) {
     }
 
     // パスワード検証
-    const isValid = await bcrypt.compare(password, ADMIN_PASSWORD_HASH);
+    const isValid = await bcrypt.compare(password, adminPasswordHash);
     // const isValid = true; // TEMPORARY BYPASS FOR TESTING
 
     if (isValid) {

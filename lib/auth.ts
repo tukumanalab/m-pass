@@ -50,40 +50,56 @@ function logToConsole(message: string, isError: boolean = false) {
 }
 
 /**
+ * IPv6-mapped IPv4アドレス (::ffff:x.x.x.x) を標準のIPv4形式に正規化
+ */
+export function normalizeIP(ip: string): string {
+  return ip.trim().replace(/^::ffff:/i, '');
+}
+
+/**
  * IPアドレスがプライベートネットワーク範囲内かチェック
  */
-function isPrivateIP(ip: string): boolean {
-  // IPv4プライベートアドレス範囲
+export function isPrivateIP(ip: string): boolean {
+  if (!ip || ip === 'unknown') return false;
+  const normalizedIP = normalizeIP(ip);
+
+  // IPv4/IPv6プライベートアドレス範囲
   const privateRanges = [
     /^10\./,                    // 10.0.0.0/8
     /^172\.(1[6-9]|2[0-9]|3[0-1])\./, // 172.16.0.0/12
     /^192\.168\./,              // 192.168.0.0/16
     /^127\./,                   // 127.0.0.0/8 (localhost)
     /^::1$/,                    // IPv6 localhost
-    /^fe80:/,                   // IPv6 link-local
+    /^fe80:/i,                  // IPv6 link-local
   ];
 
-  return privateRanges.some(range => range.test(ip));
+  return privateRanges.some(range => range.test(normalizedIP));
 }
 
 /**
  * IPアドレスが許可されたネットワーク範囲内かチェック
  */
-function isAllowedIP(ip: string): boolean {
+export function isAllowedIP(ip: string): boolean {
+  if (!ip || ip === 'unknown') {
+    logToConsole(`[IP CHECK] Unknown or missing client IP - DENIED`, true);
+    return false;
+  }
+
+  const normalizedIP = normalizeIP(ip);
   // 環境変数から許可するIPアドレス範囲を取得
   const allowedIPs = process.env.ADMIN_ALLOWED_IPS;
   
-  logToConsole(`[IP CHECK] Checking IP: ${ip}, Allowed config: ${allowedIPs || 'private (default)'}`);
+  logToConsole(`[IP CHECK] Checking IP: ${normalizedIP}, Allowed config: ${allowedIPs || 'private (default)'}`);
   
   if (!allowedIPs) {
     // 設定がない場合はプライベートIPのみ許可
-    const result = isPrivateIP(ip);
+    const result = isPrivateIP(normalizedIP);
     logToConsole(`[IP CHECK] Using default (private only), Result: ${result}`);
     return result;
   }
 
   // カンマ区切りで複数のIPまたはCIDRを指定可能
-  const allowedList = allowedIPs.split(',').map(s => s.trim());
+  const allowedList = allowedIPs.split(',').map(s => s.trim()).filter(Boolean);
   
   for (const allowed of allowedList) {
     if (allowed === '*') {
@@ -94,22 +110,22 @@ function isAllowedIP(ip: string): boolean {
     
     if (allowed === 'private') {
       // プライベートIPを許可
-      if (isPrivateIP(ip)) {
+      if (isPrivateIP(normalizedIP)) {
         logToConsole(`[IP CHECK] Private IP match - ALLOWED`);
         return true;
       }
     } else if (allowed.includes('/')) {
-      // CIDR表記のチェック（簡易実装）
+      // CIDR表記のチェック
       const [network, bits] = allowed.split('/');
-      const maskBits = parseInt(bits, 10);
+      const maskBits = Number(bits);
       
-      if (matchesCIDR(ip, network, maskBits)) {
+      if (matchesCIDR(normalizedIP, network, maskBits)) {
         logToConsole(`[IP CHECK] CIDR match (${allowed}) - ALLOWED`);
         return true;
       }
     } else {
       // 完全一致
-      if (ip === allowed) {
+      if (normalizedIP === normalizeIP(allowed)) {
         logToConsole(`[IP CHECK] Exact match (${allowed}) - ALLOWED`);
         return true;
       }
@@ -121,13 +137,24 @@ function isAllowedIP(ip: string): boolean {
 }
 
 /**
- * IPがCIDR範囲内かチェック（簡易実装）
+ * IPがCIDR範囲内かチェック
  */
 function matchesCIDR(ip: string, network: string, maskBits: number): boolean {
-  const ipParts = ip.split('.').map(Number);
-  const netParts = network.split('.').map(Number);
+  if (!Number.isInteger(maskBits) || maskBits < 0 || maskBits > 32) {
+    return false;
+  }
+
+  const normalizedIP = normalizeIP(ip);
+  const normalizedNet = normalizeIP(network);
+  const ipParts = normalizedIP.split('.').map(Number);
+  const netParts = normalizedNet.split('.').map(Number);
   
-  if (ipParts.length !== 4 || netParts.length !== 4) {
+  if (
+    ipParts.length !== 4 ||
+    netParts.length !== 4 ||
+    ipParts.some(p => !Number.isInteger(p) || p < 0 || p > 255) ||
+    netParts.some(p => !Number.isInteger(p) || p < 0 || p > 255)
+  ) {
     return false;
   }
   
@@ -136,7 +163,6 @@ function matchesCIDR(ip: string, network: string, maskBits: number): boolean {
   const netInt = netParts.reduce((acc, part) => (acc << 8) + part, 0);
 
   // マスクを生成
-  // maskBitsが0の場合、-1 << 0 は -1 (0xFFFFFFFF) となるため、32ビットの範囲で安全にシフトする
   const mask = maskBits === 0 ? 0 : (-1 << (32 - maskBits));
 
   // マスクを適用して比較
@@ -153,7 +179,7 @@ export async function getClientIP(options: { log?: boolean } = {}): Promise<stri
   
   // nginx が接続元アドレスを設定する X-Real-IP を優先する
   // （X-Forwarded-For の先頭はクライアントが自由に書き換えられるため）
-  const realIP = headersList.get('x-real-ip');
+  const realIP = headersList.get('x-real-ip')?.trim();
   if (realIP) {
     log(`[IP DETECT] From X-Real-IP: ${realIP}`);
     return realIP;
@@ -164,12 +190,20 @@ export async function getClientIP(options: { log?: boolean } = {}): Promise<stri
     // カンマ区切りの最後のIP（直近のプロキシが付加したもの）を使用
     const ips = forwarded.split(',').map(s => s.trim()).filter(Boolean);
     const ip = ips[ips.length - 1];
-    log(`[IP DETECT] From X-Forwarded-For: ${ip}`);
-    return ip;
+    if (ip) {
+      log(`[IP DETECT] From X-Forwarded-For: ${ip}`);
+      return ip;
+    }
   }
   
+  // 本番環境ではプロキシヘッダー欠落時に 127.0.0.1（プライベートIP許可）へフォールバックしない
+  if (process.env.NODE_ENV === 'production') {
+    log(`[IP DETECT] Missing proxy IP headers in production`);
+    return 'unknown';
+  }
+
   // フォールバック（開発環境用）
-  log(`[IP DETECT] Using fallback: 127.0.0.1`);
+  log(`[IP DETECT] Using dev fallback: 127.0.0.1`);
   return '127.0.0.1';
 }
 
