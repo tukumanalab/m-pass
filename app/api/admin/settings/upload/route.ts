@@ -52,17 +52,38 @@ export async function POST(request: NextRequest) {
     }
 
     // uploadsディレクトリ作成（存在しない場合）
-    const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
+    const uploadsDir = path.resolve(process.cwd(), 'public', 'uploads');
     if (!fs.existsSync(uploadsDir)) {
       fs.mkdirSync(uploadsDir, { recursive: true });
     }
 
-    // 拡張子を取得
-    const ext = file.name.split('.').pop();
+    // MIMEタイプから安全な拡張子を決定（file.nameの偽装による任意拡張子保存を防止）
+    const mimeToExt: Record<string, string> = {
+      'image/svg+xml': 'svg',
+      'image/png': 'png',
+      'image/jpeg': 'jpg',
+      'image/x-icon': 'ico',
+      'image/webp': 'webp',
+    };
+    const ext = mimeToExt[file.type];
+    if (!ext) {
+      return NextResponse.json(
+        { success: false, message: '許可されていないファイル形式です' },
+        { status: 400 }
+      );
+    }
 
-    // 固定のファイル名を使用（拡張子のみ変更可能）
+    // 固定のファイル名を使用
     const filename = `${type}.${ext}`;
-    const filepath = path.join(uploadsDir, filename);
+    const filepath = path.resolve(uploadsDir, filename);
+
+    // 既存の同タイプの別拡張子ファイルを削除
+    for (const oldExt of ['svg', 'png', 'jpeg', 'jpg', 'ico', 'webp']) {
+      const oldPath = path.resolve(uploadsDir, `${type}.${oldExt}`);
+      if (oldPath !== filepath && fs.existsSync(oldPath)) {
+        await unlink(oldPath);
+      }
+    }
 
     // 新しいファイル保存（既存ファイルを上書き）
     const bytes = await file.arrayBuffer();

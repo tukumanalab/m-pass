@@ -9,11 +9,21 @@ const APP_URL = process.env.APP_URL || 'http://localhost:3000';
 const APP_NAME = process.env.APP_NAME || 'メンバー登録システム';
 const CONTACT_EMAIL = process.env.CONTACT_EMAIL || MAIL_FROM;
 
+function escapeHtml(value: string): string {
+    return value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 // メール用共通フッター（HTML版）
 function getEmailFooter(): string {
-    const contactInfo = CONTACT_EMAIL ? `
+    const safeContact = CONTACT_EMAIL ? escapeHtml(CONTACT_EMAIL) : '';
+    const contactInfo = safeContact ? `
         <p style="color: #999; font-size: 12px; margin: 8px 0 0 0;">
-          お問い合わせ: <a href="mailto:${CONTACT_EMAIL}" style="color: #666; text-decoration: underline;">${CONTACT_EMAIL}</a>
+          お問い合わせ: <a href="mailto:${safeContact}" style="color: #666; text-decoration: underline;">${safeContact}</a>
         </p>
     ` : '';
 
@@ -122,6 +132,7 @@ export async function sendVerificationEmail(
         getTextEmailFooter(),
     ].join('\n');
 
+    const safeName = escapeHtml(name);
     const mailOptions: MailOptions = {
         to,
         subject: 'メンバー登録の確認',
@@ -129,7 +140,7 @@ export async function sendVerificationEmail(
         html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #333;">メンバー登録の確認</h2>
-        <p>${name} 様</p>
+        <p>${safeName} 様</p>
         <p>メンバー登録のお申し込みありがとうございます。</p>
         <p>以下のリンクをクリックして、登録を完了してください。</p>
         <div style="text-align: center; margin: 30px 0;">
@@ -184,6 +195,7 @@ export async function sendPasswordResetEmail(
         getTextEmailFooter(),
     ].join('\n');
 
+    const safeName = escapeHtml(name);
     const mailOptions: MailOptions = {
         to,
         subject: 'パスワードリセットのお知らせ',
@@ -191,7 +203,7 @@ export async function sendPasswordResetEmail(
         html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #333;">パスワードリセット</h2>
-        <p>${name} 様</p>
+        <p>${safeName} 様</p>
         <p>パスワードリセットのリクエストを受け付けました。</p>
         <p>以下のリンクをクリックして、新しいパスワードを設定してください。</p>
         <div style="text-align: center; margin: 30px 0;">
@@ -230,13 +242,17 @@ export async function sendPasswordResetEmailMultiple(
     members: Array<{ name: string; memberId: string; affiliation: string; affiliationDetail: string | null; token: string }>
 ): Promise<void> {
     const memberLinks = members.map((member) => {
-        const resetUrl = `${APP_URL}/member/reset-password?token=${member.token}`;
+        const resetUrl = `${APP_URL}/member/reset-password?token=${encodeURIComponent(member.token)}`;
+        const safeName = escapeHtml(member.name);
+        const safeMemberId = escapeHtml(member.memberId);
+        const safeAffiliation = escapeHtml(member.affiliation);
+        const safeAffiliationDetail = member.affiliationDetail ? escapeHtml(member.affiliationDetail) : null;
         return `
         <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #4F46E5;">
-          <div style="font-weight: bold; color: #333; margin-bottom: 8px;">${member.name}</div>
-          <div style="font-size: 14px; color: #666; margin-bottom: 4px;">メンバーID: ${member.memberId}</div>
+          <div style="font-weight: bold; color: #333; margin-bottom: 8px;">${safeName}</div>
+          <div style="font-size: 14px; color: #666; margin-bottom: 4px;">メンバーID: ${safeMemberId}</div>
           <div style="font-size: 14px; color: #666; margin-bottom: 12px;">
-            所属: ${member.affiliation}${member.affiliationDetail ? ` (${member.affiliationDetail})` : ''}
+            所属: ${safeAffiliation}${safeAffiliationDetail ? ` (${safeAffiliationDetail})` : ''}
           </div>
           <div style="text-align: center; margin-bottom: 10px;">
             <a href="${resetUrl}" 
@@ -336,6 +352,11 @@ export async function sendRegistrationCompleteEmail(
         getTextEmailFooter(),
     ].join('\n');
 
+    const safeName = escapeHtml(name);
+    const safeMemberId = escapeHtml(memberId);
+    const safeAffiliation = escapeHtml(affiliation);
+    const safeTo = escapeHtml(to);
+
     const mailOptions: MailOptions = {
         to,
         subject: 'メンバー登録完了のお知らせ',
@@ -343,25 +364,25 @@ export async function sendRegistrationCompleteEmail(
         html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #333;">メンバー登録が完了しました</h2>
-        <p>${name} 様</p>
+        <p>${safeName} 様</p>
         <p>メンバー登録が完了しました。以下の情報でログインできます。</p>
         <div style="background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
           <table style="width: 100%;">
             <tr>
               <td style="padding: 8px 0; color: #666;">メンバーID:</td>
-              <td style="padding: 8px 0; font-weight: bold;">${memberId}</td>
+              <td style="padding: 8px 0; font-weight: bold;">${safeMemberId}</td>
             </tr>
             <tr>
               <td style="padding: 8px 0; color: #666;">お名前:</td>
-              <td style="padding: 8px 0; font-weight: bold;">${name}</td>
+              <td style="padding: 8px 0; font-weight: bold;">${safeName}</td>
             </tr>
             <tr>
               <td style="padding: 8px 0; color: #666;">所属:</td>
-              <td style="padding: 8px 0; font-weight: bold;">${affiliation}</td>
+              <td style="padding: 8px 0; font-weight: bold;">${safeAffiliation}</td>
             </tr>
             <tr>
               <td style="padding: 8px 0; color: #666;">メールアドレス:</td>
-              <td style="padding: 8px 0; font-weight: bold;">${to}</td>
+              <td style="padding: 8px 0; font-weight: bold;">${safeTo}</td>
             </tr>
           </table>
         </div>
@@ -414,6 +435,7 @@ export async function sendEmailChangeVerificationEmail(
         getTextEmailFooter(),
     ].join('\n');
 
+    const safeName = escapeHtml(name);
     const mailOptions: MailOptions = {
         to,
         subject: 'メールアドレス変更の確認',
@@ -421,7 +443,7 @@ export async function sendEmailChangeVerificationEmail(
         html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #333;">メールアドレス変更の確認</h2>
-        <p>${name} 様</p>
+        <p>${safeName} 様</p>
         <p>メールアドレスの変更リクエストを受け付けました。</p>
         <p>新しいメールアドレスを確認するために、以下のリンクをクリックしてください。</p>
         <div style="text-align: center; margin: 30px 0;">
@@ -492,6 +514,10 @@ export async function sendMyPageAnnouncementEmail(
         getTextEmailFooter(),
     ].join('\n');
 
+    const safeName = escapeHtml(name);
+    const safeMemberId = escapeHtml(memberId);
+    const safeTo = escapeHtml(to);
+
     const mailOptions: MailOptions = {
         to,
         subject: '【重要】メンバー専用マイページのご案内',
@@ -499,7 +525,7 @@ export async function sendMyPageAnnouncementEmail(
         html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #333;">メンバー専用マイページができました</h2>
-        <p>${name} 様</p>
+        <p>${safeName} 様</p>
         <p>いつもご利用ありがとうございます。</p>
         <p>この度、メンバー専用のマイページ機能がリリースされました。マイページでは以下のことができます：</p>
         
@@ -518,11 +544,11 @@ export async function sendMyPageAnnouncementEmail(
           <table style="width: 100%;">
             <tr>
               <td style="padding: 8px 0; color: #666;">ログインID:</td>
-              <td style="padding: 8px 0; font-weight: bold;">${memberId}</td>
+              <td style="padding: 8px 0; font-weight: bold;">${safeMemberId}</td>
             </tr>
             <tr>
               <td style="padding: 8px 0; color: #666;">初期パスワード:</td>
-              <td style="padding: 8px 0; font-weight: bold;">${to}</td>
+              <td style="padding: 8px 0; font-weight: bold;">${safeTo}</td>
             </tr>
           </table>
           <p style="color: #92400e; font-size: 14px; margin-bottom: 0;">
@@ -614,10 +640,6 @@ export async function sendTestEmail(to: string): Promise<void> {
 
     await sendMail(mailOptions);
     console.log(`Test email sent to ${maskEmail(to)}`);
-}
-
-function escapeHtml(s: string): string {
-    return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 }
 
 /**

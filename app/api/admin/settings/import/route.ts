@@ -57,8 +57,50 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // 検証: ファイル名とサイズのチェック（パストラバーサル防止）
+      const ALLOWED_FILENAME_REGEX = /^(logo|favicon|hero|success|error|card-template-custom)\.(svg|png|jpe?g|ico|webp|mp3|wav|ogg)$/;
+      const MAX_FILE_SIZE = 5 * 1024 * 1024;
+      const uploadsDir = path.resolve(process.cwd(), 'public', 'uploads');
+
+      if (!Array.isArray(exportData.files)) {
+        return NextResponse.json(
+          { success: false, message: '不正な設定ファイルです' },
+          { status: 400 }
+        );
+      }
+
+      const validatedFiles: Array<{ filePath: string; buffer: Buffer }> = [];
+      for (const fileData of exportData.files) {
+        if (
+          !fileData ||
+          typeof fileData.name !== 'string' ||
+          typeof fileData.data !== 'string' ||
+          path.basename(fileData.name) !== fileData.name ||
+          !ALLOWED_FILENAME_REGEX.test(fileData.name)
+        ) {
+          return NextResponse.json(
+            { success: false, message: '許可されていないファイル名が含まれています' },
+            { status: 400 }
+          );
+        }
+        const filePath = path.resolve(uploadsDir, fileData.name);
+        if (!filePath.startsWith(uploadsDir + path.sep)) {
+          return NextResponse.json(
+            { success: false, message: '不正なファイルパスが含まれています' },
+            { status: 400 }
+          );
+        }
+        const buffer = Buffer.from(fileData.data, 'base64');
+        if (buffer.length > MAX_FILE_SIZE) {
+          return NextResponse.json(
+            { success: false, message: 'ファイルサイズが上限（5MB）を超えています' },
+            { status: 400 }
+          );
+        }
+        validatedFiles.push({ filePath, buffer });
+      }
+
       // uploadsディレクトリを準備
-      const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
       if (!fs.existsSync(uploadsDir)) {
         fs.mkdirSync(uploadsDir, { recursive: true });
       }
@@ -72,10 +114,8 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // ファイルをBase64からデコードして保存
-      for (const fileData of exportData.files) {
-        const buffer = Buffer.from(fileData.data, 'base64');
-        const filePath = path.join(uploadsDir, fileData.name);
+      // 検証済みファイルを保存
+      for (const { filePath, buffer } of validatedFiles) {
         fs.writeFileSync(filePath, buffer);
       }
 

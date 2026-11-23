@@ -607,12 +607,11 @@ export function deleteAllCheckIns() {
 
 // 本日のチェックイン一覧を取得（所属情報はチェックイン時に保存された値を使用）
 // UTCで保存されているデータを、JSTの「今日」でフィルタリング
+// 公開API経由で呼ばれるため、会員ログインID兼QRコード（member_id_str）や内部member_idは返さない
 export function getTodayCheckIns() {
   const stmt = db.prepare(`
     SELECT
       id,
-      member_id,
-      member_id_str,
       affiliation,
       check_in_time,
       check_out_time

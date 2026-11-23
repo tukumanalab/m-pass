@@ -8,13 +8,19 @@ import {
     deleteExpiredPendingEmailChanges,
 } from '@/lib/database';
 import { createMemberSession } from '@/lib/member-auth';
+import { checkRateLimits, MINUTE } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
     try {
+        const limited = await checkRateLimits([
+            { scope: 'verify-email-change', limit: 20, windowMs: 15 * MINUTE },
+        ]);
+        if (limited) return limited;
+
         const body = await request.json();
         const { token } = body;
 
-        if (!token) {
+        if (!token || typeof token !== 'string') {
             return NextResponse.json(
                 { error: 'トークンが必要です' },
                 { status: 400 }

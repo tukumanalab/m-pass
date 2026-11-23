@@ -11,6 +11,7 @@ import {
 } from '@/lib/database';
 import { sendRegistrationCompleteEmail } from '@/lib/mailer';
 import { createMemberSession } from '@/lib/member-auth';
+import { checkRateLimits, MINUTE } from '@/lib/rate-limit';
 import QRCode from 'qrcode';
 
 // メンバーIDを生成（4桁: 年+英字+数字+英字）
@@ -47,10 +48,15 @@ function generateUniqueMemberId(): string {
 // トークン検証とメール確認完了
 export async function POST(request: NextRequest) {
     try {
+        const limited = await checkRateLimits([
+            { scope: 'verify-email', limit: 20, windowMs: 15 * MINUTE },
+        ]);
+        if (limited) return limited;
+
         const body = await request.json();
         const { token } = body;
 
-        if (!token) {
+        if (!token || typeof token !== 'string') {
             return NextResponse.json({ error: 'トークンが必要です' }, { status: 400 });
         }
 

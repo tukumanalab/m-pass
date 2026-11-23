@@ -141,7 +141,7 @@ sudo visudo -f /etc/sudoers.d/webapps
 ```
 
 ```
-%webapps-deploy ALL=(webapps) NOPASSWD: /srv/m-pass/deploy/deploy.sh, /usr/bin/pm2
+%webapps-deploy ALL=(webapps) NOPASSWD: /srv/m-pass/deploy/deploy.sh, /usr/bin/pm2 status, /usr/bin/pm2 list, /usr/bin/pm2 show m-pass, /usr/bin/pm2 logs m-pass*, /usr/bin/pm2 restart m-pass*
 ```
 
 `pm2` のパスは `which pm2` で確認してください。

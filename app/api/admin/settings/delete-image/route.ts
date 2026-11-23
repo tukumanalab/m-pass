@@ -25,8 +25,16 @@ export async function DELETE(request: NextRequest) {
             return NextResponse.json({ success: false, message: '無効なタイプです' }, { status: 400 });
         }
 
+        const allowedExtensions = ['svg', 'png', 'jpeg', 'jpg', 'ico', 'webp'];
+        if (!allowedExtensions.includes(ext)) {
+            return NextResponse.json({ success: false, message: '無効な拡張子です' }, { status: 400 });
+        }
+
         const filename = `${type}.${ext}`;
-        const filepath = path.join(UPLOADS_DIR, filename);
+        const filepath = path.resolve(UPLOADS_DIR, filename);
+        if (!filepath.startsWith(UPLOADS_DIR + path.sep)) {
+            return NextResponse.json({ success: false, message: '不正なファイルパスです' }, { status: 400 });
+        }
 
         if (existsSync(filepath)) {
             await unlink(filepath);

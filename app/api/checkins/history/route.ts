@@ -10,13 +10,15 @@ export async function GET(request: NextRequest) {
 
   try {
     const { searchParams } = new URL(request.url);
-    const limit = Math.max(1, parseInt(searchParams.get('limit') || '50'));
+    const parsedLimit = parseInt(searchParams.get('limit') || '50', 10);
+    const limit = Math.min(500, Math.max(1, Number.isNaN(parsedLimit) ? 50 : parsedLimit));
     const pageParam = searchParams.get('page');
-    let page = pageParam ? parseInt(pageParam) : 1;
+    let page = pageParam ? parseInt(pageParam, 10) : 1;
     if (isNaN(page) || page < 1) page = 1;
 
     const offsetParam = searchParams.get('offset');
-    const offset = offsetParam !== null ? parseInt(offsetParam) : (page - 1) * limit;
+    const parsedOffset = offsetParam !== null ? parseInt(offsetParam, 10) : (page - 1) * limit;
+    const offset = Math.max(0, Number.isNaN(parsedOffset) ? 0 : parsedOffset);
 
     const affiliation = searchParams.get('affiliation') || undefined;
     const startDate = searchParams.get('startDate') || undefined;

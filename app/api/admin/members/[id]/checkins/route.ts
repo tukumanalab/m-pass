@@ -16,8 +16,10 @@ export async function GET(
   try {
     const { id } = await params;
     const { searchParams } = new URL(request.url);
-    const limit = parseInt(searchParams.get("limit") || "50");
-    const offset = parseInt(searchParams.get("offset") || "0");
+    const parsedLimit = parseInt(searchParams.get("limit") || "50", 10);
+    const parsedOffset = parseInt(searchParams.get("offset") || "0", 10);
+    const limit = Math.min(500, Math.max(1, Number.isNaN(parsedLimit) ? 50 : parsedLimit));
+    const offset = Math.max(0, Number.isNaN(parsedOffset) ? 0 : parsedOffset);
 
     // idが数値の場合はメンバーのmember_id文字列を取得してから検索
     const isNumericId = /^\d+$/.test(id);
