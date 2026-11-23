@@ -3,7 +3,7 @@ module.exports = {
     {
       name: 'm-pass',
       script: 'npm',
-      args: 'start',
+      args: 'start -- -H 127.0.0.1',
       cwd: '/srv/m-pass',
       // .envファイルから環境変数を読み込む
       env_file: '/srv/m-pass/.env',
