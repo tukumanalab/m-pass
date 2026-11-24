@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Html5Qrcode } from "html5-qrcode";
-import { apiUrl } from "@/lib/api";
+import { apiUrl, getBasePath } from "@/lib/api";
 import { useWebUSBFeliCa } from "@/app/hooks/useWebUSBFeliCa";
 
 interface CheckIn {
@@ -22,6 +22,11 @@ interface HourlyData {
   affiliations: Record<string, number>;
   total: number;
 }
+
+// セッション切れ時のログイン画面（ログイン後にこの画面へ戻る）
+const LOGIN_PATH = "/admin/login?redirect=/scan";
+// 管理者セッションの定期確認間隔
+const AUTH_CHECK_INTERVAL_MS = 10 * 60 * 1000;
 
 export default function ScanPage() {
   const [scanning, setScanning] = useState(false);
@@ -185,6 +190,23 @@ export default function ScanPage() {
     }
   };
 
+  // 管理者セッション切れ時の処理: メッセージを表示してログイン画面へ移動する
+  // カメラ・USBを確実に解放するため、クライアント遷移ではなくページ遷移で移動する
+  const authExpiredRef = useRef(false);
+  const handleAuthExpired = () => {
+    if (authExpiredRef.current) return;
+    authExpiredRef.current = true;
+    playErrorSound();
+    setResult(null);
+    setError("管理者セッションの有効期限が切れました。ログイン画面に移動します。");
+    setMessageOpacity(1);
+    setTimeout(() => {
+      window.location.assign(`${getBasePath()}${LOGIN_PATH}`);
+    }, 2000);
+  };
+  const handleAuthExpiredRef = useRef(handleAuthExpired);
+  handleAuthExpiredRef.current = handleAuthExpired;
+
   // 認証チェックとカメラ自動起動
   useEffect(() => {
     const checkAuth = async () => {
@@ -193,7 +215,7 @@ export default function ScanPage() {
         const data = await response.json();
 
         if (!data.authenticated) {
-          router.push("/admin/login");
+          router.push(LOGIN_PATH);
           return;
         }
 
@@ -206,15 +228,43 @@ export default function ScanPage() {
         fetchTodayCheckIns();
       } catch (error) {
         console.error("Auth check error:", error);
-        router.push("/admin/login");
+        router.push(LOGIN_PATH);
       }
     };
 
     checkAuth();
 
+    // 開きっぱなしの画面でもセッションを維持するため、定期的に認証を確認する
+    // （/api/admin/check は有効なトークンを延長する。期限切れならログイン画面へ移動）
+    const verifyAuth = async () => {
+      try {
+        const response = await fetch(apiUrl("/api/admin/check"), { cache: "no-store" });
+        if (!response.ok) return;
+        const data = await response.json();
+        if (!data.authenticated) {
+          handleAuthExpiredRef.current();
+        }
+      } catch (error) {
+        // 一時的な通信断では画面を移動しない
+        console.error("Periodic auth check error:", error);
+      }
+    };
+    const authInterval = setInterval(verifyAuth, AUTH_CHECK_INTERVAL_MS);
+    // スリープ復帰やタブ復帰時にもすぐ確認する
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        verifyAuth();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
     // 30秒ごとにチェックイン一覧を更新
     const interval = setInterval(fetchTodayCheckIns, 30000);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      clearInterval(authInterval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, [router]);
 
   // NFC読み取りループ
@@ -604,6 +654,7 @@ export default function ScanPage() {
         const data = await response.json();
         setSearchResults(data.members || []);
       } else {
+        if (response.status === 401) handleAuthExpired();
         setSearchResults([]);
       }
     } catch (err) {
@@ -686,6 +737,10 @@ export default function ScanPage() {
       const data = await response.json();
 
       if (!response.ok) {
+        if (response.status === 401) {
+          handleAuthExpired();
+          return;
+        }
         // すでにチェックイン済みの場合
         if (response.status === 429 && data.checkIn) {
           playSuccessSound();
@@ -736,6 +791,8 @@ export default function ScanPage() {
       if (response.ok) {
         const data = await response.json();
         setNfcMemberSearchResults(data.members || []);
+      } else if (response.status === 401) {
+        handleAuthExpired();
       }
     } catch (e) {
       console.error("NFC Member search error:", e);
@@ -760,6 +817,10 @@ export default function ScanPage() {
 
       const data = await response.json();
       if (!response.ok) {
+        if (response.status === 401) {
+          handleAuthExpired();
+          return;
+        }
         alert(data.message || "カードの登録に失敗しました");
         return;
       }
@@ -795,6 +856,10 @@ export default function ScanPage() {
       const data = await response.json();
 
       if (!response.ok) {
+        if (response.status === 401) {
+          handleAuthExpired();
+          return;
+        }
         // 未登録のNFCカードの場合は、メンバー紐付けモーダルを表示する
         if (response.status === 404 && data.unregisteredNfcId) {
           playErrorSound();

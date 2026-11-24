@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcrypt';
-import { createAdminToken, ADMIN_TOKEN_MAX_AGE, isAllowedIP, getClientIP } from '@/lib/auth';
+import { createAdminToken, setAdminTokenCookie, isAllowedIP, getClientIP } from '@/lib/auth';
 import { checkRateLimits, MINUTE } from '@/lib/rate-limit';
 
 // ログ出力用のヘルパー関数
@@ -84,14 +84,8 @@ export async function POST(request: NextRequest) {
 
       const response = NextResponse.json({ success: true, message: 'ログイン成功' });
 
-      // HTTPOnlyクッキーにトークンを設定（24時間有効）
-      response.cookies.set('admin_token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        maxAge: ADMIN_TOKEN_MAX_AGE, // 24時間
-        path: '/',
-      });
+      // HTTPOnlyクッキーにトークンを設定（24時間有効、利用中は自動延長）
+      setAdminTokenCookie(response, token);
 
       logToConsole(`[ADMIN LOGIN] ✓ LOGIN SUCCESS from IP: ${clientIP}`);
       logToConsole(`[ADMIN LOGIN] ===== Login Attempt Completed =====`);

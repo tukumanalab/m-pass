@@ -5,6 +5,23 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { apiUrl, getBasePath } from "@/lib/api";
 
+// ログイン後の戻り先（?redirect=）を取得する。オープンリダイレクト防止のためサイト内パスのみ許可
+function getSafeRedirect(): string {
+  const fallback = "/admin/dashboard";
+  if (typeof window === "undefined") return fallback;
+  const redirect = new URLSearchParams(window.location.search).get("redirect");
+  if (!redirect || !redirect.startsWith("/") || /[\s\\]/.test(redirect) || redirect.startsWith("//")) {
+    return fallback;
+  }
+  try {
+    const url = new URL(redirect, window.location.origin);
+    if (url.origin !== window.location.origin) return fallback;
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return fallback;
+  }
+}
+
 export default function AdminLoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -27,7 +44,7 @@ export default function AdminLoginPage() {
       const data = await response.json();
 
       if (data.success) {
-        router.push("/admin/dashboard");
+        router.push(getSafeRedirect());
       } else {
         setError(data.message || "ログインに失敗しました");
       }
