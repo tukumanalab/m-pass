@@ -1,6 +1,6 @@
 import { cookies, headers } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { SignJWT, jwtVerify } from 'jose';
+import { SignJWT, jwtVerify, type JWTPayload } from 'jose';
 import { logger } from './logger';
 
 // 管理者トークンの署名鍵（ADMIN_JWT_SECRET 未設定時は管理者パスワードのハッシュを鍵として使う）
@@ -16,6 +16,8 @@ function getAdminTokenSecret(): Uint8Array {
   return adminTokenSecret;
 }
 export const ADMIN_TOKEN_MAX_AGE = 60 * 60 * 24; // 24時間
+// 発行からこの秒数を過ぎた有効なトークンは、認証確認時に再発行して有効期限を延長する（スライディング方式）
+export const ADMIN_TOKEN_REFRESH_AFTER = 60 * 60; // 1時間
 
 /**
  * 管理者トークン（署名付きJWT）を生成
@@ -31,13 +33,46 @@ export async function createAdminToken(): Promise<string> {
 /**
  * 管理者トークンの署名と有効期限を検証
  */
-async function verifyAdminToken(token: string): Promise<boolean> {
+async function verifyAdminToken(token: string): Promise<JWTPayload | null> {
   try {
     const { payload } = await jwtVerify(token, getAdminTokenSecret());
-    return payload.role === 'admin';
+    return payload.role === 'admin' ? payload : null;
   } catch {
-    return false;
+    return null;
   }
+}
+
+/**
+ * 管理者トークンをHTTPOnlyクッキーに設定
+ */
+export function setAdminTokenCookie(response: NextResponse, token: string): void {
+  response.cookies.set('admin_token', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    maxAge: ADMIN_TOKEN_MAX_AGE,
+    path: '/',
+  });
+}
+
+/**
+ * 現在の管理者トークンが有効で発行から一定時間を過ぎていれば再発行し、レスポンスのクッキーを更新する
+ * （認証済みであることを呼び出し側で確認してから使う）
+ */
+export async function refreshAdminTokenIfNeeded(response: NextResponse): Promise<void> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get('admin_token')?.value;
+  if (!token) return;
+
+  const payload = await verifyAdminToken(token);
+  if (!payload) return;
+
+  const issuedAt = typeof payload.iat === 'number' ? payload.iat : 0;
+  const ageSeconds = Math.floor(Date.now() / 1000) - issuedAt;
+  if (ageSeconds < ADMIN_TOKEN_REFRESH_AFTER) return;
+
+  setAdminTokenCookie(response, await createAdminToken());
+  logToConsole(`[ADMIN AUTH] Admin token refreshed (age: ${ageSeconds}s)`);
 }
 
 // ログ出力用のヘルパー関数
